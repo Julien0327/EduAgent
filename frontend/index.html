@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智教助手 EduMate</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <h1>智教助手 <span class="brand">EduMate</span></h1>
+    <p class="subtitle">教学任务自动化智能体 —— 用一句话，完成出卷、批改与学情分析</p>
+  </header>
+
+  <main class="main">
+    <section class="card">
+      <h2>系统状态</h2>
+      <div class="status">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-text">正在连接后端…</span>
+      </div>
+      <pre id="status-json" class="status-json">…</pre>
+    </section>
+
+    <section class="card">
+      <h2>产品介绍</h2>
+      <p>面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
+      <p class="muted">当前为项目骨架阶段（D1）：仅打通「前端 → FastAPI → /api/health」链路。</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
