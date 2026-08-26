@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>智教助手 EduMate</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="vendor/katex.min.css">
 </head>
 <body>
   <header class="header">
@@ -23,12 +24,23 @@
     </section>
 
     <section class="card">
+      <h2>AI 对话测试</h2>
+      <textarea id="chat-input" class="chat-input" placeholder="请输入教学任务……"></textarea>
+      <button id="chat-send" class="chat-send">发送</button>
+      <div id="chat-status" class="chat-status muted"></div>
+      <div id="chat-reply" class="chat-reply"></div>
+    </section>
+
+    <section class="card">
       <h2>产品介绍</h2>
       <p>面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
       <p class="muted">当前为项目骨架阶段（D1）：仅打通「前端 → FastAPI → /api/health」链路。</p>
     </section>
   </main>
 
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="vendor/katex.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
