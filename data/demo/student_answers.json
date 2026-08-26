@@ -1,0 +1,27 @@
+{
+  "quiz_id": "quiz_quad_01",
+  "class_name": "九年级三班",
+  "full_marks": 100,
+  "students": [
+    {"student_id": "s001", "name": "张伟", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 14, "q9": 12, "q10": 16}, "total": 100},
+    {"student_id": "s002", "name": "李娜", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 14, "q9": 12, "q10": 8}, "total": 92},
+    {"student_id": "s003", "name": "王芳", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 10, "q9": 12, "q10": 10}, "total": 90},
+    {"student_id": "s004", "name": "刘洋", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 8, "q7": 10, "q8": 14, "q9": 12, "q10": 12}, "total": 88},
+    {"student_id": "s005", "name": "陈静", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 8, "q9": 12, "q10": 12}, "total": 90},
+    {"student_id": "s006", "name": "杨帆", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 8, "q7": 10, "q8": 8, "q9": 6, "q10": 8}, "total": 72},
+    {"student_id": "s007", "name": "赵磊", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 0, "q5": 8, "q6": 0, "q7": 10, "q8": 8, "q9": 12, "q10": 8}, "total": 70},
+    {"student_id": "s008", "name": "黄敏", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 8, "q7": 0, "q8": 6, "q9": 12, "q10": 8}, "total": 66},
+    {"student_id": "s009", "name": "周杰", "question_scores": {"q1": 8, "q2": 8, "q3": 0, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 8, "q9": 6, "q10": 8}, "total": 72},
+    {"student_id": "s010", "name": "吴桐", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 0, "q7": 10, "q8": 8, "q9": 6, "q10": 10}, "total": 66},
+    {"student_id": "s011", "name": "徐强", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 0, "q5": 8, "q6": 8, "q7": 10, "q8": 6, "q9": 0, "q10": 8}, "total": 64},
+    {"student_id": "s012", "name": "孙丽", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 8, "q7": 10, "q8": 8, "q9": 6, "q10": 6}, "total": 70},
+    {"student_id": "s013", "name": "马超", "question_scores": {"q1": 8, "q2": 8, "q3": 0, "q4": 8, "q5": 0, "q6": 0, "q7": 10, "q8": 6, "q9": 6, "q10": 6}, "total": 52},
+    {"student_id": "s014", "name": "朱婷", "question_scores": {"q1": 8, "q2": 0, "q3": 8, "q4": 0, "q5": 0, "q6": 8, "q7": 0, "q8": 6, "q9": 6, "q10": 8}, "total": 44},
+    {"student_id": "s015", "name": "胡军", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 0, "q7": 0, "q8": 6, "q9": 0, "q10": 6}, "total": 44},
+    {"student_id": "s016", "name": "郭静", "question_scores": {"q1": 0, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 0, "q7": 10, "q8": 0, "q9": 6, "q10": 8}, "total": 48},
+    {"student_id": "s017", "name": "林峰", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 8, "q9": 0, "q10": 6}, "total": 72},
+    {"student_id": "s018", "name": "何平", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 0, "q6": 8, "q7": 0, "q8": 8, "q9": 12, "q10": 8}, "total": 68},
+    {"student_id": "s019", "name": "高翔", "question_scores": {"q1": 8, "q2": 8, "q3": 8, "q4": 8, "q5": 8, "q6": 8, "q7": 10, "q8": 10, "q9": 12, "q10": 14}, "total": 94},
+    {"student_id": "s020", "name": "罗云", "question_scores": {"q1": 8, "q2": 8, "q3": 0, "q4": 8, "q5": 0, "q6": 8, "q7": 0, "q8": 0, "q9": 6, "q10": 0}, "total": 38}
+  ]
+}

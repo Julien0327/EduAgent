@@ -1,0 +1,121 @@
+{
+  "quiz_id": "quiz_quad_01",
+  "title": "一元二次方程 课堂小测",
+  "subject": "数学",
+  "grade": "九年级",
+  "chapter": "一元二次方程",
+  "chapter_id": "ch_quad_01",
+  "total_score": 100,
+  "questions": [
+    {
+      "question_id": "q1",
+      "type": "选择题",
+      "stem": "把方程 (x+1)² = 2x 化成一般形式后，二次项系数、一次项系数、常数项分别是（　）",
+      "options": ["A. 1，0，1", "B. 1，-2，1", "C. 1，0，-1", "D. -1，0，1"],
+      "answer": "A",
+      "score": 8,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_01"],
+      "analysis": "(x+1)²=2x 展开得 x²+2x+1=2x，移项得 x²+1=0，故二次项系数为 1、一次项系数为 0、常数项为 1。"
+    },
+    {
+      "question_id": "q2",
+      "type": "选择题",
+      "stem": "方程 x² = 9 的解是（　）",
+      "options": ["A. 3", "B. -3", "C. ±3", "D. 无实数根"],
+      "answer": "C",
+      "score": 8,
+      "difficulty": "简单",
+      "knowledge_points": ["kp_quad_02"],
+      "analysis": "直接开平方得 x = ±3。"
+    },
+    {
+      "question_id": "q3",
+      "type": "填空题",
+      "stem": "方程 x² - 3x = 0 的解为 ______。",
+      "options": null,
+      "answer": "x=0 或 x=3",
+      "score": 8,
+      "difficulty": "简单",
+      "knowledge_points": ["kp_quad_05"],
+      "analysis": "提公因式得 x(x-3)=0，故 x=0 或 x=3。"
+    },
+    {
+      "question_id": "q4",
+      "type": "填空题",
+      "stem": "用公式法解方程 2x² - 3x - 2 = 0，其中一个根为 ______。",
+      "options": null,
+      "answer": "2 或 -1/2",
+      "score": 8,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_04"],
+      "analysis": "a=2,b=-3,c=-2，Δ=9+16=25，x=(3±5)/4，故 x=2 或 x=-1/2。"
+    },
+    {
+      "question_id": "q5",
+      "type": "选择题",
+      "stem": "关于 x 的方程 x² - 4x + 5 = 0 的根的情况是（　）",
+      "options": ["A. 有两个不相等的实数根", "B. 有两个相等的实数根", "C. 没有实数根", "D. 无法判断"],
+      "answer": "C",
+      "score": 8,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_06"],
+      "analysis": "Δ=(-4)²-4×1×5=16-20=-4<0，故没有实数根。"
+    },
+    {
+      "question_id": "q6",
+      "type": "填空题",
+      "stem": "用配方法解方程 x² - 6x + 5 = 0，配方后可化为 ______。",
+      "options": null,
+      "answer": "(x-3)²=4",
+      "score": 8,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_03"],
+      "analysis": "移项得 x²-6x=-5，两边同加 9 得 (x-3)²=4。"
+    },
+    {
+      "question_id": "q7",
+      "type": "选择题",
+      "stem": "某工厂今年产量为 a，若两年后产量增加到 2a，设年平均增长率为 x，则可列方程为（　）",
+      "options": ["A. a(1+x)² = 2a", "B. a(1+2x) = 2a", "C. 2a(1+x) = a", "D. a(1+x²) = 2a"],
+      "answer": "A",
+      "score": 10,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_07"],
+      "analysis": "连续两年增长，基数为 a，两年后为 a(1+x)²，故 a(1+x)²=2a。"
+    },
+    {
+      "question_id": "q8",
+      "type": "解答题",
+      "stem": "解方程：x² - 4x + 1 = 0。",
+      "options": null,
+      "answer": "x = 2 ± √3",
+      "score": 14,
+      "difficulty": "较难",
+      "knowledge_points": ["kp_quad_04", "kp_quad_06"],
+      "analysis": "a=1,b=-4,c=1，Δ=16-4=12，x=(4±2√3)/2=2±√3。"
+    },
+    {
+      "question_id": "q9",
+      "type": "解答题",
+      "stem": "解方程：x² - 5x + 6 = 0。",
+      "options": null,
+      "answer": "x=2 或 x=3",
+      "score": 12,
+      "difficulty": "中等",
+      "knowledge_points": ["kp_quad_05"],
+      "analysis": "因式分解得 (x-2)(x-3)=0，故 x=2 或 x=3。"
+    },
+    {
+      "question_id": "q10",
+      "type": "解答题",
+      "stem": "一个矩形的长比宽多 3，面积为 40，求这个矩形的长和宽。",
+      "options": null,
+      "answer": "长为 8，宽为 5",
+      "score": 16,
+      "difficulty": "较难",
+      "knowledge_points": ["kp_quad_07"],
+      "analysis": "设宽为 x，则长为 x+3，由 x(x+3)=40 得 x²+3x-40=0，解得 x=5（x=-8 舍去），故长为 8、宽为 5。"
+    }
+  ]
+}
