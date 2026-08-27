@@ -3,6 +3,7 @@
 启动方式（在仓库根目录执行）：
     uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
 """
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -10,9 +11,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api import chat, health, tasks
+from app.knowledge import loader
 from config import settings
+from logging_config import get_logger, setup_logging
 
-app = FastAPI(title=settings.SERVICE_NAME)
+setup_logging()
+log = get_logger("main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用启动阶段：校验种子数据，任一缺失或非法即中止启动（fail-fast）。"""
+    log.info(loader.validate_seed())
+    log.info("EduAgent 启动完成：service=%s frontend=%s", settings.SERVICE_NAME, FRONTEND_DIR)
+    yield
+
+
+app = FastAPI(title=settings.SERVICE_NAME, lifespan=lifespan)
 
 # CORS：开发阶段放开跨域，便于前端访问后端；后续按需收紧
 app.add_middleware(

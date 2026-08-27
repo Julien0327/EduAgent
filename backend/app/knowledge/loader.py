@@ -37,3 +37,37 @@ def load_question_bank() -> dict:
 def load_student_answers() -> dict:
     """加载预置答题（20 名学生的逐题得分）。"""
     return _load_json(STUDENT_ANSWERS_FILE)
+
+
+class SeedValidationError(Exception):
+    """种子数据校验失败（文件缺失或 JSON 非法），供启动期 fail-fast。"""
+
+
+def validate_seed() -> str:
+    """校验三份种子数据的存在性与 JSON 合法性，返回摘要。
+
+    任一文件缺失或 JSON 非法时抛 SeedValidationError（含文件名与原因），
+    供应用启动阶段 fail-fast。校验只读，不修改 seed 数据，也不改变现有加载函数行为。
+    """
+    checks = (
+        ("知识点", KNOWLEDGE_POINTS_FILE, "knowledge_points"),
+        ("题库", QUESTION_BANK_FILE, "questions"),
+        ("预置答题", STUDENT_ANSWERS_FILE, "students"),
+    )
+    counts: dict[str, int] = {}
+    for label, path, list_key in checks:
+        if not path.exists():
+            raise SeedValidationError(f"种子数据文件缺失：{path}")
+        try:
+            data = _load_json(path)
+        except (ValueError, OSError) as exc:
+            raise SeedValidationError(f"种子数据 JSON 非法：{path}（{exc}）") from exc
+        items = data.get(list_key) if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise SeedValidationError(f"种子数据缺少「{list_key}」列表：{path}")
+        counts[label] = len(items)
+
+    return (
+        f"种子数据校验通过：{counts['知识点']} 个知识点 / "
+        f"{counts['题库']} 道题 / {counts['预置答题']} 名学生"
+    )

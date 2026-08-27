@@ -26,6 +26,9 @@ from app.agent.workflow import run_workflow
 from app.services import preview as preview_service
 from app.storage import file_store
 from config import settings
+from logging_config import get_logger
+
+_log = get_logger("app.api.tasks")
 
 router = APIRouter(prefix="/api", tags=["tasks"])
 
@@ -45,6 +48,7 @@ def create_task(req: TaskRequest) -> dict:
 
     ctx = task_store.create(prompt)
     ctx.status = STATUS_RUNNING
+    _log.info("任务创建：%s prompt=%s", ctx.task_id, prompt[:80])
     response = ctx.to_dict()
     threading.Thread(target=run_workflow, args=(ctx,), daemon=True).start()
     return response

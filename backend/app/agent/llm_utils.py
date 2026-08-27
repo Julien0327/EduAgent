@@ -19,6 +19,9 @@ from typing import Type
 from pydantic import BaseModel, ValidationError
 
 from app.agent.llm_client import LLMError, get_llm_service
+from logging_config import get_logger
+
+_log = get_logger("app.agent.llm_utils")
 
 
 def model_to_tool_schema(name: str, description: str, model: Type[BaseModel]) -> dict:
@@ -49,7 +52,8 @@ def _call_with_retry(llm, messages, submit_tool, tool_choice, retries=2):
     for i in range(retries + 1):
         try:
             return llm.chat_with_tools(messages, [submit_tool], tool_choice=tool_choice)
-        except LLMError:
+        except LLMError as exc:
+            _log.warning("LLM 调用失败（第 %d/%d 次）：%s", i + 1, retries + 1, exc)
             if i == retries:
                 raise
             time.sleep(2 ** i)  # 1s、2s

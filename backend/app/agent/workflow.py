@@ -29,6 +29,7 @@ from app.agent.planner import plan
 from app.knowledge import loader
 from app.services import answer_sheet, exam_docx, lesson_plan, report_pdf, score_analysis
 from app.storage import file_store
+from logging_config import task_logger
 
 WORKFLOW_TIMEOUT = 180  # 秒，全局任务上限（§22）
 
@@ -208,23 +209,29 @@ WORKFLOW_NODES = {
 
 
 def _run_node(ctx: TaskContext, name: str, fn) -> None:
+    log = task_logger("app.agent.workflow", ctx.task_id)
     step = ctx.add_step(name)
+    log.info("节点开始：%s", name)
     ctx.push_event({"type": "step", "node": name, "status": STEP_RUNNING, "message": ""})
     try:
         message = fn(ctx)
         step.status = STEP_DONE
         step.message = message or "完成"
+        log.info("节点完成：%s → %s", name, step.message)
         ctx.push_event({"type": "step", "node": name, "status": STEP_DONE, "message": step.message})
     except Exception as exc:
         step.status = STEP_FAILED
         step.message = str(exc)
+        log.error("节点失败：%s → %s", name, exc, exc_info=True)
         ctx.push_event({"type": "step", "node": name, "status": STEP_FAILED, "message": step.message})
         raise
 
 
 def run_workflow(ctx: TaskContext) -> None:
     """执行任务：① 理解任务 → 按工作流执行剩余节点。失败即中止。"""
+    log = task_logger("app.agent.workflow", ctx.task_id)
     ctx.status = STATUS_RUNNING
+    log.info("任务开始：%s", ctx.prompt[:80])
     ctx.push_event({"type": "status", "status": STATUS_RUNNING})
     start = time.time()
     try:
@@ -237,10 +244,12 @@ def run_workflow(ctx: TaskContext) -> None:
             if time.time() - start > WORKFLOW_TIMEOUT:
                 raise TimeoutError(f"任务超过 {WORKFLOW_TIMEOUT} 秒上限")
         ctx.status = STATUS_COMPLETED
+        log.info("任务完成：workflow=%s 产物=%d 个", ctx.workflow, len(ctx.artifacts))
         ctx.push_event({"type": "status", "status": STATUS_COMPLETED, "error": ""})
     except Exception as exc:
         ctx.status = STATUS_FAILED
         ctx.error = str(exc)
+        log.error("任务失败：%s", exc, exc_info=True)
         ctx.push_event({"type": "status", "status": STATUS_FAILED, "error": str(exc)})
 
 

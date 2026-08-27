@@ -11,6 +11,7 @@ D3 扩展：新增 chat_with_tools 支持 Function Calling（多轮消息 + 工�
 供 Agent 的 Planner / Executor 使用；原有 chat(message) 保持不变，供 /api/chat 使用。
 """
 import json
+import time
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -24,6 +25,9 @@ from openai import (
 )
 
 from config import settings
+from logging_config import get_logger
+
+_log = get_logger("app.agent.llm_client")
 
 
 class LLMError(Exception):
@@ -75,8 +79,9 @@ class DeepSeekProvider(LLMProvider):
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice
+        start = time.perf_counter()
         try:
-            return self._client.chat.completions.create(**kwargs)
+            resp = self._client.chat.completions.create(**kwargs)
         except AuthenticationError as exc:
             raise LLMError("API Key 无效或鉴权失败，请检查 DEEPSEEK_API_KEY") from exc
         except APITimeoutError as exc:
@@ -88,6 +93,17 @@ class DeepSeekProvider(LLMProvider):
         except APIError as exc:
             status = getattr(exc, "status_code", None)
             raise LLMError(f"模型服务返回错误（{status}）") from exc
+
+        elapsed = time.perf_counter() - start
+        usage = getattr(resp, "usage", None)
+        _log.info(
+            "LLM 调用成功 model=%s 耗时=%.2fs 输入token=%s 输出token=%s",
+            self._model,
+            elapsed,
+            getattr(usage, "prompt_tokens", None) if usage else None,
+            getattr(usage, "completion_tokens", None) if usage else None,
+        )
+        return resp
 
     def chat(self, message: str) -> dict:
         resp = self._request([{"role": "user", "content": message}])
