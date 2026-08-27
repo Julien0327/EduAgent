@@ -2,3 +2,10 @@
 fastapi
 uvicorn
 openai
+
+# ================= 文档处理（D2） =================
+python-docx
+openpyxl
+pandas
+reportlab
+jinja2

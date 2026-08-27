@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1f2933; line-height: 1.7; }
+  h1 { text-align: center; }
+  .info { text-align: center; color: #6b7280; margin-bottom: 24px; }
+  .q { margin-bottom: 22px; }
+  .q-head { font-weight: bold; margin-bottom: 2px; }
+  .stem { margin: 4px 0; }
+  .options { padding-left: 2em; }
+  .options p { margin: 2px 0; }
+  .blank { height: 56px; border-bottom: 1px dashed #cbd5e1; margin-top: 14px; }
+</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+<p class="info">班级：________　姓名：________　得分：________</p>
+{% for q in questions %}
+<div class="q">
+  <p class="q-head">{{ loop.index }}.（{{ q.type }}，{{ q.score }} 分）</p>
+  <p class="stem">{{ q.stem }}</p>
+  {% if q.options %}
+  <div class="options">
+    {% for opt in q.options %}<p>{{ opt }}</p>{% endfor %}
+  </div>
+  {% endif %}
+  {% if q.type == "解答题" %}<div class="blank"></div>{% endif %}
+</div>
+{% endfor %}
+</body>
+</html>

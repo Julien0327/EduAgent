@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1f2933; }
+  h1 { text-align: center; }
+  .info { text-align: center; color: #6b7280; margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: center; }
+  th { background: #d9e2f3; }
+</style>
+</head>
+<body>
+<h1>{{ title }}</h1>
+<p class="info">班级：____________　姓名：____________　得分：____________</p>
+<table>
+  <thead>
+    <tr><th>题号</th><th>题型</th><th>分值</th><th>标准答案</th></tr>
+  </thead>
+  <tbody>
+  {% for q in questions %}
+    <tr><td>{{ loop.index }}</td><td>{{ q.type }}</td><td>{{ q.score }}</td><td>{{ q.answer }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>
