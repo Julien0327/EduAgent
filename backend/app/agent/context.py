@@ -3,6 +3,7 @@
 TaskContext 承载一次 Agent 任务的参数、步骤、产物与状态（对应技术方案 §4 的
 Context 组件，无 LLM、无编排逻辑）。任务存内存字典，无数据库（对应 §3 / §11）。
 """
+import queue
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -44,6 +45,13 @@ class TaskContext:
     artifacts: list = field(default_factory=list)
     error: str = ""
 
+    # D4：事件队列，供 SSE 实时进度流消费（纯增量，不影响既有字段与行为）。
+    events: queue.Queue = field(default_factory=queue.Queue, repr=False)
+
+    def push_event(self, event: dict) -> None:
+        """向事件队列推送一条事件。"""
+        self.events.put(event)
+
     def add_step(self, node: str, message: str = "") -> StepRecord:
         """追加一个 running 步骤并返回引用，工作流可原地更新其状态。"""
         step = StepRecord(node=node, status=STEP_RUNNING, message=message)
@@ -52,6 +60,7 @@ class TaskContext:
 
     def add_artifact(self, name: str, file_name: str, path: str) -> None:
         self.artifacts.append(ArtifactRecord(name=name, file_name=file_name, path=str(path)))
+        self.push_event({"type": "artifact", "name": name, "file_name": file_name})
 
     def to_dict(self) -> dict:
         return {

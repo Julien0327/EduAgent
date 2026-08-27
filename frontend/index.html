@@ -32,11 +32,35 @@
     </section>
 
     <section class="card">
+      <h2>Agent 任务</h2>
+      <p class="muted">用一句话下达教学任务（如：请对《一元二次方程》做一次章节小测并生成学情报告），实时查看执行进度与产物。</p>
+      <div class="task-form">
+        <textarea id="task-input" class="task-input" placeholder="例如：请对《一元二次方程》做一次章节小测并生成学情报告"></textarea>
+        <button id="task-submit" class="task-submit">提交任务</button>
+      </div>
+      <div id="task-status" class="task-status muted"></div>
+      <ol id="task-timeline" class="task-timeline"></ol>
+      <div id="task-artifacts" class="task-artifacts"></div>
+    </section>
+
+    <section class="card">
       <h2>产品介绍</h2>
       <p>面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
-      <p class="muted">当前为项目骨架阶段（D1）：仅打通「前端 → FastAPI → /api/health」链路。</p>
+      <p class="muted">已打通「自然语言 → Agent 编排 → 文档产物」全链路：出卷、答题卡、学情报告、教案均可预览与下载。</p>
     </section>
   </main>
+
+  <!-- 产物预览弹窗 -->
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <span id="preview-title" class="modal-title"></span>
+        <button id="preview-close" class="modal-close" aria-label="关闭">×</button>
+      </div>
+      <iframe id="preview-frame" class="modal-frame" src="about:blank"></iframe>
+    </div>
+  </div>
 
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>

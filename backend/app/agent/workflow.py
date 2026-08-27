@@ -19,6 +19,7 @@ from app.agent.context import (
     STATUS_RUNNING,
     STEP_DONE,
     STEP_FAILED,
+    STEP_RUNNING,
     TaskContext,
     task_store,
 )
@@ -208,19 +209,23 @@ WORKFLOW_NODES = {
 
 def _run_node(ctx: TaskContext, name: str, fn) -> None:
     step = ctx.add_step(name)
+    ctx.push_event({"type": "step", "node": name, "status": STEP_RUNNING, "message": ""})
     try:
         message = fn(ctx)
         step.status = STEP_DONE
         step.message = message or "完成"
+        ctx.push_event({"type": "step", "node": name, "status": STEP_DONE, "message": step.message})
     except Exception as exc:
         step.status = STEP_FAILED
         step.message = str(exc)
+        ctx.push_event({"type": "step", "node": name, "status": STEP_FAILED, "message": step.message})
         raise
 
 
 def run_workflow(ctx: TaskContext) -> None:
     """执行任务：① 理解任务 → 按工作流执行剩余节点。失败即中止。"""
     ctx.status = STATUS_RUNNING
+    ctx.push_event({"type": "status", "status": STATUS_RUNNING})
     start = time.time()
     try:
         _run_node(ctx, "understand_task", _understand_task)
@@ -232,9 +237,11 @@ def run_workflow(ctx: TaskContext) -> None:
             if time.time() - start > WORKFLOW_TIMEOUT:
                 raise TimeoutError(f"任务超过 {WORKFLOW_TIMEOUT} 秒上限")
         ctx.status = STATUS_COMPLETED
+        ctx.push_event({"type": "status", "status": STATUS_COMPLETED, "error": ""})
     except Exception as exc:
         ctx.status = STATUS_FAILED
         ctx.error = str(exc)
+        ctx.push_event({"type": "status", "status": STATUS_FAILED, "error": str(exc)})
 
 
 def run_task(prompt: str) -> TaskContext:

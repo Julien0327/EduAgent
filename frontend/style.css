@@ -225,3 +225,221 @@ body {
 .chat-reply .katex-display {
   margin: 0.8em 0;
 }
+
+/* ===== Agent 任务面板 ===== */
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-input {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
+
+.task-submit {
+  align-self: flex-start;
+  padding: 8px 18px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.task-submit:hover {
+  opacity: 0.9;
+}
+
+.task-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-status {
+  margin-top: 10px;
+  min-height: 1.2em;
+}
+
+.task-status.task-done {
+  color: var(--ok);
+  font-weight: 500;
+}
+
+.task-status.task-failed {
+  color: var(--error);
+  font-weight: 500;
+}
+
+.task-timeline {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-timeline .step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.92rem;
+}
+
+.task-timeline .step:last-child {
+  border-bottom: none;
+}
+
+.step-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.step-running .step-dot {
+  background: var(--brand);
+  animation: pulse 1s infinite;
+}
+
+.step-done .step-dot {
+  background: var(--ok);
+}
+
+.step-failed .step-dot {
+  background: var(--error);
+}
+
+.step-name {
+  font-weight: 500;
+}
+
+.step-msg {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.task-artifacts {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.artifact {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fafb;
+}
+
+.artifact-name {
+  font-weight: 600;
+}
+
+.artifact-file {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 2px 0 8px;
+  word-break: break-all;
+}
+
+.artifact-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.artifact-btn {
+  flex: 1;
+  text-align: center;
+  padding: 5px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--brand);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #fff;
+}
+
+.artifact-btn:hover {
+  background: #eef2ff;
+}
+
+/* ===== 预览弹窗 ===== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.modal-dialog {
+  position: relative;
+  width: min(900px, 94vw);
+  height: min(80vh, 640px);
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  font-weight: 600;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.modal-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+}

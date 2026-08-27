@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教案：{{ topic }}</title>
+<style>
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #1f2933; line-height: 1.7; }
+  h1 { text-align: center; }
+  h2 { font-size: 1.1rem; margin: 1.3em 0 0.4em; }
+  ul { margin: 0.4em 0; padding-left: 1.5em; }
+  .step { margin: 0.7em 0; }
+  .step-name { font-weight: bold; }
+  .step-detail { margin: 2px 0 0 1em; color: #4b5563; }
+</style>
+</head>
+<body>
+<h1>教案：{{ topic }}</h1>
+
+<h2>一、教学目标</h2>
+<ul>
+  {% for obj in content.objectives %}<li>{{ obj }}</li>{% endfor %}
+</ul>
+
+<h2>二、教学重点</h2>
+<p>{{ content.key_points }}</p>
+
+<h2>三、教学难点</h2>
+<p>{{ content.difficult_points }}</p>
+
+<h2>四、教学过程</h2>
+{% for step, detail in content.process %}
+<div class="step">
+  <div class="step-name">{{ step }}</div>
+  <div class="step-detail">{{ detail }}</div>
+</div>
+{% endfor %}
+
+<h2>五、课后作业</h2>
+<p>{{ content.homework }}</p>
+</body>
+</html>
