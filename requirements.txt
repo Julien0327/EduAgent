@@ -9,3 +9,6 @@ openpyxl
 pandas
 reportlab
 jinja2
+
+# ================= 测试（D3 开发期） =================
+pytest
