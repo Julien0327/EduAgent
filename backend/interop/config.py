@@ -26,6 +26,12 @@ def _path(name: str) -> Path | None:
     return Path(raw) if raw else None
 
 
+def _optional_url(name: str) -> str | None:
+    """读取可选 URL 配置：空值返回 None，非空去除尾部斜杠。"""
+    raw = os.getenv(name)
+    return raw.rstrip("/") if raw else None
+
+
 @dataclass(frozen=True)
 class AcpSettings:
     """ACP 运行时配置（只读快照）。"""
@@ -67,15 +73,33 @@ class AcpSettings:
         default_factory=lambda: Path(os.getenv("ACP_AMP_LOG_PATH", "logs/amp.jsonl"))
     )
 
+    # 公开基址（可选）：远程调用方访问本服务的 scheme://host[:port]。
+    # 部署时设 ACP_PUBLIC_BASE_URL=https://<公网域名或IP>:<端口>；
+    # 未设置时回退 service_host:service_port（AIP 服务自身地址，非公网可达，仅本地/内网）。
+    public_base_url: str | None = field(
+        default_factory=lambda: _optional_url("ACP_PUBLIC_BASE_URL")
+    )
+
     # AIP 服务端点（用于生成 ACS endPoints 的 url）
     service_host: str = field(default_factory=lambda: os.getenv("ACP_SERVICE_HOST", "localhost"))
     service_port: int = field(default_factory=lambda: int(os.getenv("ACP_SERVICE_PORT", "9443")))
 
     @property
+    def service_base_url(self) -> str:
+        """服务公开基址 scheme://host[:port]（无尾斜杠）。
+
+        /rpc 与产物下载 /api/tasks/... 等端点均从此基址拼接。
+        优先用 ACP_PUBLIC_BASE_URL；未设置时回退 service_host:service_port（非公网）。
+        """
+        if self.public_base_url:
+            return self.public_base_url.rstrip("/")
+        scheme = "https" if self.cert_path else "http"
+        return f"{scheme}://{self.service_host}:{self.service_port}"
+
+    @property
     def rpc_url(self) -> str:
         """AIP RPC 端点 URL（ACS endPoints 声明用）。"""
-        scheme = "https" if self.cert_path else "http"
-        return f"{scheme}://{self.service_host}:{self.service_port}/rpc"
+        return f"{self.service_base_url}/rpc"
 
     @property
     def has_mtls(self) -> bool:

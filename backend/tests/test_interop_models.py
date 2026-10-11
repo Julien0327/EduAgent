@@ -107,6 +107,35 @@ def test_build_acs_required_fields():
     assert acs["endPoints"][0]["url"].endswith("/rpc")
 
 
+def test_build_acs_endpoint_uses_public_base_url():
+    """设置 ACP_PUBLIC_BASE_URL 后，ACS endPoints.url 与 /rpc 服务地址一致。"""
+    settings = AcpSettings(public_base_url="https://edu.example.com:9443")
+    acs = build_acs(settings)
+    assert acs["endPoints"][0]["url"] == "https://edu.example.com:9443/rpc"
+    assert acs["endPoints"][0]["url"] == settings.rpc_url
+
+
+def test_build_acs_endpoint_falls_back_to_service_address():
+    """未设公开基址时，endPoints.url 回退到 service_host:service_port（无证书→http）。"""
+    settings = AcpSettings(service_host="10.0.0.5", service_port=8443)
+    acs = build_acs(settings)
+    assert acs["endPoints"][0]["url"] == "http://10.0.0.5:8443/rpc"
+
+
+def test_build_acs_endpoint_shares_public_base_with_product_uri():
+    """ACS 端点与产物下载 URI 使用同一公开基址（同 scheme/host/port）。"""
+    from urllib.parse import urlsplit
+
+    from interop.aip_server import product_file_uri
+
+    settings = AcpSettings(public_base_url="https://edu.example.com:9443")
+    endpoint = urlsplit(build_acs(settings)["endPoints"][0]["url"])
+    product = urlsplit(product_file_uri(settings, "t1", "a.pdf"))
+    assert (endpoint.scheme, endpoint.netloc) == (product.scheme, product.netloc)
+    assert endpoint.path == "/rpc"
+    assert product.path == "/api/tasks/t1/files/a.pdf"
+
+
 def test_build_acs_three_skills():
     acs = build_acs(AcpSettings())
     assert [s["id"] for s in acs["skills"]] == [

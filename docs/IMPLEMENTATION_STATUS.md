@@ -1,6 +1,6 @@
 # 实施状态（IMPLEMENTATION_STATUS）
 
-> 更新时间：2026-10-10（第 1 轮）
+> 更新时间：2026-10-11（官方 SDK 接入 + 产物绝对 URI + 部署准备）
 > 项目：EduMate-AIP（基于现有 EduAgent，升级为 AIC「智能体互联」参赛作品）
 > 本文件如实记录：真实状态、已完成的代码改动、实际运行的测试与结果、未完成项与阻塞、需用户执行的操作。
 
@@ -112,3 +112,43 @@
 - **梧桐平台真实注册 / 发现 / 互联 / 跨端访问：尚未完成**，当前无平台后台截图、无交互记录、无验证日志。
 - 本地 `models.py` 是对已核实 `acps_sdk` schema 的**数据契约复刻**，仅用于离线生成 `acs.json` 与契约单测；**它不被用于冒充真实协议通信**，真实互联必须走梧桐平台 + 官方 `acps_sdk`。
 - 通信时延、访问量、并发能力、应用成效等数据**未测量、未编造**，材料中一律标注「未测」。
+
+---
+
+## 8. 本轮补充（2026-10-11）
+
+> 本节覆盖「官方 SDK 接入 + 产物绝对 URI + 部署准备」三件事的最新事实，第 1 轮历史记录见 §2–§7。
+
+### 8.1 官方 SDK 与产物 URI 现状
+
+- 官方 `acps-sdk==2.1.0` 已接入：`POST /rpc` 委托官方 `handle_rpc_request`（JSON-RPC 2.0），全量测试 **73 passed**。
+- 产物 `FileDataItem.uri` 已由相对路径改为**绝对 URL**，由可配置公开基址生成，文件名做 percent-encoding。
+
+### 8.2 `ACP_PUBLIC_BASE_URL`（新增配置）
+
+- **含义**：远程调用方访问本服务的公开基址 `scheme://host[:port]`，同时用于 `ACS.endPoints.url` 与产物下载 URI。
+- **部署配置示例（`.env`）**：
+
+  ```ini
+  ACP_ENABLED=true
+  ACP_PUBLIC_BASE_URL=https://<公网域名或IP>:9443
+  # 未设置时回退 ACP_SERVICE_HOST:ACP_SERVICE_PORT（scheme 由是否配置证书决定）
+  ```
+
+- **限制**：`localhost` / `127.0.0.1` 仅供本机开发，**不可用于远程调用**——远程 leader 无法访问 `localhost`。部署时必须把 `ACP_PUBLIC_BASE_URL` 设为平台可达地址。
+
+### 8.3 产物 URI 的任务 ID 语义
+
+- 产物 URI 形如 `{base}/api/tasks/{业务任务ID}/files/{文件名}`，路径段是**业务工作流内部任务 ID**（`TaskContext.task_id`，如 `acac113f809e`），**不是** AIP 协议的 `TaskResult.taskId`（如 `t-abc`）。
+- 原因：下载端点 `GET /api/tasks/{task_id}/files/{file_name}` 以业务 `TaskStore` 内部 ID 为键。两个 ID 分属不同空间，**不可互相映射**。
+
+### 8.4 尚未完成（如实标注，未验证即未验证）
+
+| 项 | 状态 |
+|---|---|
+| 真实远程产物下载（跨端访问） | ❌ 未做（无部署、无 mTLS） |
+| mTLS 双向认证 | ❌ 未做（未签发证书） |
+| 梧桐平台注册 / 提交 ACS | ❌ 未做 |
+| 真实跨智能体调用（Leader→Partner） | ❌ 未做 |
+
+本地 73 项测试通过**不代表**平台验证或真实互联完成。

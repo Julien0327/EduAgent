@@ -88,8 +88,24 @@ acps-cli cert issue -a <你的AIC> --eab-file eab.json -u clientAuth \
 
 ### 3.3 部署 EduMate-AIP（用户）
 
-- 配置 `.env`：`ACP_AIC=<AIC>`、证书路径、`ACP_ENABLED=true`。
+- 配置 `.env`：`ACP_ENABLED=true`、`ACP_AIC=<AIC>`、证书路径，以及
+  `ACP_PUBLIC_BASE_URL=https://<平台可达域名或公网IP>:<端口>`（**不可用 localhost**，远程调用方无法访问）。
 - 用 HTTPS 起服务（`[server.mtls] tls_enabled=true, verify_client=true`），端口需**可从平台侧访问**。
+- 产物下载 URI 由 `ACP_PUBLIC_BASE_URL` 生成；路径中的任务 ID 是**业务内部任务 ID**，非 AIP `taskId`。
+
+#### Ubuntu（阿里云）最小部署步骤（骨架，尚未在服务器执行）
+
+```bash
+sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip
+git clone <仓库地址> eduagent && cd eduagent          # 仓库根目录
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env                                  # 填入 DEEPSEEK_API_KEY 与 ACP_* 变量
+uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000   # 业务端口；产物写入 data/outputs/
+# 互联场景：以 mTLS/HTTPS 将 9443 暴露给平台（uvicorn ssl 或反向代理双向认证）
+```
+
+> 上面只是步骤骨架，端口与 HTTPS/mTLS 的具体接入依赖平台签发证书，**未在本机验证**。
 
 ### 3.4 验证四步（用户 + 平台）
 
