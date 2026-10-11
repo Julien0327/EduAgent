@@ -35,3 +35,9 @@ data/uploads/
 data/outputs/
 storage/uploads/
 storage/outputs/
+
+# ================= 密钥与证书（严禁入库） =================
+*.pem
+*.key
+*.crt
+eab.json

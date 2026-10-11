@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from app.api import chat, health, tasks
 from app.knowledge import loader
 from config import settings
+from interop.aip_server import create_aip_router
+from interop.config import load_acp_settings
 from logging_config import get_logger, setup_logging
 
 setup_logging()
@@ -41,6 +43,12 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(tasks.router)
+
+# AIP 智能体互联端点（/rpc + /health）：ACP_ENABLED=true 时挂载，默认关闭不影响现有业务。
+# 真实 mTLS / identity_binding 由部署层承担（见 backend/interop/acp.toml.example）。
+_acp_settings = load_acp_settings()
+if _acp_settings.enabled:
+    app.include_router(create_aip_router(_acp_settings))
 
 # 前端静态资源（最后挂载，作为兜底；index.html 由 html=True 在 / 提供）
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"

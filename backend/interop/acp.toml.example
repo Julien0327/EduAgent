@@ -1,0 +1,33 @@
+# EduMate-AIP 部署配置样例（对齐官方 demo-partner 的 config.toml 结构）。
+# 注意：本文件仅作结构参考，实际配置通过环境变量注入（见 .env.example），
+# 避免把 AIC / 证书路径 / 私钥写进仓库。真实私钥不入库。
+
+[app]
+identity_binding_enabled = true
+
+# LLM 凭据一律从环境变量读取（复用现有 DEEPSEEK_* 环境变量）
+# DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL / LLM_TIMEOUT
+
+[server]
+host = "0.0.0.0"
+port = 9443
+
+[server.mtls]
+tls_enabled = true
+verify_client = true
+# 使用 EduMate 的智能体身份证书（由梧桐平台 CA 签发）
+cert_file = "agent-cert.pem"
+key_file = "agent-key.pem"
+ca_file = "trust-bundle.pem"
+
+# RabbitMQ 群组模式（P1；P0 仅用点对点 /rpc）
+[rabbitmq]
+host = "localhost"
+port = 5671
+vhost = "acps"
+
+[concurrency]
+max_concurrent_tasks = 10
+
+[log]
+level = "INFO"

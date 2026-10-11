@@ -1,0 +1,72 @@
+{
+  "aic": "",
+  "active": true,
+  "lastModifiedTime": "2026-10-10T00:00:00+08:00",
+  "protocolVersion": "02.02",
+  "name": "EduMate-AIP",
+  "description": "面向教师的「教学任务自动化智能体」（AIP Partner）。用自然语言驱动多步自动执行，产出可直接使用的 Word/Excel/PDF 教学文档，覆盖组卷、答题卡、学情报告、教案四条能力。",
+  "version": "1.0.0",
+  "provider": {
+    "countryCode": "CN",
+    "organization": "EduMate 项目组",
+    "department": "",
+    "url": "",
+    "license": ""
+  },
+  "securitySchemes": {
+    "mtls": {
+      "type": "mutualTLS",
+      "description": "智能体间 mTLS 双向认证"
+    }
+  },
+  "endPoints": [
+    {
+      "url": "https://localhost:9443/rpc",
+      "transport": "JSONRPC",
+      "security": [
+        {
+          "mtls": []
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "notification": false,
+    "messageQueue": []
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "edumate.exam-loop",
+      "name": "章节小测一条龙",
+      "description": "根据章节自动完成：检索知识点 → 出卷 → 生成试卷(docx) → 答题卡(xlsx) → 加载预置答题 → 成绩统计 → 学情报告(pdf)。",
+      "version": "1.0.0",
+      "tags": ["组卷", "答题卡", "学情报告", "教学闭环"],
+      "examples": ["请对《一元二次方程》做章节小测并生成学情报告"],
+      "inputModes": ["text/plain"],
+      "outputModes": ["text/plain", "application/json"]
+    },
+    {
+      "id": "edumate.question-gen",
+      "name": "智能组卷",
+      "description": "LLM 实时命制题目，产出试卷(docx)与答题卡(xlsx)。",
+      "version": "1.0.0",
+      "tags": ["智能组卷", "出题"],
+      "examples": ["帮我智能组一套《一元二次方程》的卷子"],
+      "inputModes": ["text/plain"],
+      "outputModes": ["text/plain", "application/json"]
+    },
+    {
+      "id": "edumate.lesson-plan",
+      "name": "AI 教案生成",
+      "description": "LLM 生成结构化教案（教学目标/重难点/教学过程/课后作业），产出 docx。",
+      "version": "1.0.0",
+      "tags": ["教案", "教学设计"],
+      "examples": ["帮我写一份《一元二次方程》的教案"],
+      "inputModes": ["text/plain"],
+      "outputModes": ["text/plain", "application/json"]
+    }
+  ]
+}
