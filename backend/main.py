@@ -48,6 +48,12 @@ app.include_router(tasks.router)
 # 真实 mTLS / identity_binding 由部署层承担（见 backend/interop/acp.toml.example）。
 _acp_settings = load_acp_settings()
 if _acp_settings.enabled:
+    # 仅 AIP mTLS 进程（ACP_MTLS_SERVER=true）挂载对端证书中间件；
+    # 业务 8000（ACP_ENABLED 未开启）不进此分支，绝不强制 mTLS。
+    if _acp_settings.mtls_server_enabled:
+        from acps_sdk.aip.aip_peer_cert import AipPeerCertificateMiddleware
+
+        app.add_middleware(AipPeerCertificateMiddleware)
     app.include_router(create_aip_router(_acp_settings))
 
 # 前端静态资源（最后挂载，作为兜底；index.html 由 html=True 在 / 提供）

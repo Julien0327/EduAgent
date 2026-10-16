@@ -14,8 +14,9 @@ jinja2
 pytest
 
 # ================= AIP 智能体互联（官方 ACPs SDK，Phase 2 接入） =================
-# 官方 acps-sdk（PyPI 发布版 2.1.0）；其依赖 pydantic/fastapi/uvicorn 已在上方。
+# 官方 acps-sdk 2.2.0（当前不在 PyPI，需从 AtomGit 源/本地 wheel 安装）；
+# 其依赖 pydantic/fastapi/uvicorn 已在上方。
 # acps-sdk 会传递安装 httpx、aio-pika（含 aiormq/yarl/pamqp 等）；httpx 同时是
 # interop/discovery.py 的直接依赖，故显式列出。
-acps-sdk==2.1.0
+acps-sdk==2.2.0
 httpx>=0.24.0

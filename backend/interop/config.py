@@ -63,6 +63,12 @@ class AcpSettings:
         default_factory=lambda: _bool("ACP_IDENTITY_BINDING_ENABLED", True)
     )
 
+    # 本进程是否为 AIP mTLS 服务端（0.0.0.0:9443，Uvicorn 直连 TLS）。
+    # 仅该进程挂载 AipPeerCertificateMiddleware 并启用身份绑定；业务 8000 保持纯 HTTP。
+    mtls_server_enabled: bool = field(
+        default_factory=lambda: _bool("ACP_MTLS_SERVER", False)
+    )
+
     # RabbitMQ 消息面（群组模式，P1）
     mq_host: str = field(default_factory=lambda: os.getenv("ACP_MQ_HOST", "localhost"))
     mq_port: int = field(default_factory=lambda: int(os.getenv("ACP_MQ_PORT", "5671")))
@@ -104,6 +110,21 @@ class AcpSettings:
     @property
     def has_mtls(self) -> bool:
         return bool(self.cert_path and self.key_path and self.trust_bundle_path)
+
+    @property
+    def identity_binding_resolved(self) -> bool:
+        """实际生效的身份绑定开关（对齐官方 demo-partner 的 resolve_identity_binding_enabled）。
+
+        身份绑定依赖 mTLS 客户端证书提取对端 AIC（get_request_peer_aic），
+        缺任一前提（未开启 / 无本地 AIC / 无 mTLS 证书）都只能关闭，否则
+        handle_rpc_request 会因 local_aic=None 或 peer AIC 缺失而报错。
+        """
+        return (
+            self.identity_binding_enabled
+            and self.mtls_server_enabled
+            and bool(self.aic)
+            and self.has_mtls
+        )
 
 
 def load_acp_settings() -> AcpSettings:
