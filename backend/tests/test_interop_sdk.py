@@ -28,8 +28,8 @@ def test_sdk_importable():
         handle_rpc_request,
     )
 
-    # 安装的发行版为 2.1.0；acps_sdk.__version__ 常量未随 wheel 同步（仍为 "2.0.0"）
-    assert dist_version("acps-sdk") == "2.1.0"
+    # 安装的发行版为 2.2.0；acps_sdk.__version__ 常量未随 wheel 同步（仍为 "2.0.0"）
+    assert dist_version("acps-sdk") == "2.2.0"
     assert acps_sdk.__version__ == "2.0.0"
     assert all([
         AgentCapabilitySpec, TaskResult, TaskState, Product,
@@ -44,9 +44,11 @@ def test_rpc_delegates_to_official_sdk(monkeypatch):
 
     calls = {}
 
-    async def fake_handle(request, handlers):
+    async def fake_handle(request, handlers, *, local_aic=None, identity_binding_enabled=True, dispatch_request=None):
         calls["is_command_handlers"] = type(handlers).__name__ == "CommandHandlers"
         calls["on_start_set"] = getattr(handlers, "on_start", None) is not None
+        calls["local_aic"] = local_aic
+        calls["identity_binding_enabled"] = identity_binding_enabled
         return RpcResponse(id=None)
 
     monkeypatch.setattr(sdk_server, "handle_rpc_request", fake_handle)
@@ -70,6 +72,58 @@ def test_rpc_delegates_to_official_sdk(monkeypatch):
     assert resp.status_code == 200
     assert calls.get("is_command_handlers") is True
     assert calls.get("on_start_set") is True
+    # v2.2.0：无 AIC / 无 mTLS 时身份绑定应自动关闭（local_aic=None、identity_binding=False）
+    assert calls.get("identity_binding_enabled") is False
+    assert calls.get("local_aic") is None
+
+
+def test_rpc_passes_local_aic_when_identity_binding_resolved(monkeypatch):
+    """identity_binding_resolved=True 时，local_aic 与 identity_binding_enabled 均正确传入。
+
+    P2-3③ 修复：identity_binding_enabled=True 时必须同时传非空 local_aic，否则官方 SDK 在
+    handle_rpc_request 内抛 ValueError("local_aic is required when identity_binding_enabled=True")。
+    """
+    import acps_sdk.aip.aip_rpc_server as sdk_server
+    from acps_sdk.aip.aip_rpc_model import RpcResponse
+
+    calls = {}
+
+    async def fake_handle(request, handlers, *, local_aic=None, identity_binding_enabled=True, dispatch_request=None):
+        calls["local_aic"] = local_aic
+        calls["identity_binding_enabled"] = identity_binding_enabled
+        return RpcResponse(id=None)
+
+    monkeypatch.setattr(sdk_server, "handle_rpc_request", fake_handle)
+
+    # 完整 mTLS 服务端场景：ACP_AIC + ACP_MTLS_SERVER + 三项证书路径 → identity_binding_resolved=True
+    monkeypatch.setenv("ACP_AIC", "1.2.156.3088.1.BUPT.1LW3RI.PLJ4AG.CPXIZB.0559")
+    monkeypatch.setenv("ACP_MTLS_SERVER", "true")
+    monkeypatch.setenv("ACP_KEY_PATH", "agent-server-key.pem")
+    monkeypatch.setenv("ACP_CERT_PATH", "agent-server-cert.pem")
+    monkeypatch.setenv("ACP_TRUST_BUNDLE_PATH", "trust-bundle.pem")
+
+    settings = AcpSettings()
+    assert settings.identity_binding_resolved is True
+
+    app = FastAPI()
+    app.include_router(create_aip_router(settings))
+
+    async def _run():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await client.post("/rpc", json={
+                "jsonrpc": "2.0", "method": "rpc", "id": 1,
+                "params": {"command": {
+                    "type": "task-command", "id": "c", "sentAt": "t",
+                    "senderRole": "leader", "senderId": "s",
+                    "command": "get", "taskId": "x",
+                }},
+            })
+
+    resp = asyncio.run(_run())
+    assert resp.status_code == 200
+    assert calls["local_aic"] == settings.aic
+    assert calls["identity_binding_enabled"] is True
 
 
 def test_acs_validates_with_official_sdk():

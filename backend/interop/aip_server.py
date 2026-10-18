@@ -95,6 +95,8 @@ def create_aip_router(settings: AcpSettings) -> APIRouter:
     ) = _import_sdk()
 
     sender_id = settings.aic or settings.service_name
+    local_aic = settings.aic
+    identity_binding = settings.identity_binding_resolved
 
     async def on_start(command, task):
         """start 命令：建任务 → 跑现有 workflow → 映射产物为官方 Product[]。"""
@@ -165,7 +167,12 @@ def create_aip_router(settings: AcpSettings) -> APIRouter:
 
     @router.post("/rpc", response_model=RpcResponse)
     async def rpc(request: Request):
-        return await handle_rpc_request(request, handlers)
+        return await handle_rpc_request(
+            request,
+            handlers,
+            local_aic=local_aic,
+            identity_binding_enabled=identity_binding,
+        )
 
     return router
 
