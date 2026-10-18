@@ -1,5 +1,4 @@
 """集中读取环境变量与应用配置。
-
 D1-2 阶段：接入 DeepSeek（文本任务）。
 Qwen（多模态任务）在后续阶段启用。
 """
@@ -21,6 +20,16 @@ class Settings:
     LLM_TIMEOUT: float = float(os.getenv("LLM_TIMEOUT", "60"))
 
     # 说明：Qwen（多模态任务）的 Key 现存于环境变量 LLM_API_KEY，后续阶段接入。
+
+    # === P2-7A: Agent-to-Agent RPC Client (mTLS) ===
+    ACP_CLIENT_CERT_PATH: str = os.getenv("ACP_CLIENT_CERT_PATH", "test-client/agent-client-cert.pem")
+    ACP_CLIENT_KEY_PATH: str = os.getenv("ACP_CLIENT_KEY_PATH", "test-client/agent-client-key.pem")
+    # 目标外部 Agent RPC endpoint (https://host:port/rpc)
+    ACP_PARTNER_URL: str = os.getenv("ACP_PARTNER_URL", "")
+    # 本方 Leader Agent ID (AIC identity)
+    ACP_LEADER_ID: str = os.getenv("ACP_LEADER_ID", "edu-mate-aip-leader")
+    # 对方 Agent 的 AIC (用于 identity binding 验证)
+    ACP_EXPECTED_PARTNER_AIC: str = os.getenv("ACP_EXPECTED_PARTNER_AIC", "")
 
 
 settings = Settings()

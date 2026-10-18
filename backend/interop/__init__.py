@@ -15,6 +15,6 @@ ADP（发现）、AMP（监控日志）。
 ACPs-community 官方项目源码（AtomGit `AIP-PUB/ACPs-community`）。
 """
 
-from interop.config import AcpSettings, load_acp_settings
+from .config import AcpSettings, load_acp_settings
 
 __all__ = ["AcpSettings", "load_acp_settings"]
