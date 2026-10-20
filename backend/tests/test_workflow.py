@@ -122,13 +122,17 @@ def test_workflow_emits_events(use_fake_llm):
 # ---------- 异常 / 超时 ----------
 
 def test_workflow_fails_gracefully_on_tool_error(use_fake_llm):
-    """diagnose 工具失败 → 节点失败、任务 failed，错误信息透出且不抛异常。"""
+    """A2A + 本地诊断均失败 → 降级兜底，任务仍 completed（P2-8 新契约）。"""
     use_fake_llm([_plan_resp("exam_loop"), LLMResponse()])  # 第二次为空 → 校验重试耗尽
     ctx = wf.run_task("请对《一元二次方程》做章节小测并生成学情报告")
-    assert ctx.status == "failed"
-    assert ctx.error
-    failed = [s for s in ctx.steps if s.status == "failed"]
-    assert failed and failed[0].node == "diagnose"
+    # New contract: double-failure triggers degraded fallback, workflow completes
+    assert ctx.status == "completed"
+    diag = ctx.params.get("diagnosis", {})
+    assert isinstance(diag, dict)
+    assert "summary" in diag and "diagnosis" in diag and "suggestions" in diag
+    a2a_meta = ctx.params.get("a2a_metadata", {})
+    assert a2a_meta.get("fallback_used") is True
+    assert a2a_meta.get("fallback_error")
 
 
 def test_workflow_timeout(use_fake_llm, monkeypatch):

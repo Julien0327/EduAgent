@@ -27,7 +27,7 @@ class Settings:
     # 目标外部 Agent RPC endpoint (https://host:port/rpc)
     ACP_PARTNER_URL: str = os.getenv("ACP_PARTNER_URL", "")
     # 本方 Leader Agent ID (AIC identity)
-    ACP_LEADER_ID: str = os.getenv("ACP_LEADER_ID", "edu-mate-aip-leader")
+    ACP_LEADER_ID: str = os.getenv("ACP_LEADER_ID", "1.2.156.3088.1.BUPT.1LW3RI.PLJ4AG.CPXIZB.0559")
     # 对方 Agent 的 AIC (用于 identity binding 验证)
     ACP_EXPECTED_PARTNER_AIC: str = os.getenv("ACP_EXPECTED_PARTNER_AIC", "")
 

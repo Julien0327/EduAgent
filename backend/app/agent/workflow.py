@@ -30,6 +30,8 @@ from app.knowledge import loader
 from app.services import answer_sheet, exam_docx, lesson_plan, report_pdf, score_analysis
 from app.storage import file_store
 from logging_config import task_logger
+from backend.interop.orchestrator import orchestrate_sync
+from backend.interop.config import AcpSettings
 
 WORKFLOW_TIMEOUT = 180  # 秒，全局任务上限（§22）
 
@@ -141,6 +143,89 @@ def _diagnose(ctx: TaskContext) -> str:
     return "生成学情诊断"
 
 
+
+def _a2a_diagnose(ctx: TaskContext) -> str:
+    """A2A-enhanced diagnosis: call external Agent via Discovery→RPC, fallback to local.
+    
+    Minimal invasive integration point for exam_loop.
+    - Generates a structured query from current stats + weak knowledge points
+    - Calls orchestrate_sync() with explicit timeout
+    - On success: writes external diagnosis + metadata into ctx.params
+    - On failure: falls back to local generate_diagnosis tool (never breaks workflow)
+    - Always records a2a metadata (taskId, partner_aic, status) for auditability
+    """
+    log = task_logger("app.agent.workflow", ctx.task_id)
+    weak_names = [kp["name"] for kp in ctx.params["weak_knowledge_points"]]
+    stats = ctx.params["stats"]
+    
+    # Build structured query for external Agent
+    query = (
+        f"EduMate学情诊断协作请求：\n"
+        f"班级平均分{stats.get('avg', 'N/A')}，及格率{stats.get('pass_rate', 0)*100:.1f}%，"
+        f"薄弱知识点：{', '.join(weak_names)}。\n"
+        f"请基于以上数据生成针对性教学干预建议，包括：\n"
+        f"1. 每个薄弱知识点的补救策略\n"
+        f"2. 个性化练习推荐\n"
+        f"3. 下阶段教学重点调整建议"
+    )
+    
+    a2a_meta = {"enabled": True, "fallback_used": False, "error": None}
+    
+    try:
+        _acp = AcpSettings()
+        if not _acp.trust_bundle_path:
+            raise RuntimeError("A2A skipped: no trust bundle configured")
+        _verify = str(_acp.trust_bundle_path)
+        result = orchestrate_sync(query, timeout=5.0, verify=_verify)
+        task_id = result.get("taskId", "")
+        status = result.get("status", "")
+        products_text = result.get("products_text", "")
+        
+        if status and status.lower() in ("completed", "success") and products_text.strip():
+            # External Agent succeeded: use its output as diagnosis
+            ctx.params["diagnosis"] = {
+                "source": "a2a_external_agent",
+                "content": products_text,
+                "local_fallback": False,
+            }
+            a2a_meta.update({
+                "task_id": task_id,
+                "partner_aic": result.get("raw", {}).get("_partner_aic", ""),
+                "status": status,
+                "fallback_used": False,
+            })
+            ctx.params["a2a_metadata"] = a2a_meta
+            log.info("A2A diagnosis succeeded: taskId=%s status=%s", task_id, status)
+            return f"A2A学情诊断完成（外部Agent，taskId={task_id[:8]}...）"
+        else:
+            raise ValueError(f"External Agent returned non-success: status={status}")
+            
+    except Exception as exc:
+        # Fallback to local diagnosis — never break the workflow
+        log.warning("A2A diagnosis failed (%s), falling back to local. Error: %s", type(exc).__name__, exc)
+        a2a_meta.update({"fallback_used": True, "error": str(exc)})
+        ctx.params["a2a_metadata"] = a2a_meta
+        # Original local diagnosis logic (identical to _diagnose)
+        try:
+            r = run_tool("generate_diagnosis", {
+                "stats": stats,
+                "weak_knowledge_points": weak_names,
+            })
+            ctx.params["diagnosis"] = r
+            return "生成学情诊断（本地回退）"
+        except Exception as fallback_exc:
+            # Double-failure: A2A + local both failed. Return safe degraded result
+            # that satisfies _build_report_pdf's expected diagnosis dict schema.
+            log.error("Local diagnosis also failed (%s). Using degraded fallback. Error: %s",
+                      type(fallback_exc).__name__, fallback_exc)
+            a2a_meta["fallback_error"] = str(fallback_exc)
+            ctx.params["diagnosis"] = {
+                "summary": "学情诊断暂不可用（外部Agent与本地LLM均失败）",
+                "diagnosis": f"薄弱知识点：{', '.join(weak_names) or '无'}",
+                "suggestions": ["建议教师根据课堂实际情况进行针对性辅导"],
+            }
+            return "生成学情诊断（降级兜底）"
+
 def _build_report_pdf(ctx: TaskContext) -> str:
     path = file_store.build_output_path(ctx.task_id, REPORT_FILE)
     report_pdf.create_report_pdf(
@@ -192,7 +277,7 @@ WORKFLOW_NODES = {
         ("build_answer_sheet", _build_answer_sheet),
         ("load_student_answers", _load_student_answers),
         ("analyze_scores", _analyze_scores),
-        ("diagnose", _diagnose),
+        ("diagnose", _a2a_diagnose),
         ("build_report_pdf", _build_report_pdf),
     ],
     "question_gen": [

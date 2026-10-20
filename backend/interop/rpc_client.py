@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 def _build_mtls_ssl_context(
     cert_path: str,
     key_path: str,
+    ca_bundle: Optional[str] = None,
 ) -> ssl.SSLContext:
     """Build an SSLContext for mTLS client authentication."""
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -27,9 +28,12 @@ def _build_mtls_ssl_context(
     ctx.verify_mode = ssl.CERT_REQUIRED
     # Load our client certificate + private key
     ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
-    # Trust system CA bundle (or partner's CA if self-signed)
+    # Load trust anchors: custom bundle first, then system defaults
+    if ca_bundle and Path(ca_bundle).exists():
+        ctx.load_verify_locations(cafile=ca_bundle)
+        logger.info("Loaded custom CA bundle: %s", ca_bundle)
     ctx.load_default_certs()
-    logger.info("mTLS SSLContext built: cert=%s", cert_path)
+    logger.info("mTLS SSLContext built: cert=%s ca_bundle=%s", cert_path, ca_bundle)
     return ctx
 
 
@@ -37,6 +41,7 @@ def create_rpc_client(
     partner_url: Optional[str] = None,
     expected_partner_aic: Optional[str] = None,
     leader_id: Optional[str] = None,
+    ca_bundle: Optional[str] = None,
 ) -> AipRpcClient:
     """Create a configured AipRpcClient instance with mTLS + identity binding.
 
@@ -70,7 +75,7 @@ def create_rpc_client(
     if not key_path.exists():
         raise FileNotFoundError(f"Client key not found: {key_path}")
 
-    ssl_ctx = _build_mtls_ssl_context(str(cert_path), str(key_path))
+    ssl_ctx = _build_mtls_ssl_context(str(cert_path), str(key_path), ca_bundle=ca_bundle)
 
     client = AipRpcClient(
         partner_url=url,
