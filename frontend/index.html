@@ -8,49 +8,127 @@
   <link rel="stylesheet" href="vendor/katex.min.css">
 </head>
 <body>
+  <!-- ===== Header ===== -->
   <header class="header">
-    <h1>智教助手 <span class="brand">EduMate</span></h1>
-    <p class="subtitle">教学任务自动化智能体 —— 用一句话，完成出卷、批改与学情分析</p>
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="logo-mark">E</div>
+        <div class="header-text">
+          <h1 class="header-title">智教助手 <span class="brand">EduMate</span></h1>
+          <p class="header-subtitle">AI 驱动的教学任务自动化平台</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="status-badge" class="status-badge status-connecting">
+          <span class="status-dot"></span>
+          <span id="status-text">正在连接…</span>
+        </span>
+      </div>
+    </div>
   </header>
 
+  <!-- ===== Main Layout ===== -->
   <main class="main">
-    <section class="card">
-      <h2>系统状态</h2>
-      <div class="status">
-        <span id="status-dot" class="status-dot"></span>
-        <span id="status-text">正在连接后端…</span>
-      </div>
-      <pre id="status-json" class="status-json">…</pre>
-    </section>
+    <!-- Left / Primary Column -->
+    <div class="col-primary">
+      <!-- Agent Task Section (Hero) -->
+      <section class="card card-hero">
+        <div class="card-header">
+          <h2>创建教学任务</h2>
+          <p class="card-desc">用一句话描述需求，Agent 自动完成出卷、批改与学情分析</p>
+        </div>
+        <div class="task-form">
+          <textarea id="task-input" class="task-input" placeholder="例如：请对《一元二次方程》做一次章节小测并生成学情报告"></textarea>
+          <div class="task-form-footer">
+            <div class="task-hints">
+              <span class="hint-chip">📝 出卷</span>
+              <span class="hint-chip">📊 学情分析</span>
+              <span class="hint-chip">📋 教案生成</span>
+            </div>
+            <button id="task-submit" class="btn btn-primary btn-lg">提交任务</button>
+          </div>
+        </div>
+        <div id="task-status" class="task-status muted"></div>
+        <!-- Timeline -->
+        <div id="task-timeline-wrap" class="timeline-wrap hidden">
+          <ol id="task-timeline" class="task-timeline"></ol>
+        </div>
+        <!-- Artifacts -->
+        <div id="task-artifacts" class="task-artifacts"></div>
+      </section>
 
-    <section class="card">
-      <h2>AI 对话测试</h2>
-      <textarea id="chat-input" class="chat-input" placeholder="请输入教学任务……"></textarea>
-      <button id="chat-send" class="chat-send">发送</button>
-      <div id="chat-status" class="chat-status muted"></div>
-      <div id="chat-reply" class="chat-reply"></div>
-    </section>
+      <!-- AI Chat Section -->
+      <section class="card">
+        <div class="card-header">
+          <h2>AI 对话</h2>
+          <p class="card-desc">与教学助手自由交流，获取备课建议与知识解答</p>
+        </div>
+        <div class="chat-container">
+          <div id="chat-reply" class="chat-reply empty">
+            <span class="chat-placeholder">💬 在下方输入问题，开始与 AI 助手对话</span>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" class="chat-input" placeholder="请输入教学相关问题…" rows="2"></textarea>
+            <button id="chat-send" class="btn btn-primary">发送</button>
+          </div>
+          <div id="chat-status" class="chat-status muted"></div>
+        </div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Agent 任务</h2>
-      <p class="muted">用一句话下达教学任务（如：请对《一元二次方程》做一次章节小测并生成学情报告），实时查看执行进度与产物。</p>
-      <div class="task-form">
-        <textarea id="task-input" class="task-input" placeholder="例如：请对《一元二次方程》做一次章节小测并生成学情报告"></textarea>
-        <button id="task-submit" class="task-submit">提交任务</button>
-      </div>
-      <div id="task-status" class="task-status muted"></div>
-      <ol id="task-timeline" class="task-timeline"></ol>
-      <div id="task-artifacts" class="task-artifacts"></div>
-    </section>
+    <!-- Right / Sidebar Column -->
+    <div class="col-sidebar">
+      <!-- System Status Detail -->
+      <section class="card">
+        <div class="card-header">
+          <h2>系统状态</h2>
+        </div>
+        <div id="status-detail" class="status-detail">
+          <div class="status-row">
+            <span class="status-label">服务</span>
+            <span id="status-service" class="status-value">—</span>
+          </div>
+          <div class="status-row">
+            <span class="status-label">版本</span>
+            <span id="status-version" class="status-value">—</span>
+          </div>
+          <div class="status-row">
+            <span class="status-label">连接</span>
+            <span id="status-conn" class="status-value">检测中</span>
+          </div>
+        </div>
+        <!-- Hidden raw JSON for debugging, not displayed by default -->
+        <details class="status-debug">
+          <summary>原始数据</summary>
+          <pre id="status-json" class="status-json"></pre>
+        </details>
+      </section>
 
-    <section class="card">
-      <h2>产品介绍</h2>
-      <p>面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
-      <p class="muted">已打通「自然语言 → Agent 编排 → 文档产物」全链路：出卷、答题卡、学情报告、教案均可预览与下载。</p>
-    </section>
+      <!-- Agent Capabilities -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Agent 能力</h2>
+        </div>
+        <ul class="capability-list">
+          <li class="capability-item"><span class="cap-icon">📝</span><span>智能出卷 &amp; 答题卡生成</span></li>
+          <li class="capability-item"><span class="cap-icon">📊</span><span>成绩分析 &amp; 学情诊断</span></li>
+          <li class="capability-item"><span class="cap-icon">📋</span><span>教案自动生成</span></li>
+          <li class="capability-item"><span class="cap-icon">🔍</span><span>知识点检索 &amp; 关联</span></li>
+          <li class="capability-item"><span class="cap-icon">📄</span><span>多格式文档预览下载</span></li>
+        </ul>
+      </section>
+
+      <!-- Product Intro -->
+      <section class="card">
+        <div class="card-header">
+          <h2>关于产品</h2>
+        </div>
+        <p class="about-text">面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
+      </section>
+    </div>
   </main>
 
-  <!-- 产物预览弹窗 -->
+  <!-- Preview Modal -->
   <div id="preview-modal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-dialog">
