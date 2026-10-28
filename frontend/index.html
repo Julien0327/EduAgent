@@ -3,132 +3,268 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>智教助手 EduMate</title>
+  <title>智教助手 EduMate · 教学工作台</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="vendor/katex.min.css">
 </head>
 <body>
-  <!-- ===== Header ===== -->
-  <header class="header">
-    <div class="header-inner">
-      <div class="header-left">
-        <div class="logo-mark">E</div>
-        <div class="header-text">
-          <h1 class="header-title">智教助手 <span class="brand">EduMate</span></h1>
-          <p class="header-subtitle">AI 驱动的教学任务自动化平台</p>
-        </div>
-      </div>
-      <div class="header-right">
-        <span id="status-badge" class="status-badge status-connecting">
-          <span class="status-dot"></span>
-          <span id="status-text">正在连接…</span>
-        </span>
-      </div>
+  <!-- ===== 顶部工作区标题栏 ===== -->
+  <header class="topbar">
+    <a class="topbar-brand" href="#top">
+      <span class="logo-mark">E</span>
+      <span class="topbar-title">
+        <strong>智教助手 <em>EduMate</em></strong>
+        <small>AI 教学工作台</small>
+      </span>
+    </a>
+    <div class="topbar-actions">
+      <a class="topbar-new" href="#task">＋ 新建任务</a>
+      <span id="status-badge" class="status-badge">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-text">正在连接…</span>
+      </span>
     </div>
   </header>
 
-  <!-- ===== Main Layout ===== -->
-  <main class="main">
-    <!-- Left / Primary Column -->
-    <div class="col-primary">
-      <!-- Agent Task Section (Hero) -->
-      <section class="card card-hero">
-        <div class="card-header">
-          <h2>创建教学任务</h2>
-          <p class="card-desc">用一句话描述需求，Agent 自动完成出卷、批改与学情分析</p>
+  <div class="app-shell">
+    <!-- ===== 左侧导航 ===== -->
+    <aside class="sidebar">
+      <nav class="side-nav">
+        <div class="nav-group-label">工作台</div>
+        <a class="nav-item active" href="#top">
+          <span class="nav-ic">▦</span><span>工作台</span>
+        </a>
+        <a class="nav-item" href="#task">
+          <span class="nav-ic">✦</span><span>智能任务</span>
+        </a>
+        <a class="nav-item" href="#analysis">
+          <span class="nav-ic">◈</span><span>学情分析</span>
+        </a>
+        <a class="nav-item" href="#lesson">
+          <span class="nav-ic">◫</span><span>教学方案</span>
+        </a>
+
+        <div class="nav-group-label">协作</div>
+        <a class="nav-item" href="#a2a">
+          <span class="nav-ic">◎</span><span>Agent 协作</span>
+        </a>
+        <a class="nav-item" href="#history">
+          <span class="nav-ic">◌</span><span>任务记录</span>
+        </a>
+
+        <div class="nav-group-label">系统</div>
+        <a class="nav-item" href="#settings">
+          <span class="nav-ic">⚙</span><span>设置</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="sb-dot" id="sb-status-dot"></span>
+        <div class="sb-footer-text">
+          <span id="sb-status-text">正在连接…</span>
+          <small>EduAgent</small>
         </div>
-        <div class="task-form">
-          <textarea id="task-input" class="task-input" placeholder="例如：请对《一元二次方程》做一次章节小测并生成学情报告"></textarea>
-          <div class="task-form-footer">
-            <div class="task-hints">
-              <span class="hint-chip">📝 出卷</span>
-              <span class="hint-chip">📊 学情分析</span>
-              <span class="hint-chip">📋 教案生成</span>
+      </div>
+    </aside>
+
+    <!-- ===== 主工作区 ===== -->
+    <main class="main">
+      <!-- 欢迎区 -->
+      <section id="top" class="welcome">
+        <h1 class="welcome-title" id="welcome-title">早上好，教师 👋</h1>
+        <p class="welcome-sub">今天想完成什么教学工作？</p>
+        <p class="welcome-caps">智能出卷 · 学情分析 · 教学方案 · Agent 协作</p>
+      </section>
+
+      <!-- AI 任务输入（Composer） -->
+      <section id="task" class="composer">
+        <div class="composer-head">
+          <span class="composer-icon">✦</span>
+          <span class="composer-title">描述你的教学任务</span>
+        </div>
+        <div class="composer-body">
+          <textarea id="task-input" class="task-input" rows="4"
+            placeholder="例如：请对《一元二次方程》做一次章节小测并生成学情报告"></textarea>
+          <div class="composer-footer">
+            <div class="composer-tools">
+              <button type="button" class="tool-btn" disabled>📎 附件</button>
+              <button type="button" class="tool-btn tool-btn-on">⚡ 智能模式</button>
             </div>
-            <button id="task-submit" class="btn btn-primary btn-lg">提交任务</button>
+            <button id="task-submit" class="btn-primary">开始任务 →</button>
+          </div>
+          <div class="composer-examples">
+            <span class="example-label">试一试</span>
+            <button type="button" class="example-chip" data-example="请针对《一元二次方程》生成一次章节小测并生成学情分析报告">章节小测 + 学情分析</button>
+            <button type="button" class="example-chip" data-example="帮我智能组一套《一元二次方程》的课堂练习卷">智能组卷</button>
+            <button type="button" class="example-chip" data-example="请为《勾股定理》生成一份教案">教案生成</button>
           </div>
         </div>
-        <div id="task-status" class="task-status muted"></div>
-        <!-- Timeline -->
-        <div id="task-timeline-wrap" class="timeline-wrap hidden">
+      </section>
+
+      <!-- 任务执行（实时进度） -->
+      <section id="task-progress" class="panel">
+        <div class="panel-head">
+          <h2>当前任务</h2>
+          <div id="task-status" class="task-status muted"></div>
+        </div>
+        <div id="task-empty" class="empty-state">
+          <span class="empty-icon">✦</span>
+          <p>暂无进行中的任务 · 在上方描述教学任务并点击「开始任务」</p>
+        </div>
+        <div id="task-timeline-wrap" class="timeline-wrap">
           <ol id="task-timeline" class="task-timeline"></ol>
         </div>
-        <!-- Artifacts -->
+        <div id="task-log-wrap" class="task-log-wrap hidden">
+          <div class="task-log-head">
+            <span class="task-log-title">Agent 执行日志</span>
+            <span class="task-log-live" id="task-log-live">● 实时</span>
+          </div>
+          <ol id="task-log" class="task-log"></ol>
+        </div>
+      </section>
+
+      <!-- 学情分析结果 Dashboard -->
+      <section id="analysis" class="panel">
+        <div class="panel-head">
+          <h2>学情分析</h2>
+          <p class="panel-desc">任务完成后，班级表现、薄弱知识点与教学建议将在此汇总。</p>
+        </div>
+        <div id="task-result" class="task-result"></div>
         <div id="task-artifacts" class="task-artifacts"></div>
       </section>
 
-      <!-- AI Chat Section -->
-      <section class="card">
-        <div class="card-header">
-          <h2>AI 对话</h2>
-          <p class="card-desc">与教学助手自由交流，获取备课建议与知识解答</p>
+      <!-- 教学方案 -->
+      <section id="lesson" class="panel">
+        <div class="panel-head">
+          <h2>教学方案</h2>
+          <p class="panel-desc">提交教案类任务后，结构化教案（教学目标 · 重难点 · 教学过程）将作为成果输出。</p>
         </div>
-        <div class="chat-container">
-          <div id="chat-reply" class="chat-reply empty">
-            <span class="chat-placeholder">💬 在下方输入问题，开始与 AI 助手对话</span>
-          </div>
-          <div class="chat-input-row">
-            <textarea id="chat-input" class="chat-input" placeholder="请输入教学相关问题…" rows="2"></textarea>
-            <button id="chat-send" class="btn btn-primary">发送</button>
-          </div>
-          <div id="chat-status" class="chat-status muted"></div>
+        <div class="empty-state">
+          <span class="empty-icon">◫</span>
+          <p>尚无教学方案产出 · 请在「智能任务」中提交教案生成任务</p>
         </div>
       </section>
-    </div>
 
-    <!-- Right / Sidebar Column -->
-    <div class="col-sidebar">
-      <!-- System Status Detail -->
-      <section class="card">
-        <div class="card-header">
-          <h2>系统状态</h2>
-        </div>
-        <div id="status-detail" class="status-detail">
-          <div class="status-row">
-            <span class="status-label">服务</span>
-            <span id="status-service" class="status-value">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">版本</span>
-            <span id="status-version" class="status-value">—</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">连接</span>
-            <span id="status-conn" class="status-value">检测中</span>
+      <!-- Agent 协作网络 -->
+      <section id="a2a" class="panel">
+        <div class="panel-head">
+          <h2>Agent 协作</h2>
+          <p class="panel-desc">EduMate 不是孤立的模型，而是可以互联的智能体。</p>
+          <div class="a2a-status" id="a2a-status" data-state="idle">
+            <span class="a2a-status-dot"></span>
+            <span class="a2a-status-text" id="a2a-status-text">能力展示 · 提交学情分析任务后实时联动</span>
           </div>
         </div>
-        <!-- Hidden raw JSON for debugging, not displayed by default -->
-        <details class="status-debug">
-          <summary>原始数据</summary>
-          <pre id="status-json" class="status-json"></pre>
-        </details>
-      </section>
 
-      <!-- Agent Capabilities -->
-      <section class="card">
-        <div class="card-header">
-          <h2>Agent 能力</h2>
+        <div class="agent-network">
+          <div class="net-node net-leader">
+            <span class="net-node-icon">🧠</span>
+            <div class="net-node-body"><strong>EduMate</strong><small>Leader Agent</small></div>
+          </div>
+          <div class="net-connector"><span class="net-link-label">Discovery</span></div>
+          <div class="net-row">
+            <div class="net-node">
+              <span class="net-node-icon">📐</span>
+              <div class="net-node-body"><strong>数学教学</strong><small>出卷 · 教案</small></div>
+            </div>
+            <div class="net-node">
+              <span class="net-node-icon">📊</span>
+              <div class="net-node-body"><strong>学情分析</strong><small>诊断 · 报告</small></div>
+            </div>
+          </div>
+          <div class="net-connector"><span class="net-link-label">TaskResult</span></div>
+          <div class="net-node net-result">
+            <span class="net-node-icon">✅</span>
+            <div class="net-node-body"><strong>任务成果</strong><small>试卷 · 报告 · 教案</small></div>
+          </div>
         </div>
-        <ul class="capability-list">
-          <li class="capability-item"><span class="cap-icon">📝</span><span>智能出卷 &amp; 答题卡生成</span></li>
-          <li class="capability-item"><span class="cap-icon">📊</span><span>成绩分析 &amp; 学情诊断</span></li>
-          <li class="capability-item"><span class="cap-icon">📋</span><span>教案自动生成</span></li>
-          <li class="capability-item"><span class="cap-icon">🔍</span><span>知识点检索 &amp; 关联</span></li>
-          <li class="capability-item"><span class="cap-icon">📄</span><span>多格式文档预览下载</span></li>
-        </ul>
+        <p class="a2a-note">上图为可协作能力示意；真实连接状态见上方实时徽标。学情诊断可调用外部 Agent，失败时自动回退本地，不影响任务完成。</p>
       </section>
 
-      <!-- Product Intro -->
-      <section class="card">
-        <div class="card-header">
-          <h2>关于产品</h2>
+      <!-- 任务记录（无真实历史数据 → 空态） -->
+      <section id="history" class="panel">
+        <div class="panel-head">
+          <h2>任务记录</h2>
+          <p class="panel-desc">历史任务将在此沉淀。</p>
         </div>
-        <p class="about-text">面向教师的 AI 教学任务执行者：自然语言下达教学任务，Agent 自动编排文档工具，产出试卷、答题卡、学情报告等可直接使用的教学文档。</p>
+        <div class="empty-state">
+          <span class="empty-icon">◌</span>
+          <p>暂无历史任务 · 完成一次任务后即可在此查看</p>
+        </div>
       </section>
-    </div>
-  </main>
 
-  <!-- Preview Modal -->
+      <!-- 设置 / 系统 + AI 对话 -->
+      <section id="settings" class="panel">
+        <div class="panel-head">
+          <h2>设置</h2>
+          <p class="panel-desc">系统信息与 AI 助手调试。</p>
+        </div>
+
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-head"><h3>系统信息</h3></div>
+            <div class="status-list">
+              <div class="status-list-item">
+                <span class="status-list-label">服务</span>
+                <span class="status-list-value">EduAgent</span>
+              </div>
+              <div class="status-list-item">
+                <span class="status-list-label">定位</span>
+                <span class="status-list-value">AI 教学任务自动化智能体</span>
+              </div>
+              <div class="status-list-item">
+                <span class="status-list-label">能力</span>
+                <span class="status-list-value">出卷 · 学情分析 · 教案 · Agent 协作</span>
+              </div>
+            </div>
+            <pre id="status-json" class="status-json hidden"></pre>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>AI 对话</h3></div>
+            <div class="chat-container">
+              <div id="chat-reply" class="chat-reply empty">
+                <span class="chat-placeholder">💬 在下方输入问题，开始与 AI 助手对话</span>
+              </div>
+              <div class="chat-input-row">
+                <textarea id="chat-input" class="chat-input" placeholder="请输入教学相关问题…" rows="2"></textarea>
+                <button id="chat-send" class="btn-primary">发送</button>
+              </div>
+              <div id="chat-status" class="chat-status muted"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="main-footer">
+        <span>智教助手 EduMate · AI 教学任务自动化智能体</span>
+        <span class="main-footer-sep">·</span>
+        <span>第八届全球校园人工智能算法精英大赛 · 智能体互联赛道</span>
+      </footer>
+    </main>
+
+    <!-- ===== 右侧信息栏 ===== -->
+    <aside class="right-panel">
+      <div class="rp-card">
+        <h3 class="rp-card-title">系统状态</h3>
+        <div class="rp-row">
+          <span class="rp-label">EduAgent 服务</span>
+          <span class="rp-value"><span class="rp-dot" id="rp-health-dot"></span><span id="rp-health-text">检测中…</span></span>
+        </div>
+        <div class="rp-row">
+          <span class="rp-label">Agent 协作</span>
+          <span class="rp-value"><span class="rp-dot" id="rp-a2a-dot"></span><span id="rp-a2a-text">待命</span></span>
+        </div>
+      </div>
+
+      <div class="rp-card">
+        <h3 class="rp-card-title">当前任务</h3>
+        <p class="rp-task" id="rp-task">暂无进行中的任务</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== 预览弹窗 ===== -->
   <div id="preview-modal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-dialog">
