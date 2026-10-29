@@ -16,6 +16,7 @@ from config import settings
 from interop.aip_server import create_aip_router
 from interop.config import load_acp_settings
 from logging_config import get_logger, setup_logging
+from interop.amp_integration import start_heartbeat, stop_heartbeat, init_access_emitter
 
 setup_logging()
 log = get_logger("main")
@@ -23,10 +24,23 @@ log = get_logger("main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用启动阶段：校验种子数据，任一缺失或非法即中止启动（fail-fast）。"""
+    """应用启动阶段：校验种子数据 + 启动 AMP 可观测性。"""
     log.info(loader.validate_seed())
+    # ── AMP 心跳 + Access 日志初始化 ──
+    acp_settings = load_acp_settings()
+    amp_aic = acp_settings.aic or ""
+    if amp_aic:
+        try:
+            init_access_emitter(amp_aic)
+            await start_heartbeat(amp_aic)
+        except Exception:
+            log.exception("AMP initialization failed (non-fatal)")
+    else:
+        log.warning("No AIC configured; AMP heartbeat/access logging disabled")
     log.info("EduAgent 启动完成：service=%s frontend=%s", settings.SERVICE_NAME, FRONTEND_DIR)
     yield
+    # ── AMP 关闭 ──
+    await stop_heartbeat()
 
 
 app = FastAPI(title=settings.SERVICE_NAME, lifespan=lifespan)

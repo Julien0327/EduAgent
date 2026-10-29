@@ -18,6 +18,8 @@ mTLS / 身份认证已完成；待取得平台 AIC 与 mTLS 证书后，在部�
 """
 from __future__ import annotations
 
+import time as _time
+
 import asyncio
 import uuid
 from typing import Any
@@ -167,12 +169,61 @@ def create_aip_router(settings: AcpSettings) -> APIRouter:
 
     @router.post("/rpc", response_model=RpcResponse)
     async def rpc(request: Request):
-        return await handle_rpc_request(
-            request,
-            handlers,
-            local_aic=local_aic,
-            identity_binding_enabled=identity_binding,
-        )
+        # ── AMP Access 日志：记录 RPC 调用 ──
+        _t0 = _time.monotonic()
+        _caller_aic = getattr(request.state, "peer_aic", None)
+        _req_body_size = int(request.headers.get("content-length", 0)) or None
+        _task_id_for_amp = None
+        _error_msg = None
+        _error_code = None
+        _status_code = 200
+        try:
+            # 预读 body 并缓存，供后续 SDK handle_rpc_request 使用
+            _body_bytes = await request.body()
+            # 从已缓存的 body 提取 taskId
+            try:
+                import json as _json
+                _parsed = _json.loads(_body_bytes)
+                _params = _parsed.get("params", {})
+                _cmd = _params.get("command", {})
+                _task_id_for_amp = _cmd.get("taskId")
+            except Exception:
+                pass
+            response = await handle_rpc_request(
+                request,
+                handlers,
+                local_aic=local_aic,
+                identity_binding_enabled=identity_binding,
+            )
+            # 检查 JSON-RPC error
+            if hasattr(response, "error") and response.error is not None:
+                _error_msg = str(getattr(response.error, "message", ""))
+                _error_code = getattr(response.error, "code", None)
+            return response
+        except Exception as exc:
+            _error_msg = str(exc)
+            _error_code = -32603
+            _status_code = 500
+            raise
+        finally:
+            _duration_ms = round((_time.monotonic() - _t0) * 1000, 2)
+            try:
+                from interop.amp_integration import emit_access_log
+                emit_access_log(
+                    method="POST",
+                    url=str(request.url),
+                    route="/rpc",
+                    status_code=_status_code,
+                    duration_ms=_duration_ms,
+                    caller_aic=_caller_aic,
+                    callee_aic=local_aic,
+                    request_body_size=_req_body_size,
+                    correlation_id=_task_id_for_amp,
+                    error_message=_error_msg,
+                    error_code=_error_code,
+                )
+            except Exception:
+                pass  # AMP 日志失败不影响业务
 
     return router
 
