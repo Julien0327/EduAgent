@@ -172,11 +172,22 @@ def _a2a_diagnose(ctx: TaskContext) -> str:
     a2a_meta = {"enabled": True, "fallback_used": False, "error": None}
     
     try:
+        import os as _os
         _acp = AcpSettings()
         if not _acp.trust_bundle_path:
             raise RuntimeError("A2A skipped: no trust bundle configured")
+        # Use CLIENT cert for outbound Discovery/RPC (not server cert)
+        _client_cert = _os.environ.get("ACP_CLIENT_CERT_PATH", "")
+        _client_key = _os.environ.get("ACP_CLIENT_KEY_PATH", "")
+        if not _client_cert or not _client_key:
+            # Fallback to ACP_CERT_PATH/ACP_KEY_PATH if client-specific vars not set
+            _client_cert = str(_acp.cert_path) if _acp.cert_path else ""
+            _client_key = str(_acp.key_path) if _acp.key_path else ""
+        if not _client_cert or not _client_key:
+            raise RuntimeError("A2A skipped: no client cert/key configured")
         _verify = str(_acp.trust_bundle_path)
-        result = orchestrate_sync(query, timeout=5.0, verify=_verify)
+        _cert = (_client_cert, _client_key)
+        result = orchestrate_sync(query, timeout=5.0, verify=_verify, cert=_cert)
         task_id = result.get("taskId", "")
         status = result.get("status", "")
         products_text = result.get("products_text", "")

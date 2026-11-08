@@ -22,6 +22,7 @@ async def call_agent(
     task_id: Optional[str] = None,
     timeout: float = 60.0,
     ca_bundle: Optional[str] = None,
+    use_mtls: bool = True,
 ) -> TaskResult:
     """Send a task-command to an external Agent and return the TaskResult.
     Args:
@@ -46,16 +47,43 @@ async def call_agent(
         expected_partner_aic=expected_partner_aic,
         leader_id=leader_id,
         ca_bundle=ca_bundle,
+        use_mtls=use_mtls,
     )
     try:
         logger.info(
             "Calling agent: partner=%s session=%s input=%.80s...",
             client.partner_url, sid, user_input,
         )
-        result: TaskResult = await asyncio.wait_for(
-            client.start_task(session_id=sid, user_input=user_input, task_id=task_id),
-            timeout=timeout,
-        )
+        try:
+            result: TaskResult = await asyncio.wait_for(
+                client.start_task(session_id=sid, user_input=user_input, task_id=task_id),
+                timeout=timeout,
+            )
+        except Exception as ssl_exc:
+            # Auto-fallback: if mTLS fails (e.g. WRONG_VERSION_NUMBER), retry via HTTP
+            err_msg = str(ssl_exc).lower()
+            is_ssl_fail = "wrong_version_number" in err_msg or "ssl" in err_msg
+            url_is_https = client.partner_url.startswith("https://")
+            if is_ssl_fail and url_is_https and use_mtls:
+                http_url = client.partner_url.replace("https://", "http://", 1)
+                logger.warning(
+                    "mTLS failed (%s), falling back to HTTP: %s",
+                    type(ssl_exc).__name__, http_url,
+                )
+                await client.close()
+                client = create_rpc_client(
+                    partner_url=http_url,
+                    expected_partner_aic=expected_partner_aic,
+                    leader_id=leader_id,
+                    ca_bundle=ca_bundle,
+                    use_mtls=False,
+                )
+                result = await asyncio.wait_for(
+                    client.start_task(session_id=sid, user_input=user_input, task_id=task_id),
+                    timeout=timeout,
+                )
+            else:
+                raise
         logger.info(
             "Task completed: task_id=%s status=%s products_count=%d",
             result.taskId,

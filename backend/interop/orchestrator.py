@@ -34,54 +34,99 @@ def _is_valid_aic(aic: str) -> bool:
     return bool(aic) and bool(_AIC_RE.match(aic))
 
 
-def _extract_endpoint(acs: dict[str, Any]) -> Optional[str]:
-    """Extract HTTPS endpoint from ACS (Agent Capability Statement).
-    Checks top-level fields first, then endPoints array (ADP v2 format).
-    Endpoint must start with https://.
+def _extract_endpoint(acs: dict[str, Any]) -> Optional[tuple[str, bool]]:
+    """Extract RPC endpoint from ACS (Agent Capability Statement).
+    Returns (url, is_https) tuple.
+    Priority: HTTPS+JSONRPC > HTTPS > HTTP+JSONRPC > HTTP.
+    Falls back to HTTP for demo environments where agents register https://
+    but serve plain HTTP.
     """
+    candidates: list[tuple[str, bool, int]] = []  # (url, is_https, priority)
     # Top-level fields (legacy/simple format)
     for key in ("rpcEndpoint", "endpoint", "url"):
         val = acs.get(key)
-        if isinstance(val, str) and val.startswith("https://"):
-            return val.rstrip("/")
+        if isinstance(val, str):
+            if val.startswith("https://"):
+                candidates.append((val.rstrip("/"), True, 0))
+            elif val.startswith("http://"):
+                candidates.append((val.rstrip("/"), False, 2))
     # ADP v2: endPoints array with {url, transport, security}
     endpoints = acs.get("endPoints")
     if isinstance(endpoints, list):
         for ep in endpoints:
             if isinstance(ep, dict):
                 url = ep.get("url")
-                if isinstance(url, str) and url.startswith("https://"):
-                    return url.rstrip("/")
-    return None
+                if not isinstance(url, str):
+                    continue
+                transport = (ep.get("transport") or "").upper()
+                is_jsonrpc = transport == "JSONRPC"
+                if url.startswith("https://"):
+                    prio = 0 if is_jsonrpc else 1
+                    candidates.append((url.rstrip("/"), True, prio))
+                elif url.startswith("http://"):
+                    prio = 2 if is_jsonrpc else 3
+                    candidates.append((url.rstrip("/"), False, prio))
+    if not candidates:
+        return None
+    # Sort by priority (lower = better), return best
+    candidates.sort(key=lambda c: c[2])
+    best_url, best_https, _ = candidates[0]
+    return (best_url, best_https)
 
 
 def select_candidate(
-    agents: list[tuple[str, dict[str, Any], str]],
-) -> Optional[tuple[str, str]]:
-    """Select first compliant Agent from discovery results.
-
-    Compliance criteria (identity-binding safe):
-    - Valid 10-segment AIC
-    - HTTPS endpoint present in ACS
-
+    agents: list[tuple[str, dict[str, Any], str, str]],
+) -> Optional[tuple[str, str, bool]]:
+    """Select best compliant Agent from discovery results.
+    Prefers education-domain agents (skillId starts with 'edu.') over others.
+    Excludes self (own AIC).
     Returns:
-        (aic, endpoint) tuple, or None if no compliant candidate.
+        (aic, endpoint, is_https) tuple, or None if no compliant candidate.
     """
-    for aic, acs, group in agents:
+    from backend.config import settings as _settings
+    own_aic = getattr(_settings, "ACP_AIC", "")
+    valid: list[tuple[str, str, bool, str, bool]] = []
+    for item in agents:
+        aic, acs, group = item[0], item[1], item[2]
+        skill_id = item[3] if len(item) > 3 else ""
         if not _is_valid_aic(aic):
             logger.debug("Skipping invalid AIC: %s", aic)
             continue
-        endpoint = _extract_endpoint(acs)
-        if not endpoint:
-            logger.debug("Skipping agent %s: no HTTPS endpoint", aic)
+        if aic == own_aic:
+            logger.debug("Skipping self AIC: %s", aic)
             continue
-        logger.info(
-            "Selected candidate: aic=%s endpoint=%s group=%s",
-            aic, endpoint, group,
+        ep_result = _extract_endpoint(acs)
+        if not ep_result:
+            logger.debug("Skipping agent %s: no endpoint", aic)
+            continue
+        endpoint, is_https = ep_result
+        is_edu = skill_id.startswith("edu.")
+        valid.append((aic, endpoint, is_https, skill_id, is_edu))
+    if not valid:
+        return None
+    # Sort: edu diagnosis/weakness skills first, then other edu, then non-edu; HTTPS preferred
+    def _sort_key(v):
+        aic, endpoint, is_https, skill_id, is_edu = v
+        sid_lower = skill_id.lower()
+        if is_edu and ("diagnosis" in sid_lower or "weakness" in sid_lower or "mastery" in sid_lower):
+            skill_prio = 0
+        elif is_edu:
+            skill_prio = 1
+        else:
+            skill_prio = 2
+        return (skill_prio, not is_https)
+    valid.sort(key=_sort_key)
+    aic, endpoint, is_https, skill_id, is_edu = valid[0]
+    if not is_https:
+        logger.warning(
+            "Agent (%s) uses HTTP endpoint (demo降级): %s",
+            aic, endpoint,
         )
-        return (aic, endpoint)
-    return None
-
+    logger.info(
+        "Selected candidate: aic=%s endpoint=%s https=%s skill=%s edu=%s",
+        aic, endpoint, is_https, skill_id, is_edu,
+    )
+    return (aic, endpoint, is_https)
 
 async def orchestrate(
     query: str,
@@ -129,9 +174,9 @@ async def orchestrate(
     if selected is None:
         raise ValueError(
             "No compliant Agent found in discovery results. "
-            "All candidates failed AIC validation or lacked HTTPS endpoint."
+            "All candidates failed AIC validation or lacked any endpoint."
         )
-    partner_aic, partner_url = selected
+    partner_aic, partner_url, is_https = selected
 
     # Step 3: RPC call
     logger.info("Calling selected agent: aic=%s url=%s", partner_aic, partner_url)
@@ -144,6 +189,7 @@ async def orchestrate(
         leader_id=lid,
         timeout=timeout,
         ca_bundle=rpc_ca_bundle,
+        use_mtls=is_https,
     )
 
     # Step 4: Parse & return

@@ -13,6 +13,7 @@ from typing import Optional
 from acps_sdk.aip.aip_rpc_client import AipRpcClient
 
 from backend.config import settings
+from backend.interop.config import AcpSettings
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ def create_rpc_client(
     expected_partner_aic: Optional[str] = None,
     leader_id: Optional[str] = None,
     ca_bundle: Optional[str] = None,
+    use_mtls: bool = True,
 ) -> AipRpcClient:
     """Create a configured AipRpcClient instance with mTLS + identity binding.
 
@@ -67,27 +69,49 @@ def create_rpc_client(
     partner_aic = expected_partner_aic or settings.ACP_EXPECTED_PARTNER_AIC
     lid = leader_id or settings.ACP_LEADER_ID
 
+    # Resolve client cert/key: prefer explicit Settings env vars,
+    # fallback to AcpSettings (ACP_CERT_PATH / ACP_KEY_PATH) for production.
     cert_path = Path(settings.ACP_CLIENT_CERT_PATH)
     key_path = Path(settings.ACP_CLIENT_KEY_PATH)
+    _acp = AcpSettings()
+    if not cert_path.exists() and _acp.cert_path and _acp.cert_path.exists():
+        logger.info("Falling back to AcpSettings cert: %s", _acp.cert_path)
+        cert_path = _acp.cert_path
+    if not key_path.exists() and _acp.key_path and _acp.key_path.exists():
+        logger.info("Falling back to AcpSettings key: %s", _acp.key_path)
+        key_path = _acp.key_path
 
     if not cert_path.exists():
         raise FileNotFoundError(f"Client cert not found: {cert_path}")
     if not key_path.exists():
         raise FileNotFoundError(f"Client key not found: {key_path}")
 
-    ssl_ctx = _build_mtls_ssl_context(str(cert_path), str(key_path), ca_bundle=ca_bundle)
-
-    client = AipRpcClient(
-        partner_url=url,
-        leader_id=lid,
-        ssl_context=ssl_ctx,
-        caller_service=settings.SERVICE_NAME,
-        expected_partner_aic=partner_aic,
-        identity_binding_enabled=bool(partner_aic),
-    )
-
-    logger.info(
-        "AipRpcClient created: partner=%s leader=%s identity_binding=%s",
-        url, lid, bool(partner_aic),
-    )
+    if use_mtls:
+        ssl_ctx = _build_mtls_ssl_context(str(cert_path), str(key_path), ca_bundle=ca_bundle)
+        client = AipRpcClient(
+            partner_url=url,
+            leader_id=lid,
+            ssl_context=ssl_ctx,
+            caller_service=settings.SERVICE_NAME,
+            expected_partner_aic=partner_aic,
+            identity_binding_enabled=bool(partner_aic),
+        )
+        logger.info(
+            "AipRpcClient created (mTLS): partner=%s leader=%s identity_binding=%s",
+            url, lid, bool(partner_aic),
+        )
+    else:
+        # HTTP mode: no TLS, no identity binding (demo environment fallback)
+        client = AipRpcClient(
+            partner_url=url,
+            leader_id=lid,
+            ssl_context=None,
+            caller_service=settings.SERVICE_NAME,
+            expected_partner_aic=partner_aic,
+            identity_binding_enabled=False,
+        )
+        logger.warning(
+            "AipRpcClient created (HTTP demo降级): partner=%s leader=%s identity_binding=False",
+            url, lid,
+        )
     return client
