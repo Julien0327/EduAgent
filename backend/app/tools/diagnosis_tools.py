@@ -5,8 +5,8 @@ report_pdf.create_report_pdf 的 diagnosis 参数保持一致（不修改 D2）�
 """
 from pydantic import BaseModel, Field
 
-from app.agent.llm_utils import structured_completion
-from app.tools.registry import tool
+from backend.app.agent.llm_utils import structured_completion
+from backend.app.tools.registry import tool
 
 
 class GenerateDiagnosisParams(BaseModel):

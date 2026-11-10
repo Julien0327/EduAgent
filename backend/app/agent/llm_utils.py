@@ -18,8 +18,8 @@ from typing import Type
 
 from pydantic import BaseModel, ValidationError
 
-from app.agent.llm_client import LLMError, get_llm_service
-from logging_config import get_logger
+from backend.app.agent.llm_client import LLMError, get_llm_service
+from backend.logging_config import get_logger
 
 _log = get_logger("app.agent.llm_utils")
 

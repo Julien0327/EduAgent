@@ -5,7 +5,7 @@
 序列（避免自由 ReAct 的跑飞 / 死循环风险）。LLM 工具内部的传输重试与结构化
 校验重试已由 llm_utils.structured_completion 承担。
 """
-from app.tools.registry import registry
+from backend.app.tools.registry import registry
 
 
 class ToolError(Exception):

@@ -3,8 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.knowledge.loader import load_knowledge_points
-from app.tools.registry import tool
+from backend.app.knowledge.loader import load_knowledge_points
+from backend.app.tools.registry import tool
 
 
 class SearchKnowledgePointsParams(BaseModel):

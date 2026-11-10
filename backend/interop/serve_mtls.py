@@ -1,7 +1,9 @@
 """AIP mTLS 专用 Uvicorn 启动入口（0.0.0.0:9443，Uvicorn 直连 TLS/mTLS）。
 
 仅用于 edumate-aip.service；业务 edumate.service 仍走
-`uvicorn main:app --host 127.0.0.1 --port 8000`，不进入本入口。
+`.venv/bin/uvicorn backend.main:app --app-dir . --host 127.0.0.1 --port 8000`
+（Phase 0/I1 统一 backend.* 导入，仓库根为 sys.path 根），不进入本入口。
+本入口启动方式：.venv/bin/python -m backend.interop.serve_mtls（在仓库根目录执行）。
 
 对齐官方 acps-sdk 2.2.0 的集成测试实现（tests/integration/_tls_test_utils.py）：
 - http = AipPeerCertH11Protocol：从 TLS socket 提取对端证书写入 PeerCertificateRegistry，
@@ -17,7 +19,7 @@ import ssl
 import uvicorn
 
 from acps_sdk.aip.aip_peer_cert import AipPeerCertH11Protocol
-from interop.config import AcpSettings, load_acp_settings
+from backend.interop.config import AcpSettings, load_acp_settings
 
 
 def _build_server_ssl_context(settings: AcpSettings) -> ssl.SSLContext:
@@ -45,7 +47,7 @@ def main() -> None:
             "serve_mtls 仅用于 AIP mTLS 进程：请设置 ACP_ENABLED=true 且 ACP_MTLS_SERVER=true。"
         )
 
-    from main import app  # 复用业务 FastAPI app（含 AIP /rpc 路由）
+    from backend.main import app  # 复用业务 FastAPI app（含 AIP /rpc 路由）
 
     config = uvicorn.Config(
         app=app,

@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-import app.agent.llm_utils as llm_utils
-import app.agent.workflow as wf
-from app.agent import planner
-from app.agent.llm_client import LLMError, LLMResponse
+import backend.app.agent.llm_utils as llm_utils
+import backend.app.agent.workflow as wf
+from backend.app.agent import planner
+from backend.app.agent.llm_client import LLMError, LLMResponse
 
 
 class FakeLLM:
@@ -156,11 +156,11 @@ def test_planner_fallback_on_llm_failure(monkeypatch):
 
 @pytest.fixture
 def fake_settings(monkeypatch):
-    monkeypatch.setattr("config.settings.DEEPSEEK_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr("backend.config.settings.DEEPSEEK_API_KEY", "test-key", raising=False)
 
 
 def test_create_task_ok(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
     res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
@@ -178,8 +178,8 @@ def test_create_task_ok(use_fake_llm, fake_settings):
 
 def test_task_events_stream(use_fake_llm, fake_settings):
     """SSE 事件流：hello 快照 → step/artifact/status → done。"""
-    from app.api import tasks
-    from app.agent.context import task_store
+    from backend.app.api import tasks
+    from backend.app.agent.context import task_store
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
     res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
@@ -204,7 +204,7 @@ def test_task_events_stream(use_fake_llm, fake_settings):
 
 
 def test_create_task_empty_prompt(fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
 
     with pytest.raises(HTTPException) as exc:
         tasks.create_task(tasks.TaskRequest(prompt="   "))
@@ -212,7 +212,7 @@ def test_create_task_empty_prompt(fake_settings):
 
 
 def test_get_task_not_found(fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
 
     with pytest.raises(HTTPException) as exc:
         tasks.get_task("no-such-task")
@@ -231,7 +231,7 @@ def _wait_completed(tasks, task_id):
 
 
 def test_download_file(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
     from fastapi.responses import FileResponse
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
@@ -246,7 +246,7 @@ def test_download_file(use_fake_llm, fake_settings):
 
 
 def test_download_file_not_found(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
     res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
@@ -257,7 +257,7 @@ def test_download_file_not_found(use_fake_llm, fake_settings):
 
 
 def test_preview_exam_and_answer_sheet(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
     from fastapi.responses import HTMLResponse
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
@@ -274,7 +274,7 @@ def test_preview_exam_and_answer_sheet(use_fake_llm, fake_settings):
 
 
 def test_preview_lesson(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
     from fastapi.responses import HTMLResponse
 
     use_fake_llm([_plan_resp("lesson_plan"), _lesson_resp()])
@@ -289,7 +289,7 @@ def test_preview_lesson(use_fake_llm, fake_settings):
 
 
 def test_preview_unknown_kind(use_fake_llm, fake_settings):
-    from app.api import tasks
+    from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
     res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))

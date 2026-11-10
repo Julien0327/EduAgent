@@ -1,7 +1,7 @@
 """健康检查接口。"""
 from fastapi import APIRouter
 
-from config import settings
+from backend.config import settings
 
 router = APIRouter(prefix="/api", tags=["health"])
 

@@ -10,8 +10,8 @@ import asyncio
 import httpx
 from fastapi import FastAPI
 
-from interop.aip_server import create_aip_router
-from interop.config import AcpSettings
+from backend.interop.aip_server import create_aip_router
+from backend.interop.config import AcpSettings
 
 
 def test_sdk_importable():
@@ -128,7 +128,7 @@ def test_rpc_passes_local_aic_when_identity_binding_resolved(monkeypatch):
 
 def test_acs_validates_with_official_sdk():
     """现有 acs_builder 产物通过官方 AgentCapabilitySpec 校验（一致性证据）。"""
-    from interop.acs_builder import build_acs, try_validate_with_sdk
+    from backend.interop.acs_builder import build_acs, try_validate_with_sdk
 
     acs = build_acs(AcpSettings(), aic="1.2.156.3088.1.ABC.XYZ.12345.0000.ABCD")
     ok, msg = try_validate_with_sdk(acs)

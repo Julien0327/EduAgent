@@ -1,10 +1,10 @@
 """工具单元测试（FakeProvider 离线，不依赖真实 API Key / 网络）。"""
 import pytest
 
-import app.agent.llm_utils as llm_utils
-from app.agent.llm_client import LLMResponse
-from app.tools import registry  # 导入即注册全部工具
-from app.tools.registry import registry as reg
+import backend.app.agent.llm_utils as llm_utils
+from backend.app.agent.llm_client import LLMResponse
+from backend.app.tools import registry  # 导入即注册全部工具
+from backend.app.tools.registry import registry as reg
 
 
 class FakeLLM:

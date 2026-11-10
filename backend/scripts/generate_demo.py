@@ -9,12 +9,12 @@
 import sys
 from pathlib import Path
 
-# 让 app 包可导入（把 backend/ 目录加入 sys.path）
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(BACKEND_DIR))
+# 让 backend 包可导入（把仓库根目录加入 sys.path；Phase 0/I1 统一 backend.* 导入）
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
 
-from app.knowledge import loader
-from app.services import (
+from backend.app.knowledge import loader
+from backend.app.services import (
     answer_sheet,
     exam_docx,
     lesson_plan,
@@ -22,7 +22,7 @@ from app.services import (
     report_pdf,
     score_analysis,
 )
-from app.storage import file_store
+from backend.app.storage import file_store
 
 
 def _file_size(path: Path) -> int:

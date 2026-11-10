@@ -1,18 +1,8 @@
 # 智教助手 EduMate（EduAgent）
 
-> iCAN 智慧教育赛道参赛项目 —— 面向教师的「教学任务自动化智能体」。
+> AI 教学任务自动化智能体 —— 用一句自然语言，完成「组卷 → 答题卡 → 学情报告」的完整教学闭环，产出可直接使用的 Word / Excel / PDF 文档。
 
-用一句自然语言，让 AI 智能体自动完成「组卷 → 答题卡 → 学情报告」等完整教学闭环，
-产出可直接使用的 Word / Excel / PDF 文档，并全程可视化每一步的思考与工具调用。
-
-## 项目定位
-
-面向中小学教师的智能教学助手：把「出卷、排版试卷、制作答题卡、批改统计、生成学情报告、
-撰写教案」等重复性教学事务，交给一个由自然语言驱动的 Agent 自动完成。教师只描述需求，
-系统自动规划并执行多步任务，最终交付规范、可用的文档产物，实现「智慧教育 · 减负增效」。
-
-项目采用 **Plan-and-Execute** 架构：**该稳的地方稳**（固定工作流编排，流程不跑飞、现场演示稳定），
-**该灵活的地方灵活**（出题、诊断、教案等单步内容由 LLM 自主生成）。
+面向中小学教师的智能教学助手：把「出卷、排版试卷、制作答题卡、批改统计、生成学情报告、撰写教案」等重复性教学事务，交给一个由自然语言驱动的 Agent 自动完成。教师只描述需求，系统自动规划并执行多步任务，最终交付规范、可用的文档产物。
 
 ## 核心功能
 
@@ -21,7 +11,7 @@
 - **智能组卷**：LLM 实时命制题目。
 - **AI 教案生成**：LLM 生成结构化教案（docx）。
 - **任务可视化**：SSE 流式步骤进度（展示 Agent 的思考与工具调用）+ 产物预览 / 下载。
-- **加固能力**：统一日志（控制台 + 滚动文件）、启动期种子数据校验（fail-fast）、LLM 超时与重试、全局工作流超时。
+- **工程加固**：统一日志（控制台 + 滚动文件）、启动期种子数据校验（fail-fast）、LLM 超时与指数退避重试、全局工作流超时。
 
 ## 技术架构
 
@@ -42,86 +32,56 @@ Agent 引擎（Planner 意图解析 → Workflow 固定编排 → Executor 工�
         内置种子数据（knowledge / questions / demo）+ 产物存储 data/outputs/
 ```
 
-- **后端**：Python + FastAPI + Uvicorn；LLM 用 DeepSeek（OpenAI 兼容 API，官方 SDK）。
+- **Agent 引擎手写**：Plan-and-Execute——该稳的地方稳（固定工作流编排，流程不跑飞），该灵活的地方灵活（出题、诊断、教案等单步内容由 LLM 自主生成）。**零重型框架**：不引入 LangChain / LangGraph / CrewAI。
+- **LLM**：DeepSeek（OpenAI 兼容 API，官方 SDK）；结构化输出用「合成工具调用 + 校验重试」而非裸 JSON。
 - **文档处理**：`python-docx`（试卷 / 教案）、`openpyxl`（答题卡）、`pandas`（成绩统计）、`reportlab`（学情报告 PDF）、`jinja2`（HTML 预览模板）。
-- **前端**：原生三件套 + `marked`（Markdown）+ `KaTeX`（公式）+ `DOMPurify`（安全渲染）。
-- **零重型框架**：不引入 LangChain / LangGraph / CrewAI，Agent 引擎手写，依赖见 `requirements.txt`。
-
-## 项目目录结构
-
-```
-EduAgent/
-├── README.md
-├── .env.example                 # 环境变量样例（勿提交真实密钥）
-├── .gitignore
-├── requirements.txt
-├── docs/
-│   ├── 产品设计方案.md
-│   ├── 技术方案.md
-│   └── Demo演练手册.md          # 3 分钟演示 runbook
-├── backend/
-│   ├── main.py                  # FastAPI 入口 + 静态挂载 + 启动 seed 校验
-│   ├── config.py                # 环境变量集中读取
-│   ├── logging_config.py        # 日志系统（D5：控制台 + 滚动文件）
-│   ├── app/
-│   │   ├── api/                 # chat.py / health.py / tasks.py
-│   │   ├── agent/               # planner / workflow / executor / llm_client / llm_utils / context
-│   │   ├── tools/               # registry + 3 个 LLM 工具（知识点检索 / 出题 / 诊断）
-│   │   ├── services/            # 5 个文档服务 + preview（HTML 预览）
-│   │   ├── knowledge/           # loader.py（seed 加载 + validate_seed 校验）
-│   │   ├── storage/             # file_store.py（产物路径管理）
-│   │   └── templates/           # Jinja2 HTML 预览模板
-│   ├── scripts/
-│   │   ├── generate_demo.py     # 确定性文档服务演示（无需 API Key）
-│   │   └── run_agent_demo.py    # Agent 端到端演示（需 API Key）
-│   └── tests/                   # test_tools / test_workflow / test_logging / test_seed_validation
-├── data/                        # 种子数据（只读）
-│   ├── knowledge/knowledge_points.json   # 7 个知识点
-│   ├── questions/question_bank.json      # 10 道题，共 100 分
-│   └── demo/student_answers.json         # 20 名学生预置答题
-└── frontend/                    # 原生前端三件套 + vendor（marked / KaTeX / DOMPurify）
-```
+- **智能体互联适配层（可选）**：`backend/interop/` 实现 ACPs 协议（AIP Partner `/rpc`、ACS 能力声明、AMP 心跳与访问日志），对接梧桐平台；官方 `acps-sdk` 为可选依赖，未安装 / 未开启（`ACP_ENABLED` 默认关闭）不影响业务运行。
 
 ## 快速开始
 
-> 说明：以下命令以 Windows 为例；macOS / Linux 将 `.venv\Scripts` 换成 `.venv/bin`。
+### 方式一：本地运行
 
-### 1. 安装依赖
+> 以下以 Windows 为例；macOS / Linux 将 `.venv\Scripts` 换成 `.venv/bin`。
 
 ```bash
+# 1. 安装依赖
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-```
 
-### 2. 配置环境变量
-
-```bash
+# 2. 配置环境变量（必填 DEEPSEEK_API_KEY，仅从环境变量读取，绝不写入代码）
 copy .env.example .env
-```
 
-编辑 `.env`，**必填** `DEEPSEEK_API_KEY`（仅从环境变量读取，绝不要写入代码或提交到仓库），其余按需调整。
-
-### 3. 启动
-
-```bash
-.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+# 3. 启动（在仓库根目录执行）
+.venv\Scripts\python.exe -m uvicorn backend.main:app --app-dir . --host 127.0.0.1 --port 8000
 ```
 
 启动时会校验种子数据（缺失 / 非法即中止启动）。打开浏览器访问 http://127.0.0.1:8000 使用前端。
 
-### 4. 运行测试
+### 方式二：Docker 一键启动
 
 ```bash
-.venv\Scripts\python.exe -m pytest backend\tests\ -q
+# 1. 准备环境变量（同上）
+copy .env.example .env
+
+# 2. 构建并启动
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-### 5. Demo 脚本
+数据卷：`data/db`（数据库，Phase 1 起使用）与 `data/outputs`（任务产物）挂载到宿主机，容器重建不丢数据。健康检查：容器内定期访问 `/api/health`。
+
+## 运行测试
 
 ```bash
-# 确定性文档服务演示（D2，无需 API Key）
+.venv\Scripts\python.exe -m pytest        # 收集 backend/tests，当前 98 个用例
+```
+
+演示脚本（可选）：
+
+```bash
+# 确定性文档服务演示（无需 API Key）
 .venv\Scripts\python.exe backend\scripts\generate_demo.py
 
-# Agent 端到端演示（D3，需 DEEPSEEK_API_KEY）
+# Agent 端到端演示（需 DEEPSEEK_API_KEY）
 .venv\Scripts\python.exe backend\scripts\run_agent_demo.py "请对《一元二次方程》做章节小测并生成学情报告"
 ```
 
@@ -137,18 +97,43 @@ copy .env.example .env
 | GET | `/api/tasks/{id}/files/{file_name}` | 下载产物（`?inline=true` 内联预览） |
 | GET | `/api/tasks/{id}/preview/{kind}` | HTML 预览，`kind` ∈ `exam` / `answer_sheet` / `lesson` |
 
-## 3 分钟 Demo 流程摘要
+## 项目目录结构
 
-| 时间 | 环节 | 操作与看点 |
-|---|---|---|
-| 0:00–0:10 | 开场定位 | 一句话介绍：自然语言驱动的教学任务自动化智能体 |
-| 0:10–1:50 | **主流程 W0**：组卷 → 答题卡 → 学情报告 | 输入「请对《一元二次方程》做章节小测并生成学情报告」，步骤时间线展示 Agent 的思考与工具调用，预览并下载试卷 / 答题卡 / 学情报告 |
-| 1:50–2:30 | 备用彩蛋：AI 教案 | 输入「帮我写一份《一元二次方程》的教案」，生成 Word 教案 |
-| 2:30–3:00 | 收尾升华 | 三大创新点：自然语言 → 多步自动执行 → 产出可用文档，呼应「减负增效」 |
+```
+EduAgent/
+├── README.md
+├── .env.example                 # 环境变量样例（勿提交真实密钥）
+├── pytest.ini                   # 测试入口（收集 backend/tests）
+├── requirements.txt
+├── deploy/                      # Dockerfile + docker-compose.yml（数据卷 data/db、data/outputs）
+├── docs/
+│   ├── 产品设计方案.md           # v2.1：产品定位 / 功能规格 / 里程碑
+│   ├── 技术方案.md               # v2.1：架构 / 数据模型 / RAG / MCP / 安全 / Phase 计划
+│   └── Demo演练手册.md
+├── backend/
+│   ├── main.py                  # FastAPI 入口 + 静态挂载 + 启动 seed 校验
+│   ├── config.py                # 环境变量集中读取（含 CORS 白名单）
+│   ├── logging_config.py        # 日志系统（控制台 + 滚动文件）
+│   ├── app/
+│   │   ├── api/                 # chat.py / health.py / tasks.py
+│   │   ├── agent/               # planner / workflow / executor / llm_client / llm_utils / context
+│   │   ├── tools/               # registry + 3 个 LLM 工具（知识点检索 / 出题 / 诊断）
+│   │   ├── services/            # 5 个文档服务 + preview（HTML 预览）
+│   │   ├── knowledge/           # loader.py（seed 加载 + validate_seed 校验）
+│   │   ├── storage/             # file_store.py（产物路径管理）
+│   │   └── templates/           # Jinja2 HTML 预览模板
+│   ├── interop/                 # ACPs/AIP 智能体互联适配层（可选能力，默认关闭）
+│   ├── scripts/                 # generate_demo.py / run_agent_demo.py
+│   └── tests/                   # 98 个用例（工具 / 工作流 / 日志 / seed / interop）
+├── data/                        # 种子数据（只读）+ 运行产物（outputs/）
+└── frontend/                    # 原生前端三件套 + vendor（marked / KaTeX / DOMPurify）
+```
 
-> 完整分步操作、演示话术与录屏注意事项见 [docs/Demo演练手册.md](docs/Demo演练手册.md)。
+## 设计文档
 
-## 许可证 / 作者
+- [docs/产品设计方案.md](docs/产品设计方案.md)：产品定位、用户与场景、功能规格（F1–F16）、里程碑。
+- [docs/技术方案.md](docs/技术方案.md)：系统架构、数据模型（SQLite 16 表）、三阶段 RAG 检索、MCP 能力开放、API 安全、Phase 0–6 实施计划与验收标准。
 
-- **作者**：EduMate 项目组（iCAN 智慧教育赛道参赛作品）
-- **许可证**：本项目为竞赛参赛作品，暂未指定开源许可证；如需对外开源，请补充 `LICENSE` 文件并选择合适协议（如 MIT）。
+## 许可证
+
+暂未指定开源许可证；如需对外开源，将先完成合规检查并补充 `LICENSE` 文件（如 MIT）。

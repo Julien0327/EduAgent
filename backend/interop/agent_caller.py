@@ -8,8 +8,14 @@ Usage:
 import asyncio
 import logging
 from typing import Optional
-from acps_sdk.aip.aip_rpc_client import AipRpcClient
-from acps_sdk.aip.aip_base_model import TaskResult
+
+try:  # acps-sdk 为可选依赖（AIP 互联，默认关闭）；未安装时保持本模块可导入（Phase 0 降级修复）
+    from acps_sdk.aip.aip_rpc_client import AipRpcClient
+    from acps_sdk.aip.aip_base_model import TaskResult
+except ImportError:  # pragma: no cover —— 最小环境/容器未安装 SDK
+    AipRpcClient = None  # type: ignore[assignment,misc]
+    TaskResult = None  # type: ignore[assignment,misc]
+
 from backend.interop.rpc_client import create_rpc_client
 logger = logging.getLogger(__name__)
 async def call_agent(
@@ -40,6 +46,11 @@ async def call_agent(
         asyncio.TimeoutError: Remote Agent did not respond in time.
         Exception: Network / protocol errors propagated from SDK.
     """
+    if AipRpcClient is None:
+        raise RuntimeError(
+            "官方 acps_sdk 未安装，无法调用外部 Agent（AIP 为可选能力）。"
+            "如需 AIP 互联，请安装 acps-sdk==2.2.0（AtomGit 源/本地 wheel，非 PyPI）"
+        )
     import uuid
     sid = session_id or f"sess-{uuid.uuid4()}"
     client: AipRpcClient = create_rpc_client(

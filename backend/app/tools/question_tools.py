@@ -8,9 +8,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.agent.llm_utils import structured_completion
-from app.knowledge.loader import load_knowledge_points
-from app.tools.registry import tool
+from backend.app.agent.llm_utils import structured_completion
+from backend.app.knowledge.loader import load_knowledge_points
+from backend.app.tools.registry import tool
 
 # 题型权重：解答题分值高于选择/填空
 TYPE_WEIGHT = {"选择题": 1, "填空题": 1, "解答题": 2}

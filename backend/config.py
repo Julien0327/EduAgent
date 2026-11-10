@@ -13,6 +13,15 @@ class Settings:
     HOST: str = os.getenv("APP_HOST", "127.0.0.1")
     PORT: int = int(os.getenv("APP_PORT", "8000"))
 
+    # CORS 白名单（Phase 0/I3）：逗号分隔的允许跨域来源；默认仅本机开发源。
+    ALLOWED_ORIGINS: list[str] = [
+        o.strip()
+        for o in os.getenv(
+            "ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+        ).split(",")
+        if o.strip()
+    ]
+
     # DeepSeek（文本任务，OpenAI 兼容 API）
     DEEPSEEK_API_KEY: str | None = os.getenv("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")

@@ -47,7 +47,7 @@
 ### 步骤 1：启动后端
 
 ```bash
-.venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+.venv\Scripts\python.exe -m uvicorn backend.main:app --app-dir . --host 127.0.0.1 --port 8000
 ```
 
 看到 `种子数据校验通过` 与 `EduAgent 启动完成` 即就绪。

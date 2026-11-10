@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from interop.config import AcpSettings
+from backend.interop.config import AcpSettings
 
 PROTOCOL_VERSION = "02.02"
 

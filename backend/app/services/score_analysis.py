@@ -5,7 +5,7 @@
 """
 import pandas as pd
 
-from app.knowledge import loader
+from backend.app.knowledge import loader
 
 PASS_THRESHOLD = 60       # 及格线（≥60）
 EXCELLENT_THRESHOLD = 85  # 优秀线（≥85）

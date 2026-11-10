@@ -101,7 +101,7 @@ git clone <仓库地址> eduagent && cd eduagent          # 仓库根目录
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env                                  # 填入 DEEPSEEK_API_KEY 与 ACP_* 变量
-uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000   # 业务端口；产物写入 data/outputs/
+uvicorn backend.main:app --app-dir . --host 0.0.0.0 --port 8000   # 业务端口；产物写入 data/outputs/（Phase 0/I1 统一 backend.* 导入）
 # 互联场景：以 mTLS/HTTPS 将 9443 暴露给平台（uvicorn ssl 或反向代理双向认证）
 ```
 

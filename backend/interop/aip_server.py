@@ -8,8 +8,8 @@ Phase 2：本模块从「自写 RPC 解析」切换为「官方 acps_sdk.aip」�
 
 角色定位：EduMate-AIP 作为 AIP Partner（见 docs/AIC_TARGET_ARCHITECTURE.md）。
 
-身份绑定说明：当前接入的官方版本 acps-sdk 2.1.0（PyPI）的 AIP RPC 未提供 identity_binding /
-local_aic 参数（该能力存在于未发布的 2.2.0 源码，本机已核查但未采用）。因此本轮**不宣称**
+身份绑定说明：当前接入的官方版本 acps-sdk 2.2.0（AtomGit 源/本地 wheel，非 PyPI）的 AIP RPC
+未提供 identity_binding / local_aic 参数（截至 2.2.0 核查）。因此本轮**不宣称**
 mTLS / 身份认证已完成；待取得平台 AIC 与 mTLS 证书后，在部署层（uvicorn ssl + 反向代理
 双向认证）接入，属 P1。
 
@@ -27,9 +27,9 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Request
 
-from app.agent.context import STATUS_COMPLETED
-from app.agent.workflow import run_task
-from interop.config import AcpSettings
+from backend.app.agent.context import STATUS_COMPLETED
+from backend.app.agent.workflow import run_task
+from backend.interop.config import AcpSettings
 
 
 def extract_text(command: Any) -> str:
@@ -69,7 +69,7 @@ def _import_sdk() -> tuple:
         )
     except ImportError as exc:  # pragma: no cover —— SDK 未安装
         raise RuntimeError(
-            "官方 acps_sdk 未安装，无法启用 AIP /rpc。请先执行：pip install acps-sdk==2.1.0"
+            "官方 acps_sdk 未安装，无法启用 AIP /rpc。请先安装 acps-sdk==2.2.0（AtomGit 源/本地 wheel，非 PyPI）"
         ) from exc
     return (
         CommandHandlers,
@@ -208,7 +208,7 @@ def create_aip_router(settings: AcpSettings) -> APIRouter:
         finally:
             _duration_ms = round((_time.monotonic() - _t0) * 1000, 2)
             try:
-                from interop.amp_integration import emit_access_log
+                from backend.interop.amp_integration import emit_access_log
                 emit_access_log(
                     method="POST",
                     url=str(request.url),

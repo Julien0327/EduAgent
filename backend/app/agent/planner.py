@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.agent.llm_utils import structured_completion
+from backend.app.agent.llm_utils import structured_completion
 
 
 class PlanParams(BaseModel):

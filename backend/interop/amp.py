@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from interop.models import (
+from backend.interop.models import (
     AccessBody,
     AccessParticipant,
     AccessRequest,

@@ -1,7 +1,7 @@
 """启动期种子数据校验测试（D5 阶段 B）。"""
 import pytest
 
-from app.knowledge import loader
+from backend.app.knowledge import loader
 
 
 def test_validate_seed_pass():

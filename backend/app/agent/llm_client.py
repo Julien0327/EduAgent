@@ -24,8 +24,8 @@ from openai import (
     RateLimitError,
 )
 
-from config import settings
-from logging_config import get_logger
+from backend.config import settings
+from backend.logging_config import get_logger
 
 _log = get_logger("app.agent.llm_client")
 

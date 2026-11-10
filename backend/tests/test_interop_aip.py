@@ -10,10 +10,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-import app.agent.llm_utils as llm_utils
-from app.agent.llm_client import LLMResponse
-from interop.aip_server import create_aip_router, extract_text, reset_tasks
-from interop.config import AcpSettings
+import backend.app.agent.llm_utils as llm_utils
+from backend.app.agent.llm_client import LLMResponse
+from backend.interop.aip_server import create_aip_router, extract_text, reset_tasks
+from backend.interop.config import AcpSettings
 
 
 class FakeLLM:

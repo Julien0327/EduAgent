@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import interop.serve_mtls as serve_mtls
+import backend.interop.serve_mtls as serve_mtls
 from acps_sdk.aip.aip_peer_cert import (
     AipPeerCertH11Protocol,
     AipPeerCertificateMiddleware,
@@ -93,7 +93,7 @@ def _middleware_classes(app):
 
 
 def test_no_middleware_when_acp_disabled(monkeypatch):
-    import main as main_mod
+    import backend.main as main_mod
     monkeypatch.delenv("ACP_ENABLED", raising=False)
     monkeypatch.delenv("ACP_MTLS_SERVER", raising=False)
     importlib.reload(main_mod)
@@ -101,7 +101,7 @@ def test_no_middleware_when_acp_disabled(monkeypatch):
 
 
 def test_no_middleware_when_acp_enabled_without_mtls_server(monkeypatch):
-    import main as main_mod
+    import backend.main as main_mod
     monkeypatch.setenv("ACP_ENABLED", "true")
     monkeypatch.delenv("ACP_MTLS_SERVER", raising=False)
     importlib.reload(main_mod)
@@ -109,7 +109,7 @@ def test_no_middleware_when_acp_enabled_without_mtls_server(monkeypatch):
 
 
 def test_middleware_mounted_when_mtls_server_enabled(monkeypatch):
-    import main as main_mod
+    import backend.main as main_mod
     monkeypatch.setenv("ACP_ENABLED", "true")
     monkeypatch.setenv("ACP_MTLS_SERVER", "true")
     importlib.reload(main_mod)
@@ -119,7 +119,7 @@ def test_middleware_mounted_when_mtls_server_enabled(monkeypatch):
 # ---------- identity_binding_resolved 需 mtls_server ----------
 
 def test_identity_binding_resolved_requires_mtls_server(monkeypatch):
-    from interop.config import AcpSettings
+    from backend.interop.config import AcpSettings
 
     monkeypatch.setenv("ACP_AIC", "1.2.156.3088.1.BUPT.1LW3RI.PLJ4AG.CPXIZB.0559")
     monkeypatch.setenv("ACP_KEY_PATH", "agent-server-key.pem")

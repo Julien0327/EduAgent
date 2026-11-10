@@ -6,8 +6,8 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from interop.aip_server import product_file_uri
-from interop.config import AcpSettings
+from backend.interop.aip_server import product_file_uri
+from backend.interop.config import AcpSettings
 
 
 def test_product_uri_is_absolute_https_url():

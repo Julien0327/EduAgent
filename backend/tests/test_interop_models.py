@@ -8,8 +8,8 @@
 """
 from datetime import datetime, timezone
 
-from interop.acs_builder import build_acs, validate_acs, PROTOCOL_VERSION, SKILLS
-from interop.aic_util import (
+from backend.interop.acs_builder import build_acs, validate_acs, PROTOCOL_VERSION, SKILLS
+from backend.interop.aic_util import (
     AIC_PREFIX,
     base36_encode,
     is_entity_aic,
@@ -17,8 +17,8 @@ from interop.aic_util import (
     parse_aic,
     validate_aic_format,
 )
-from interop.config import AcpSettings
-from interop.models import (
+from backend.interop.config import AcpSettings
+from backend.interop.models import (
     FileDataItem,
     RpcRequest,
     RpcRequestParams,
@@ -126,7 +126,7 @@ def test_build_acs_endpoint_shares_public_base_with_product_uri():
     """ACS 端点与产物下载 URI 使用同一公开基址（同 scheme/host/port）。"""
     from urllib.parse import urlsplit
 
-    from interop.aip_server import product_file_uri
+    from backend.interop.aip_server import product_file_uri
 
     settings = AcpSettings(public_base_url="https://edu.example.com:9443")
     endpoint = urlsplit(build_acs(settings)["endPoints"][0]["url"])

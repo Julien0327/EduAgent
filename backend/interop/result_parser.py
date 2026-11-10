@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from acps_sdk.aip.aip_base_model import TaskResult
+try:  # acps-sdk 为可选依赖（AIP 互联，默认关闭）；未安装时保持本模块可导入（Phase 0 降级修复）
+    from acps_sdk.aip.aip_base_model import TaskResult
+except ImportError:  # pragma: no cover —— 最小环境/容器未安装 SDK
+    TaskResult = None  # type: ignore[assignment,misc]
 
 
 def extract_text_from_data_items(data_items: list[Any] | None) -> str:
@@ -80,6 +83,12 @@ def parse_task_result(result: TaskResult) -> dict[str, Any]:
         - products_text: str (all product texts concatenated)
         - raw: TaskResult (original object for advanced use)
     """
+    if TaskResult is None:
+        raise RuntimeError(
+            "官方 acps_sdk 未安装，无法解析 TaskResult（AIP 为可选能力）。"
+            "如需 AIP 互联，请安装 acps-sdk==2.2.0（AtomGit 源/本地 wheel，非 PyPI）"
+        )
+
     # Status fields
     status_obj = getattr(result, "status", None)
     status_state = getattr(status_obj, "state", None) if status_obj else None

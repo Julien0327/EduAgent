@@ -10,7 +10,10 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from acps_sdk.aip.aip_rpc_client import AipRpcClient
+try:  # acps-sdk 为可选依赖（AIP 互联，默认关闭）；未安装时保持本模块可导入（Phase 0 降级修复）
+    from acps_sdk.aip.aip_rpc_client import AipRpcClient
+except ImportError:  # pragma: no cover —— 最小环境/容器未安装 SDK
+    AipRpcClient = None  # type: ignore[assignment,misc]
 
 from backend.config import settings
 from backend.interop.config import AcpSettings
@@ -59,6 +62,11 @@ def create_rpc_client(
         ValueError: If required config is missing
         FileNotFoundError: If cert/key files don't exist
     """
+    if AipRpcClient is None:
+        raise RuntimeError(
+            "官方 acps_sdk 未安装，无法创建 RPC 客户端（AIP 为可选能力）。"
+            "如需 AIP 互联，请安装 acps-sdk==2.2.0（AtomGit 源/本地 wheel，非 PyPI）"
+        )
     url = partner_url or settings.ACP_PARTNER_URL
     if not url:
         raise ValueError(

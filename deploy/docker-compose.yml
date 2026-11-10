@@ -1,0 +1,22 @@
+# Phase 0/I5：一键起服务
+# 用法（在仓库根目录执行）：docker compose -f deploy/docker-compose.yml up -d --build
+# 环境变量：默认读取仓库根 .env（需先 copy .env.example .env 并填写 DEEPSEEK_API_KEY）
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ../.env
+        required: false # 需要 Docker Compose v2.24+；旧版本请确保 .env 存在后删除本行
+    volumes:
+      - ../data/db:/app/data/db # SQLite 数据库（Phase 1 建表后启用）
+      - ../data/outputs:/app/data/outputs # 任务产物（试卷/答题卡/报告）
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

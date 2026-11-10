@@ -15,18 +15,18 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app.agent.context import (
+from backend.app.agent.context import (
     STATUS_COMPLETED,
     STATUS_FAILED,
     STATUS_RUNNING,
     TaskContext,
     task_store,
 )
-from app.agent.workflow import run_workflow
-from app.services import preview as preview_service
-from app.storage import file_store
-from config import settings
-from logging_config import get_logger
+from backend.app.agent.workflow import run_workflow
+from backend.app.services import preview as preview_service
+from backend.app.storage import file_store
+from backend.config import settings
+from backend.logging_config import get_logger
 
 _log = get_logger("app.api.tasks")
 

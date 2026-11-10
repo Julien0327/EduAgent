@@ -1,7 +1,7 @@
 """日志系统测试（D5 阶段 A）。"""
 import logging
 
-import logging_config as lc
+import backend.logging_config as lc
 
 
 def test_task_logger_binds_task_id(caplog):

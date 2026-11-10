@@ -7,7 +7,7 @@
 """
 import json
 
-from interop.amp import AmpEmitter, JsonLinesSink, build_access_record, build_message_record
+from backend.interop.amp import AmpEmitter, JsonLinesSink, build_access_record, build_message_record
 
 AIC = "1.2.156.3088.1.ABC.XYZ.12345.0001.ABCD"
 

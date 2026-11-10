@@ -13,7 +13,7 @@ import time
 
 from pydantic import BaseModel, Field
 
-from app.agent.context import (
+from backend.app.agent.context import (
     STATUS_COMPLETED,
     STATUS_FAILED,
     STATUS_RUNNING,
@@ -23,13 +23,13 @@ from app.agent.context import (
     TaskContext,
     task_store,
 )
-from app.agent.executor import run_tool
-from app.agent.llm_utils import structured_completion
-from app.agent.planner import plan
-from app.knowledge import loader
-from app.services import answer_sheet, exam_docx, lesson_plan, report_pdf, score_analysis
-from app.storage import file_store
-from logging_config import task_logger
+from backend.app.agent.executor import run_tool
+from backend.app.agent.llm_utils import structured_completion
+from backend.app.agent.planner import plan
+from backend.app.knowledge import loader
+from backend.app.services import answer_sheet, exam_docx, lesson_plan, report_pdf, score_analysis
+from backend.app.storage import file_store
+from backend.logging_config import task_logger
 from backend.interop.orchestrator import orchestrate_sync
 from backend.interop.config import AcpSettings
 

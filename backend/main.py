@@ -1,7 +1,8 @@
 """EduAgent 后端入口。
 
-启动方式（在仓库根目录执行）：
-    uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
+启动方式（在仓库根目录执行，sys.path 根 = 仓库根，Phase 0/I1 统一 backend.* 导入）：
+    .venv/Scripts/python.exe -m uvicorn backend.main:app --app-dir . --host 127.0.0.1 --port 8000
+    （Linux 服务器：.venv/bin/uvicorn backend.main:app --app-dir . --host 127.0.0.1 --port 8000）
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,13 +11,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import chat, health, tasks
-from app.knowledge import loader
-from config import settings
-from interop.aip_server import create_aip_router
-from interop.config import load_acp_settings
-from logging_config import get_logger, setup_logging
-from interop.amp_integration import start_heartbeat, stop_heartbeat, init_access_emitter
+from backend.app.api import chat, health, tasks
+from backend.app.knowledge import loader
+from backend.config import settings
+from backend.interop.aip_server import create_aip_router
+from backend.interop.config import load_acp_settings
+from backend.logging_config import get_logger, setup_logging
+from backend.interop.amp_integration import start_heartbeat, stop_heartbeat, init_access_emitter
 
 setup_logging()
 log = get_logger("main")
@@ -45,10 +46,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.SERVICE_NAME, lifespan=lifespan)
 
-# CORS：开发阶段放开跨域，便于前端访问后端；后续按需收紧
+# CORS：默认仅放行本机开发源；部署时通过环境变量 ALLOWED_ORIGINS 注入白名单
+# （逗号分隔，见 config.Settings.ALLOWED_ORIGINS 与 .env.example；Phase 0/I3）。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
