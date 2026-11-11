@@ -1,0 +1,29 @@
+{
+  "volume": "人教版九年级下册（2012 配套教材结构，2022 课标拆解主线）",
+  "knowledge_points": [
+    {"kp_id": "kp_j9_2601", "name": "反比例函数的概念", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 2, "description": "y=k/x (k≠0) 的定义与解析式识别", "source": "curriculum", "prerequisites": ["kp_j8_1901", "kp_j9_2201"]},
+    {"kp_id": "kp_j9_2602", "name": "反比例函数的图象与性质", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 3, "description": "双曲线形态，k 正负决定象限与增减性", "source": "curriculum", "prerequisites": ["kp_j9_2601", "kp_j8_1902"]},
+    {"kp_id": "kp_j9_2603", "name": "k 的几何意义", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 3, "description": "图象上任一点向坐标轴作垂线围成矩形面积为 |k|", "source": "curriculum", "prerequisites": ["kp_j9_2602"]},
+    {"kp_id": "kp_j9_2604", "name": "反比例函数与一次函数综合", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 4, "description": "两函数图象交点问题与不等式比较", "source": "curriculum", "prerequisites": ["kp_j9_2602", "kp_j8_1905"]},
+    {"kp_id": "kp_j9_2605", "name": "反比例函数应用题", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 3, "description": "压强、功率等反比关系的实际建模", "source": "curriculum", "prerequisites": ["kp_j9_2602"]},
+    {"kp_id": "kp_j9_2701", "name": "相似图形与比例线段", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 2, "description": "相似图形概念、两条线段的比与成比例线段", "source": "curriculum", "prerequisites": ["kp_j8_1201", "kp_j7_0405", "kp_j8_1801"]},
+    {"kp_id": "kp_j9_2702", "name": "比例的性质与黄金分割", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 2, "description": "比例基本性质、合比性质与黄金比", "source": "curriculum", "prerequisites": ["kp_j9_2701"]},
+    {"kp_id": "kp_j9_2703", "name": "平行线分线段成比例", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 3, "description": "基本事实及其在三角形中的应用（A 字型）", "source": "curriculum", "prerequisites": ["kp_j9_2702", "kp_j7_0507"]},
+    {"kp_id": "kp_j9_2704", "name": "相似三角形的判定", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 3, "description": "平行于一边、AA、SSS、SAS 四种判定方法", "source": "curriculum", "prerequisites": ["kp_j9_2703"]},
+    {"kp_id": "kp_j9_2705", "name": "相似三角形的性质", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 3, "description": "对应角相等，对应边、高、周长比等于相似比，面积比为相似比平方", "source": "curriculum", "prerequisites": ["kp_j9_2704"]},
+    {"kp_id": "kp_j9_2706", "name": "相似三角形的实际应用", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 3, "description": "影子测高、测距等实际问题建模", "source": "curriculum", "prerequisites": ["kp_j9_2705"]},
+    {"kp_id": "kp_j9_2707", "name": "位似", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 3, "description": "位似图形概念与坐标变化规律", "source": "curriculum", "prerequisites": ["kp_j9_2705", "kp_j7_0702"]},
+    {"kp_id": "kp_j9_2708", "name": "相似三角形与圆、函数综合", "stage": "junior", "grade": 9, "chapter": "人教版九下·第27章 相似", "difficulty": 4, "description": "相似作为核心工具的几何综合题", "source": "curriculum", "prerequisites": ["kp_j9_2705", "kp_j9_2404"]},
+    {"kp_id": "kp_j9_2801", "name": "正弦", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 2, "description": "在直角三角形中定义 sinA=对边/斜边", "source": "curriculum", "prerequisites": ["kp_j8_1701"]},
+    {"kp_id": "kp_j9_2802", "name": "余弦与正切", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 2, "description": "cosA=邻边/斜边、tanA=对边/邻边及三者关系", "source": "curriculum", "prerequisites": ["kp_j9_2801"]},
+    {"kp_id": "kp_j9_2803", "name": "特殊角三角函数值", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 2, "description": "30°、45°、60° 角的三角函数值与计算", "source": "curriculum", "prerequisites": ["kp_j9_2802", "kp_j8_1308"]},
+    {"kp_id": "kp_j9_2804", "name": "解直角三角形", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 3, "description": "已知两元素求其余元素的类型与方法选择", "source": "curriculum", "prerequisites": ["kp_j9_2803", "kp_j8_1701"]},
+    {"kp_id": "kp_j9_2805", "name": "解直角三角形应用（仰角俯角与坡度）", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 3, "description": "测高、坡度坡角问题建模", "source": "curriculum", "prerequisites": ["kp_j9_2804"]},
+    {"kp_id": "kp_j9_2806", "name": "解直角三角形应用（方向角）", "stage": "junior", "grade": 9, "chapter": "人教版九下·第28章 锐角三角函数", "difficulty": 4, "description": "航海方位、距离测量中的三角函数综合", "source": "curriculum", "prerequisites": ["kp_j9_2804"]},
+    {"kp_id": "kp_j9_2901", "name": "投影与平行投影", "stage": "junior", "grade": 9, "chapter": "人教版九下·第29章 投影与视图", "difficulty": 1, "description": "投影概念、平行投影与中心投影的区别", "source": "curriculum", "prerequisites": ["kp_j7_0401"]},
+    {"kp_id": "kp_j9_2902", "name": "正投影", "stage": "junior", "grade": 9, "chapter": "人教版九下·第29章 投影与视图", "difficulty": 2, "description": "正投影的性质，线段与平面图形的投影规律", "source": "curriculum", "prerequisites": ["kp_j9_2901"]},
+    {"kp_id": "kp_j9_2903", "name": "三视图的概念", "stage": "junior", "grade": 9, "chapter": "人教版九下·第29章 投影与视图", "difficulty": 2, "description": "主视图、左视图、俯视图的方位对应关系", "source": "curriculum", "prerequisites": ["kp_j9_2902"]},
+    {"kp_id": "kp_j9_2904", "name": "画简单几何体的三视图", "stage": "junior", "grade": 9, "chapter": "人教版九下·第29章 投影与视图", "difficulty": 2, "description": "圆柱圆锥及组合体的三视图绘制", "source": "curriculum", "prerequisites": ["kp_j9_2903"]},
+    {"kp_id": "kp_j9_2905", "name": "由三视图还原立体图形", "stage": "junior", "grade": 9, "chapter": "人教版九下·第29章 投影与视图", "difficulty": 3, "description": "由三视图想象几何体并计算面积体积", "source": "curriculum", "prerequisites": ["kp_j9_2904"]}
+  ]
+}
