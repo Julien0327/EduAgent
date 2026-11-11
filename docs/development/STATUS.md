@@ -1,14 +1,30 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-11（Phase 1 Step 1）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-11（Phase 1 Step 3）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
 Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数据地基）进行中**（2026-11-11 开工，顺序与关口协议经用户逐条确认，见 DECISIONS.md ⑲–㉑）：
 
 - **Step 1 存储层建库 ✅**：V1 全量 DDL（§2.3 全部表，questions 按⑲用 quality_state+verified）+ db 连接层（每连接强制 foreign_keys=ON）+ 8 项单测；`.gitignore` 增 data/raw|db|staging（⑳）；本地已 commit，push 集中在 Phase 1 收尾。
-- **Step 2 知识图谱构建 ✅（复核修正已完成，待用户最终确认）**：初中 303 知识点 + 374 条前置边入库；用户抽检 61 条提出 4 处修正（1410 章节归属、0201 前置强度、2601 前置必要性、0608 描述定位）已全部处理并连带修正 1405 同源错误（commit `03878ee`）；抽样集合与顺序保持不变（seed=42 复现验证）；**等用户最终确认后进入 Step 3**。
-- **Step 3 F16 导入 = 图谱复核通过后的下一步**。
+- **Step 2 知识图谱构建 ✅（用户已确认）**：初中 303 知识点 + 374 条前置边入库；用户抽检 61 条提出 4 处修正已全部处理（commit `03878ee`/`574c9ad`）；抽样 seed=42 复现验证不变。
+- **Step 3 F16 导入服务 ✅（commit `26e943c`，待用户确认）**：模板生成 + 七步管线 + 三端点 + 17 项真实 Excel 端到端测试 + demo 冒烟 232 行 committed；全量 131 passed。
+- **Step 4 APE210K ETL = 下一步**（下载→清洗→入库+FTS5→幂等；小学 KP 聚合；100 题完整率抽样清单交用户复核）。
+
+## Step 3 完成证据（2026-11-11，全部实测）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 模板 | ✅ GET /api/import/template 生成中文表头五工作簿+填写说明 | 端点测试 + openpyxl 回读校验 |
+| 五类用例 | ✅ 合法导入 committed 11/11；含错文件 partial 12/8/4 错误定位 sheet+行+字段；同文件重传 409 指纹拒绝返回原批次；force 覆盖重导 answers-only 分数更新总数不变；写入中断整批回滚（业务表全 0） | `backend/tests/test_import_api.py` 17 项，真实 xlsx 字节流经 TestClient→importer→SQLite，无 Mock 文件层 |
+| 业务归属校验 | ✅ 班级同名跨年级歧义 / 学生不属于所填班级 / 考试绑班不符 / q_no 不在卷面 均拒 | 3 项专属用例（含联考不绑班放行） |
+| 事务原子性 | ✅ BEGIN IMMEDIATE 单事务；错误行不进写入集合；写入期定位失败跳行报错；意外异常整批回滚；批次状态独立事务 | crash 注入用例：写入全量后崩溃→业务表计数 0→批次 failed→同文件可重导 |
+| 重复导入语义 | ✅ 指纹=sha256 拒 committed/partial 重复；force 仅 answers 单表（其余 400）；库内重导被 E_CONFLICT（考试）/E_DUP（答题）双防，零重复写入 | 用例 3/4 + 重导防御用例 |
+| 中断恢复 | ✅ 启动清扫滞留 validating→failed（lifespan 实测）；存在 validating 时新导入 409 import_busy 留痕 | 2 项专属用例 |
+| demo 冒烟 | ✅ `generate_demo_import.py`：真实演示数据（20 学生×10 题）生成 232 行工作簿→全 committed→库内 1/20/1/10/200；重放被防重且数据不变 | 实际运行输出（batch imp_20261111115806_0e2a4e） |
+| 测试基线 | ✅ 131 passed / 0 failed（98 基线 + 8 存储 + 8 图谱 + 17 导入） | 全量 pytest |
+
+**实现要点（需知悉）**：①批次外致命错误（无法解析/无数据表/超 5000 行/kind 不符）不建批次直接 400——文件根本不可导入时不产生无语义批次；②程序重新生成的"等价内容"文件 sha 会变（xlsx zip 时间戳），指纹拦不住、由业务规则层兜底（E_CONFLICT/E_DUP，已实测数据零重复）；③导入限流 10/min 属 §10.5，随 Phase 2 API 安全层落地，Phase 1 未提前实现。
 
 ## Phase 0 完成证据（2026-11-10，全部实测）
 
@@ -49,5 +65,5 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest 106 用例（98 基线 + 8 Phase1/Step1），Docker Desktop（基础镜像经 docker.m.daocloud.io 镜像源获取；pip 构建参数走清华源——Docker Hub auth.docker.io DNS 污染、PyPI 直连偶发哈希校验失败）。⚠️ **pytest 依赖 openssl 在 PATH**（test_interop_discovery 3 用例借 openssl 生成测试 CA；本机位于 `D:\Git\mingw64\bin`，PATH 缺失时报 WinError 2，2026-11-11 实测踩坑，补 PATH 后全绿）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest 131 用例（98 基线 + 8 Step1 存储 + 8 Step2 图谱 + 17 Step3 导入），Docker Desktop（基础镜像经 docker.m.daocloud.io 镜像源获取；pip 构建参数走清华源——Docker Hub auth.docker.io DNS 污染、PyPI 直连偶发哈希校验失败）。⚠️ **pytest 依赖 openssl 在 PATH**（test_interop_discovery 3 用例借 openssl 生成测试 CA；本机位于 `D:\Git\mingw64\bin`，PATH 缺失时报 WinError 2，2026-11-11 实测踩坑，补 PATH 后全绿）。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。
