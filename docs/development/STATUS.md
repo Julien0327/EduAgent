@@ -1,10 +1,14 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-10（Phase 0 收尾轮）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-11（Phase 1 Step 1）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-Phase 0（打地基）✅ **全部完成**，代码已推送 GitHub（commit `8dbf573`）。等待用户审核本轮汇报后批准进入 Phase 1（数据地基）。
+Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数据地基）进行中**（2026-11-11 开工，顺序与关口协议经用户逐条确认，见 DECISIONS.md ⑲–㉑）：
+
+- **Step 1 存储层建库 ✅**：V1 全量 DDL（§2.3 全部表，questions 按⑲用 quality_state+verified）+ db 连接层（每连接强制 foreign_keys=ON）+ 8 项单测；`.gitignore` 增 data/raw|db|staging（⑳）；本地已 commit，push 集中在 Phase 1 收尾。
+- **Step 2 知识图谱构建 = 下一步**（完成后停下，等用户复核 20% 抽样清单）。
+- Phase 1 后续：F16 导入 → APE210K ETL → LLM 打标（两道关口，㉑）→ loader 切换。
 
 ## Phase 0 完成证据（2026-11-10，全部实测）
 
@@ -45,5 +49,5 @@ Phase 0（打地基）✅ **全部完成**，代码已推送 GitHub（commit `8d
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest 98 用例，Docker Desktop（基础镜像经 docker.m.daocloud.io 镜像源获取；pip 构建参数走清华源——Docker Hub auth.docker.io DNS 污染、PyPI 直连偶发哈希校验失败）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest 106 用例（98 基线 + 8 Phase1/Step1），Docker Desktop（基础镜像经 docker.m.daocloud.io 镜像源获取；pip 构建参数走清华源——Docker Hub auth.docker.io DNS 污染、PyPI 直连偶发哈希校验失败）。⚠️ **pytest 依赖 openssl 在 PATH**（test_interop_discovery 3 用例借 openssl 生成测试 CA；本机位于 `D:\Git\mingw64\bin`，PATH 缺失时报 WinError 2，2026-11-11 实测踩坑，补 PATH 后全绿）。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。
