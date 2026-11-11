@@ -22,6 +22,9 @@ class Settings:
         if o.strip()
     ]
 
+    # SQLite 业务库（Phase 1）：默认 data/db/edumate.sqlite；可用环境变量覆盖（测试/部署）。
+    DB_PATH: str | None = os.getenv("EDUMATE_DB_PATH")
+
     # DeepSeek（文本任务，OpenAI 兼容 API）
     DEEPSEEK_API_KEY: str | None = os.getenv("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")

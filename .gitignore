@@ -40,6 +40,12 @@ data/outputs/
 storage/uploads/
 storage/outputs/
 
+# ================= 数据产物（决策⑳，2026-11-11） =================
+# 不入 Git；脚本 + 入库的源数据/配置可完整重建（复现方案见 data/README.md）。
+data/db/
+data/raw/
+data/staging/
+
 # ================= 密钥与证书（严禁入库） =================
 *.pem
 *.key
