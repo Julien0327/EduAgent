@@ -11,8 +11,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.api import chat, health, tasks
+from backend.app.api import chat, health, import_api, tasks
 from backend.app.knowledge import loader
+from backend.app.storage import db, importer
 from backend.config import settings
 from backend.interop.aip_server import create_aip_router
 from backend.interop.config import load_acp_settings
@@ -25,7 +26,12 @@ log = get_logger("main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用启动阶段：校验种子数据 + 启动 AMP 可观测性。"""
+    """应用启动阶段：数据库迁移 + 清扫滞留批次 + 校验种子数据 + AMP 可观测性。"""
+    # SQLite 业务库（Phase 1）：迁移幂等；启动清扫滞留 validating 批次（§3.4 异常中断恢复）
+    db.apply_migrations(settings.DB_PATH)
+    swept = importer.sweep_stale_validating(settings.DB_PATH)
+    if swept:
+        log.warning("启动清扫：%d 个滞留 validating 批次已标记 failed", swept)
     log.info(loader.validate_seed())
     # ── AMP 心跳 + Access 日志初始化 ──
     acp_settings = load_acp_settings()
@@ -59,6 +65,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(tasks.router)
+app.include_router(import_api.router)
 
 # AIP 智能体互联端点（/rpc + /health）：ACP_ENABLED=true 时挂载，默认关闭不影响现有业务。
 # 真实 mTLS / identity_binding 由部署层承担（见 backend/interop/acp.toml.example）。
