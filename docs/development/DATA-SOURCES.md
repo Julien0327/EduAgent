@@ -1,0 +1,62 @@
+# 数据源核验记录（DATA-SOURCES）
+
+> Phase 1 起，每个外部数据源在引入前做核验并记录于此：来源、版本、下载方式、SHA-256、字段结构、许可状态、已知噪声。ETL 脚本引用的数据源必须与本文件一致。
+
+## APE210K（Phase 1 · Step 4，2026-11-11 核验）
+
+### 来源与获取
+
+| 项 | 值 |
+|---|---|
+| 仓库 | https://github.com/Chenny0808/ape210k （206 star / 61 fork，自述"open source the Ape210K dataset and baseline models"，社区公认的 APE210K 数据发布仓库） |
+| 获取方式 | `git clone --depth 1` → `data/raw/ape210k_src/`（data/raw 已 gitignore，不入 Git） |
+| 版本 | commit `52c52eb`（2019-12-10，唯一提交；作者 `acl2020165 <anonymos@xxx.com>` 匿名占位邮箱） |
+| 相关论文 | Zhao et al., "Ape210K: A Large-Scale and Template-Rich Dataset of Math Word Problems", arXiv:2009.11506 |
+| 网络可达 | 2026-11-11 TUN 模式下 clone 成功（GitHub 200 OK） |
+
+### 文件与 SHA-256
+
+| 文件 | 大小 | SHA-256 |
+|---|---|---|
+| data/train.ape.json | 78,529,903 B | `e89a30eccedb2cd7226de5385c39fd16b438b95ebd13b4f8aecb1134429a9bea` |
+| data/valid.ape.json | 1,960,771 B | `1ea5029a6974b7cbf943c0b917d1613d9ac344fcf7a754244ab52aa29cb64b45` |
+| data/test.ape.json | 1,959,512 B | `851e8ca3d0ebb4db941d3722cea885a9b5443c9de5dfa50814ae80ec3550c81e` |
+
+### 数据规模与字段结构（全量流式统计实测）
+
+- 总量：train 200,488 + valid 5,000 + test 5,000 = **210,488 行**（与论文宣称 210,488 一致；README 正文"train 200,288"为笔误，实测 200,488）
+- 格式：JSON Lines（每行一个 JSON 对象），**支持流式逐行处理**
+- 字段：三个文件键组合完全一致，仅 5 个字段：
+
+| 字段 | 含义 | 实测 |
+|---|---|---|
+| `id` | 题目 ID（纯数字字符串） | 全量唯一，无重复 |
+| `original_text` | 原始题干 | 无空值；长度 6–324 字符，均值 46 |
+| `segmented_text` | 分词题干（空格分隔） | 无空值 |
+| `equation` | 算式（python 风格，多为 `x=...`） | 200,017/210,488 含 x；7,331 行含 `**` 幂运算 |
+| `ans` | 答案 | 无空值；数值 86.4% / 分数 `a/b` 10.0% / 百分数 7,202 行 |
+
+- **没有自带字段**：知识点标签、年级、题型、难度均不存在。
+
+### 许可核验（2026-11-11，结论待用户裁决）
+
+| 核验点 | 结果 |
+|---|---|
+| LICENSE 文件 | **无**（GitHub API `license: null`，clone 后目录确认无 LICENSE*） |
+| README 许可声明 | 仅一句 "Our code was modified from OpenNMT-py code base. We use the same license as OpenNMT-py."——**只覆盖代码（MIT），对数据集本身无声明** |
+| 论文 | arXiv:2009.11506 **v2 已撤稿**，撤稿理由："the proposed Ape210K dataset is not going public"；但仓库自 2020-10 起持续公开至今，被后续学术工作广泛用作 benchmark（如 ICML 2025 论文） |
+| 结论 | **数据许可处于模糊状态**：公开可得 + 学术惯例可用，但无法律意义上的明确许可。**代码许可（OpenNMT-py/MIT）不等于数据集许可**；未获得作者授权，亦不虚构已获授权 |
+| **用户裁决（2026-11-11，决策㉒）** | 继续引入。**本地个人开发/测试不设人为限制**（下载、清洗、去重、校验、全量入库、FTS5、Embedding、RAG、LLM 标注、性能测试等正常开发测试活动均允许）。使用边界：①高校竞赛按具体竞赛规则核对；②GitHub 公开项目代码、ETL 脚本、数据结构和**不含题目内容的统计报告**，不提交数据集本身，不上传原始或清洗后的完整题库；③不将该题库随公开产品提供给公众，不用于企业商业部署 |
+
+### 已知噪声（ETL 清洗规则输入）
+
+1. `original_text`/`segmented_text` 含 `**` 残留 3,368 行（Markdown 加粗转义残留，如"增加**2倍"），需清理
+2. `equation` 含 `**` 幂运算 7,331 行（python 语法，保留但需注明语义）与 471 行不含 `x`（等值表达式形态）
+3. `ans` 含百分数形态（7,202 行，如 `25%`），入库需与数值答案统一表示策略
+4. 题干与算式可能不一致（质量参差，风险 R1）；ETL 可做算式代入验算交叉核对
+
+### 裁决结果（2026-11-11，决策㉒）
+
+1. **许可**：继续引入，本地使用不设人为限制；分发边界见上表"用户裁决"行
+2. **小学 KP 聚合口径**：改为**规则推导聚合**——从 equation 运算特征 + 题干关键词规则推导 80–120 个小学知识点（`knowledge_points.source='ape210k_rule'`，独立于初中图谱）；映射不确定的题不硬挂（如实报覆盖率）
+3. **入库规模**：全量 21 万清洗入库（决策⑲ processed 口径验收线 ≥2 万自然满足，漏斗如实记录）
