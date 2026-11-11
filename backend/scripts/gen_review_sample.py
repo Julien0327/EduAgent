@@ -84,7 +84,27 @@ def main() -> int:
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 机器可读版
+    # 回库查全字段（难度等）+ 前置边索引（dst -> [src...]）
+    conn = db.connect(args.db)
+    try:
+        full = {r["kp_id"]: r for r in conn.execute("SELECT * FROM knowledge_points").fetchall()}
+    finally:
+        conn.close()
+    succ_map: dict[str, list[str]] = {}
+    for src, dst in edges:
+        succ_map.setdefault(dst, []).append(src)
+
+    # 机器可读版（与 Markdown 清单信息一致：含难度/年级/前置依赖详情）
+    def _pre_detail(kp_id: str) -> list[dict]:
+        return [
+            {
+                "kp_id": pid,
+                "name": nodes[pid]["name"],
+                "chapter": nodes[pid].get("chapter"),
+            }
+            for pid in sorted(succ_map.get(kp_id, []))
+        ]
+
     payload = {
         "sample_rate": SAMPLE_RATE,
         "seed": SAMPLE_SEED,
@@ -97,8 +117,15 @@ def main() -> int:
             "validation": "pass (入库态复跑：引用/DAG/孤岛/主干链/根节点元数据 全部通过)",
         },
         "sample": [
-            {"kp_id": r["kp_id"], "name": r["name"], "chapter": r.get("chapter"),
-             "description": r.get("description")}
+            {
+                "kp_id": r["kp_id"],
+                "name": r["name"],
+                "chapter": r.get("chapter"),
+                "description": r.get("description"),
+                "grade": grade_map.get(r["kp_id"]),
+                "difficulty": full[r["kp_id"]]["difficulty"],
+                "prerequisites": _pre_detail(r["kp_id"]),
+            }
             for r in sample
         ],
     }
@@ -118,18 +145,13 @@ def main() -> int:
         "| # | kp_id | 名称 | 章节 | 难度 | 前置依赖 | 描述 | 核对结果（OK/问题） |",
         "|---|---|---|---|---|---|---|---|",
     ]
-    # 难度与前置需回库查（summary 只取了部分列）
-    conn = db.connect(args.db)
-    try:
-        full = {r["kp_id"]: r for r in conn.execute("SELECT * FROM knowledge_points").fetchall()}
-    finally:
-        conn.close()
-    succ_map: dict[str, list[str]] = {}
-    for src, dst in edges:
-        succ_map.setdefault(dst, []).append(src)
     for i, r in enumerate(sample, 1):
         kp = full[r["kp_id"]]
-        pre = "、".join(sorted(succ_map.get(r["kp_id"], []))) or "（无前置，根节点）"
+        pre_parts = []
+        for pid in sorted(succ_map.get(r["kp_id"], [])):
+            node = nodes[pid]
+            pre_parts.append(f"{pid}（{node['name']}，{node.get('chapter') or '—'}）")
+        pre = "；".join(pre_parts) or "（无前置，根节点）"
         lines.append(
             f"| {i} | {r['kp_id']} | {r['name']} | {r.get('chapter') or '—'} "
             f"| {kp['difficulty']} | {pre} | {r.get('description') or '—'} | |"

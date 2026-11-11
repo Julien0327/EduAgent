@@ -1,7 +1,7 @@
 {
   "volume": "人教版九年级下册（2012 配套教材结构，2022 课标拆解主线）",
   "knowledge_points": [
-    {"kp_id": "kp_j9_2601", "name": "反比例函数的概念", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 2, "description": "y=k/x (k≠0) 的定义与解析式识别", "source": "curriculum", "prerequisites": ["kp_j8_1901", "kp_j9_2201"]},
+    {"kp_id": "kp_j9_2601", "name": "反比例函数的概念", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 2, "description": "y=k/x (k≠0) 的定义与解析式识别", "source": "curriculum", "prerequisites": ["kp_j8_1901"]},
     {"kp_id": "kp_j9_2602", "name": "反比例函数的图象与性质", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 3, "description": "双曲线形态，k 正负决定象限与增减性", "source": "curriculum", "prerequisites": ["kp_j9_2601", "kp_j8_1902"]},
     {"kp_id": "kp_j9_2603", "name": "k 的几何意义", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 3, "description": "图象上任一点向坐标轴作垂线围成矩形面积为 |k|", "source": "curriculum", "prerequisites": ["kp_j9_2602"]},
     {"kp_id": "kp_j9_2604", "name": "反比例函数与一次函数综合", "stage": "junior", "grade": 9, "chapter": "人教版九下·第26章 反比例函数", "difficulty": 4, "description": "两函数图象交点问题与不等式比较", "source": "curriculum", "prerequisites": ["kp_j9_2602", "kp_j8_1905"]},

@@ -3,7 +3,7 @@
   "seed": 42,
   "summary": {
     "total_kp": 303,
-    "total_edges": 375,
+    "total_edges": 374,
     "roots": 4,
     "by_grade": {
       "7": 106,
@@ -25,367 +25,995 @@
       "kp_id": "kp_j7_0102",
       "name": "有理数的概念与分类",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "按整数、分数对有理数分类，判断一个数是否为有理数"
+      "description": "按整数、分数对有理数分类，判断一个数是否为有理数",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0101",
+          "name": "正数与负数",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0103",
       "name": "数轴",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "数轴三要素与数形对应，用数轴表示有理数"
+      "description": "数轴三要素与数形对应，用数轴表示有理数",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0102",
+          "name": "有理数的概念与分类",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0107",
       "name": "有理数加法法则",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "同号相加取同号并把绝对值相加，异号相加取绝对值较大者的符号并相减"
+      "description": "同号相加取同号并把绝对值相加，异号相加取绝对值较大者的符号并相减",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0106",
+          "name": "有理数大小比较",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0111",
       "name": "有理数乘法运算律与倒数",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "乘法交换律、结合律、分配律的运用，倒数的概念"
+      "description": "乘法交换律、结合律、分配律的运用，倒数的概念",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0110",
+          "name": "有理数乘法法则",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0114",
       "name": "有理数混合运算",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "先乘方再乘除后加减的运算顺序与括号处理"
+      "description": "先乘方再乘除后加减的运算顺序与括号处理",
+      "grade": 7,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0112",
+          "name": "有理数除法",
+          "chapter": "人教版七上·第1章 有理数"
+        },
+        {
+          "kp_id": "kp_j7_0113",
+          "name": "有理数乘方",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0119",
       "name": "数轴上两点间距离",
       "chapter": "人教版七上·第1章 有理数",
-      "description": "用绝对值表示数轴上两点距离"
+      "description": "用绝对值表示数轴上两点距离",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0106",
+          "name": "有理数大小比较",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0201",
       "name": "用字母表示数",
       "chapter": "人教版七上·第2章 整式的加减",
-      "description": "用字母表示数量关系与变化规律，体会从算术到代数的过渡"
+      "description": "用字母表示数量关系与变化规律，体会从算术到代数的过渡",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0102",
+          "name": "有理数的概念与分类",
+          "chapter": "人教版七上·第1章 有理数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0203",
       "name": "整式（单项式与多项式）",
       "chapter": "人教版七上·第2章 整式的加减",
-      "description": "单项式的系数次数、多项式的项与次数、整式概念"
+      "description": "单项式的系数次数、多项式的项与次数、整式概念",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0202",
+          "name": "列代数式与代数式求值",
+          "chapter": "人教版七上·第2章 整式的加减"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0204",
       "name": "同类项与合并同类项",
       "chapter": "人教版七上·第2章 整式的加减",
-      "description": "所含字母相同且相同字母指数相同的项，合并同类项法则"
+      "description": "所含字母相同且相同字母指数相同的项，合并同类项法则",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0203",
+          "name": "整式（单项式与多项式）",
+          "chapter": "人教版七上·第2章 整式的加减"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0303",
       "name": "一元一次方程的解法",
       "chapter": "人教版七上·第3章 一元一次方程",
-      "description": "去分母、去括号、移项、合并、系数化为一的完整解法"
+      "description": "去分母、去括号、移项、合并、系数化为一的完整解法",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0206",
+          "name": "整式加减化简求值",
+          "chapter": "人教版七上·第2章 整式的加减"
+        },
+        {
+          "kp_id": "kp_j7_0302",
+          "name": "等式的性质",
+          "chapter": "人教版七上·第3章 一元一次方程"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0403",
       "name": "点线面体",
       "chapter": "人教版七上·第4章 几何图形初步",
-      "description": "点动成线、线动成面、面动成体的几何直观"
+      "description": "点动成线、线动成面、面动成体的几何直观",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0401",
+          "name": "几何图形与立体图形",
+          "chapter": "人教版七上·第4章 几何图形初步"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0412",
       "name": "方位角与方向角",
       "chapter": "人教版七上·第4章 几何图形初步",
-      "description": "北偏东等方向角的表示与应用"
+      "description": "北偏东等方向角的表示与应用",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0408",
+          "name": "角的比较与运算",
+          "chapter": "人教版七上·第4章 几何图形初步"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0413",
       "name": "钟表角度问题",
       "chapter": "人教版七上·第4章 几何图形初步",
-      "description": "时针分针夹角计算"
+      "description": "时针分针夹角计算",
+      "grade": 7,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0410",
+          "name": "余角与补角",
+          "chapter": "人教版七上·第4章 几何图形初步"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0501",
       "name": "相交线与对顶角",
       "chapter": "人教版七下·第5章 相交线与平行线",
-      "description": "邻补角与对顶角概念，对顶角相等性质"
+      "description": "邻补角与对顶角概念，对顶角相等性质",
+      "grade": 7,
+      "difficulty": 1,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0401",
+          "name": "几何图形与立体图形",
+          "chapter": "人教版七上·第4章 几何图形初步"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0509",
       "name": "平移",
       "chapter": "人教版七下·第5章 相交线与平行线",
-      "description": "平移的概念、性质（对应点连线平行且相等）与作图"
+      "description": "平移的概念、性质（对应点连线平行且相等）与作图",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0502",
+          "name": "垂线及其性质",
+          "chapter": "人教版七下·第5章 相交线与平行线"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0510",
       "name": "垂线段最短的应用",
       "chapter": "人教版七下·第5章 相交线与平行线",
-      "description": "点到直线距离在实际问题中的应用"
+      "description": "点到直线距离在实际问题中的应用",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0503",
+          "name": "垂线段与点到直线的距离",
+          "chapter": "人教版七下·第5章 相交线与平行线"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0511",
       "name": "命题、定理与证明",
       "chapter": "人教版七下·第5章 相交线与平行线",
-      "description": "命题真假判断、定理与证明的初步认识"
+      "description": "命题真假判断、定理与证明的初步认识",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0506",
+          "name": "平行线的判定",
+          "chapter": "人教版七下·第5章 相交线与平行线"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0602",
       "name": "立方根",
       "chapter": "人教版七下·第6章 实数",
-      "description": "立方根定义与性质，与平方根的区别"
+      "description": "立方根定义与性质，与平方根的区别",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0601",
+          "name": "平方根与算术平方根",
+          "chapter": "人教版七下·第6章 实数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0604",
       "name": "实数与数轴",
       "chapter": "人教版七下·第6章 实数",
-      "description": "实数与数轴上的点一一对应，用数轴比较实数大小"
+      "description": "实数与数轴上的点一一对应，用数轴比较实数大小",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0603",
+          "name": "无理数与实数",
+          "chapter": "人教版七下·第6章 实数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0607",
       "name": "实数化简综合",
       "chapter": "人教版七下·第6章 实数",
-      "description": "含绝对值、平方根立方根的实数化简计算"
+      "description": "含绝对值、平方根立方根的实数化简计算",
+      "grade": 7,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0605",
+          "name": "实数的运算",
+          "chapter": "人教版七下·第6章 实数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0608",
       "name": "构造线段表示无理数",
       "chapter": "人教版七下·第6章 实数",
-      "description": "在数轴上用勾股式构造表示 √2 等无理数的点"
+      "description": "借助边长为 1 的正方形对角线等直观方式，在数轴上找到表示无理数的点（直观感知拓展，勾股定理的正式学习在八年级）",
+      "grade": 7,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0604",
+          "name": "实数与数轴",
+          "chapter": "人教版七下·第6章 实数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0703",
       "name": "用坐标表示地理位置",
       "chapter": "人教版七下·第7章 平面直角坐标系",
-      "description": "建立适当坐标系描述地点位置"
+      "description": "建立适当坐标系描述地点位置",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0701",
+          "name": "有序数对与平面直角坐标系",
+          "chapter": "人教版七下·第7章 平面直角坐标系"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_0905",
       "name": "不等式（组）应用题",
       "chapter": "人教版七下·第9章 不等式与不等式组",
-      "description": "方案选择与最值类实际问题的不等式建模"
+      "description": "方案选择与最值类实际问题的不等式建模",
+      "grade": 7,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0904",
+          "name": "一元一次不等式组",
+          "chapter": "人教版七下·第9章 不等式与不等式组"
+        }
+      ]
     },
     {
       "kp_id": "kp_j7_1003",
       "name": "简单随机抽样",
       "chapter": "人教版七下·第10章 数据的收集、整理与描述",
-      "description": "随机抽样的代表性与公平性要求"
+      "description": "随机抽样的代表性与公平性要求",
+      "grade": 7,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_1002",
+          "name": "抽样调查与总体个体样本",
+          "chapter": "人教版七下·第10章 数据的收集、整理与描述"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1103",
       "name": "三角形内角和定理",
       "chapter": "人教版八上·第11章 三角形",
-      "description": "三角形三个内角和等于 180° 及推理应用"
+      "description": "三角形三个内角和等于 180° 及推理应用",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0507",
+          "name": "平行线的性质",
+          "chapter": "人教版七下·第5章 相交线与平行线"
+        },
+        {
+          "kp_id": "kp_j8_1101",
+          "name": "三角形的概念与三边关系",
+          "chapter": "人教版八上·第11章 三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1105",
       "name": "多边形内角和",
       "chapter": "人教版八上·第11章 三角形",
-      "description": "n 边形内角和 (n-2)×180° 的推导与应用"
+      "description": "n 边形内角和 (n-2)×180° 的推导与应用",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1103",
+          "name": "三角形内角和定理",
+          "chapter": "人教版八上·第11章 三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1108",
       "name": "三角形角平分线夹角问题",
       "chapter": "人教版八上·第11章 三角形",
-      "description": "两内角平分线夹角等经典角度关系"
+      "description": "两内角平分线夹角等经典角度关系",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1104",
+          "name": "三角形的外角",
+          "chapter": "人教版八上·第11章 三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1205",
       "name": "直角三角形全等判定（HL）",
       "chapter": "人教版八上·第12章 全等三角形",
-      "description": "斜边和一条直角边分别相等的两个直角三角形全等"
+      "description": "斜边和一条直角边分别相等的两个直角三角形全等",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1203",
+          "name": "三角形全等判定（SAS）",
+          "chapter": "人教版八上·第12章 全等三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1207",
       "name": "角的平分线的性质",
       "chapter": "人教版八上·第12章 全等三角形",
-      "description": "角平分线上的点到角两边距离相等，及逆定理"
+      "description": "角平分线上的点到角两边距离相等，及逆定理",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0409",
+          "name": "角平分线",
+          "chapter": "人教版七上·第4章 几何图形初步"
+        },
+        {
+          "kp_id": "kp_j8_1206",
+          "name": "全等三角形的综合应用",
+          "chapter": "人教版八上·第12章 全等三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1209",
       "name": "倍长中线等辅助线方法",
       "chapter": "人教版八上·第12章 全等三角形",
-      "description": "倍长中线、截长补短构造全等"
+      "description": "倍长中线、截长补短构造全等",
+      "grade": 8,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1208",
+          "name": "全等证明书写与常见模型",
+          "chapter": "人教版八上·第12章 全等三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1210",
       "name": "角平分线模型应用",
       "chapter": "人教版八上·第12章 全等三角形",
-      "description": "角平分线与垂线、平行线组合的常见模型"
+      "description": "角平分线与垂线、平行线组合的常见模型",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1207",
+          "name": "角的平分线的性质",
+          "chapter": "人教版八上·第12章 全等三角形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1211",
       "name": "全等与等腰综合构造",
       "chapter": "人教版八上·第12章 全等三角形",
-      "description": "角平分线加平行线构造等腰的综合证明"
+      "description": "角平分线加平行线构造等腰的综合证明",
+      "grade": 8,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1209",
+          "name": "倍长中线等辅助线方法",
+          "chapter": "人教版八上·第12章 全等三角形"
+        },
+        {
+          "kp_id": "kp_j8_1307",
+          "name": "等腰三角形的判定",
+          "chapter": "人教版八上·第13章 轴对称"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1311",
       "name": "最短路径问题（将军饮马）",
       "chapter": "人教版八上·第13章 轴对称",
-      "description": "利用轴对称转化求折线最短"
+      "description": "利用轴对称转化求折线最短",
+      "grade": 8,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1304",
+          "name": "画轴对称图形",
+          "chapter": "人教版八上·第13章 轴对称"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1410",
-      "name": "幂的混合运算与负整数指数",
-      "chapter": "人教版八上·第14章 整式的乘法与因式分解",
-      "description": "幂运算律混合使用及负整数指数幂计算"
+      "name": "整数指数幂与幂的混合运算",
+      "chapter": "人教版八上·第15章 分式",
+      "description": "同底数幂的除法 a^m÷a^n=a^(m-n)、零指数与负整数指数幂及幂运算律混合使用（15.2.3）",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1405",
+          "name": "整式的除法",
+          "chapter": "人教版八上·第14章 整式的乘法与因式分解"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1413",
       "name": "整式乘除混合运算",
       "chapter": "人教版八上·第14章 整式的乘法与因式分解",
-      "description": "乘除混合的运算顺序与化简"
+      "description": "乘除混合的运算顺序与化简",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1405",
+          "name": "整式的除法",
+          "chapter": "人教版八上·第14章 整式的乘法与因式分解"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1504",
       "name": "分式的加减",
       "chapter": "人教版八上·第15章 分式",
-      "description": "同分母与异分母分式加减，先通分再计算"
+      "description": "同分母与异分母分式加减，先通分再计算",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0206",
+          "name": "整式加减化简求值",
+          "chapter": "人教版七上·第2章 整式的加减"
+        },
+        {
+          "kp_id": "kp_j8_1502",
+          "name": "分式的基本性质",
+          "chapter": "人教版八上·第15章 分式"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1506",
       "name": "分式方程的概念与解法",
       "chapter": "人教版八上·第15章 分式",
-      "description": "去分母化为整式方程求解的基本步骤"
+      "description": "去分母化为整式方程求解的基本步骤",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0303",
+          "name": "一元一次方程的解法",
+          "chapter": "人教版七上·第3章 一元一次方程"
+        },
+        {
+          "kp_id": "kp_j8_1502",
+          "name": "分式的基本性质",
+          "chapter": "人教版八上·第15章 分式"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1508",
       "name": "分式方程应用题",
       "chapter": "人教版八上·第15章 分式",
-      "description": "工程、行程（含逆水顺水）等含分式的实际问题建模"
+      "description": "工程、行程（含逆水顺水）等含分式的实际问题建模",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j7_0305",
+          "name": "一元一次方程应用（行程与工程）",
+          "chapter": "人教版七上·第3章 一元一次方程"
+        },
+        {
+          "kp_id": "kp_j8_1507",
+          "name": "分式方程的检验与增根",
+          "chapter": "人教版八上·第15章 分式"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1605",
       "name": "二次根式的加减",
       "chapter": "人教版八下·第16章 二次根式",
-      "description": "化成最简二次根式后合并被开方数相同的项"
+      "description": "化成最简二次根式后合并被开方数相同的项",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1603",
+          "name": "最简二次根式",
+          "chapter": "人教版八下·第16章 二次根式"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1609",
       "name": "二次根式大小比较",
       "chapter": "人教版八下·第16章 二次根式",
-      "description": "平方法、作差法比较二次根式大小"
+      "description": "平方法、作差法比较二次根式大小",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1603",
+          "name": "最简二次根式",
+          "chapter": "人教版八下·第16章 二次根式"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1701",
       "name": "勾股定理",
       "chapter": "人教版八下·第17章 勾股定理",
-      "description": "直角三角形两直角边平方和等于斜边平方"
+      "description": "直角三角形两直角边平方和等于斜边平方",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1103",
+          "name": "三角形内角和定理",
+          "chapter": "人教版八上·第11章 三角形"
+        },
+        {
+          "kp_id": "kp_j8_1309",
+          "name": "含 30° 角的直角三角形",
+          "chapter": "人教版八上·第13章 轴对称"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1703",
       "name": "勾股定理的逆定理",
       "chapter": "人教版八下·第17章 勾股定理",
-      "description": "由三边平方关系判定直角三角形"
+      "description": "由三边平方关系判定直角三角形",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1701",
+          "name": "勾股定理",
+          "chapter": "人教版八下·第17章 勾股定理"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1704",
       "name": "勾股定理的应用",
       "chapter": "人教版八下·第17章 勾股定理",
-      "description": "实际距离问题与折叠问题中的勾股计算"
+      "description": "实际距离问题与折叠问题中的勾股计算",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1701",
+          "name": "勾股定理",
+          "chapter": "人教版八下·第17章 勾股定理"
+        },
+        {
+          "kp_id": "kp_j8_1703",
+          "name": "勾股定理的逆定理",
+          "chapter": "人教版八下·第17章 勾股定理"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1803",
       "name": "三角形的中位线",
       "chapter": "人教版八下·第18章 平行四边形",
-      "description": "中位线平行于第三边且等于第三边的一半"
+      "description": "中位线平行于第三边且等于第三边的一半",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1102",
+          "name": "三角形的高、中线与角平分线",
+          "chapter": "人教版八上·第11章 三角形"
+        },
+        {
+          "kp_id": "kp_j8_1802",
+          "name": "平行四边形的判定",
+          "chapter": "人教版八下·第18章 平行四边形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1807",
       "name": "菱形的判定",
       "chapter": "人教版八下·第18章 平行四边形",
-      "description": "一组邻边相等或对角线互相垂直的平行四边形是菱形"
+      "description": "一组邻边相等或对角线互相垂直的平行四边形是菱形",
+      "grade": 8,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1802",
+          "name": "平行四边形的判定",
+          "chapter": "人教版八下·第18章 平行四边形"
+        },
+        {
+          "kp_id": "kp_j8_1806",
+          "name": "菱形的性质",
+          "chapter": "人教版八下·第18章 平行四边形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1808",
       "name": "正方形的性质与判定",
       "chapter": "人教版八下·第18章 平行四边形",
-      "description": "兼具矩形菱形性质，由矩形或菱形判定正方形"
+      "description": "兼具矩形菱形性质，由矩形或菱形判定正方形",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1805",
+          "name": "矩形的判定",
+          "chapter": "人教版八下·第18章 平行四边形"
+        },
+        {
+          "kp_id": "kp_j8_1807",
+          "name": "菱形的判定",
+          "chapter": "人教版八下·第18章 平行四边形"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_1912",
       "name": "分段函数图象分析",
       "chapter": "人教版八下·第19章 一次函数",
-      "description": "行程等实际问题的分段图象信息提取"
+      "description": "行程等实际问题的分段图象信息提取",
+      "grade": 8,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1902",
+          "name": "函数的图象",
+          "chapter": "人教版八下·第19章 一次函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j8_2007",
       "name": "方差的性质",
       "chapter": "人教版八下·第20章 数据的分析",
-      "description": "数据加减乘除变化后方差的改变规律"
+      "description": "数据加减乘除变化后方差的改变规律",
+      "grade": 8,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_2004",
+          "name": "方差",
+          "chapter": "人教版八下·第20章 数据的分析"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2113",
       "name": "一元二次方程解法选择策略",
       "chapter": "人教版九上·第21章 一元二次方程",
-      "description": "观察方程结构选择最优解法"
+      "description": "观察方程结构选择最优解法",
+      "grade": 9,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2106",
+          "name": "根的判别式",
+          "chapter": "人教版九上·第21章 一元二次方程"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2207",
       "name": "二次函数的最值与应用",
       "chapter": "人教版九上·第22章 二次函数",
-      "description": "利润、面积等实际问题的最值建模与顶点求解"
+      "description": "利润、面积等实际问题的最值建模与顶点求解",
+      "grade": 9,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2203",
+          "name": "二次函数图象的平移",
+          "chapter": "人教版九上·第22章 二次函数"
+        },
+        {
+          "kp_id": "kp_j9_2205",
+          "name": "用待定系数法求二次函数解析式",
+          "chapter": "人教版九上·第22章 二次函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2209",
       "name": "抛物线与几何图形综合",
       "chapter": "人教版九上·第22章 二次函数",
-      "description": "抛物线背景下三角形四边形面积最值"
+      "description": "抛物线背景下三角形四边形面积最值",
+      "grade": 9,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2207",
+          "name": "二次函数的最值与应用",
+          "chapter": "人教版九上·第22章 二次函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2501",
       "name": "随机事件",
       "chapter": "人教版九上·第25章 概率初步",
-      "description": "确定事件与随机事件的区分"
+      "description": "确定事件与随机事件的区分",
+      "grade": 9,
+      "difficulty": 1,
+      "prerequisites": []
     },
     {
       "kp_id": "kp_j9_2510",
       "name": "综合与实践：概率与生活决策",
       "chapter": "人教版九上·第25章 概率初步",
-      "description": "用概率分析抽奖、保险等生活现象"
+      "description": "用概率分析抽奖、保险等生活现象",
+      "grade": 9,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2505",
+          "name": "用频率估计概率",
+          "chapter": "人教版九上·第25章 概率初步"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2601",
       "name": "反比例函数的概念",
       "chapter": "人教版九下·第26章 反比例函数",
-      "description": "y=k/x (k≠0) 的定义与解析式识别"
+      "description": "y=k/x (k≠0) 的定义与解析式识别",
+      "grade": 9,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1901",
+          "name": "变量与函数",
+          "chapter": "人教版八下·第19章 一次函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2604",
       "name": "反比例函数与一次函数综合",
       "chapter": "人教版九下·第26章 反比例函数",
-      "description": "两函数图象交点问题与不等式比较"
+      "description": "两函数图象交点问题与不等式比较",
+      "grade": 9,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1905",
+          "name": "一次函数的图象与性质",
+          "chapter": "人教版八下·第19章 一次函数"
+        },
+        {
+          "kp_id": "kp_j9_2602",
+          "name": "反比例函数的图象与性质",
+          "chapter": "人教版九下·第26章 反比例函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2704",
       "name": "相似三角形的判定",
       "chapter": "人教版九下·第27章 相似",
-      "description": "平行于一边、AA、SSS、SAS 四种判定方法"
+      "description": "平行于一边、AA、SSS、SAS 四种判定方法",
+      "grade": 9,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2703",
+          "name": "平行线分线段成比例",
+          "chapter": "人教版九下·第27章 相似"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2711",
       "name": "相似多边形性质",
       "chapter": "人教版九下·第27章 相似",
-      "description": "相似多边形对应角相等、对应边成比例"
+      "description": "相似多边形对应角相等、对应边成比例",
+      "grade": 9,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2705",
+          "name": "相似三角形的性质",
+          "chapter": "人教版九下·第27章 相似"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2804",
       "name": "解直角三角形",
       "chapter": "人教版九下·第28章 锐角三角函数",
-      "description": "已知两元素求其余元素的类型与方法选择"
+      "description": "已知两元素求其余元素的类型与方法选择",
+      "grade": 9,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j8_1701",
+          "name": "勾股定理",
+          "chapter": "人教版八下·第17章 勾股定理"
+        },
+        {
+          "kp_id": "kp_j9_2803",
+          "name": "特殊角三角函数值",
+          "chapter": "人教版九下·第28章 锐角三角函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2810",
       "name": "解直角三角形与圆综合",
       "chapter": "人教版九下·第28章 锐角三角函数",
-      "description": "切线、垂径定理背景下的解三角形计算"
+      "description": "切线、垂径定理背景下的解三角形计算",
+      "grade": 9,
+      "difficulty": 4,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2408",
+          "name": "切线的判定与性质",
+          "chapter": "人教版九上·第24章 圆"
+        },
+        {
+          "kp_id": "kp_j9_2806",
+          "name": "解直角三角形应用（方向角）",
+          "chapter": "人教版九下·第28章 锐角三角函数"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2904",
       "name": "画简单几何体的三视图",
       "chapter": "人教版九下·第29章 投影与视图",
-      "description": "圆柱圆锥及组合体的三视图绘制"
+      "description": "圆柱圆锥及组合体的三视图绘制",
+      "grade": 9,
+      "difficulty": 2,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2903",
+          "name": "三视图的概念",
+          "chapter": "人教版九下·第29章 投影与视图"
+        }
+      ]
     },
     {
       "kp_id": "kp_j9_2905",
       "name": "由三视图还原立体图形",
       "chapter": "人教版九下·第29章 投影与视图",
-      "description": "由三视图想象几何体并计算面积体积"
+      "description": "由三视图想象几何体并计算面积体积",
+      "grade": 9,
+      "difficulty": 3,
+      "prerequisites": [
+        {
+          "kp_id": "kp_j9_2904",
+          "name": "画简单几何体的三视图",
+          "chapter": "人教版九下·第29章 投影与视图"
+        }
+      ]
     }
   ]
 }
