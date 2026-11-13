@@ -18,6 +18,17 @@
 7. 汇总核对：库内总量 = 漏斗重算入库数；FTS 行数 = processed；B 类 10 题
    FTS 同步；小学 KP 数/挂接数；初中 303 KP 不变
 
+漏斗口径（2026-11-13 澄清，与 etl_ape210k_report.json 同语义）：
+- verify_*：对每条 mapped 行（**去重前**）计算的验算结论，match /
+  unverifiable / mismatch_rejected 三值互斥且完备（三者之和 = mapped 总数）；
+  因此包含后来被"完全重复"剔除的行
+- dup_*：被剔除重复行的验算结论拆分（计入 verify_*，不计入 written_*）
+- written_*：去重后入库行；written_processed = written_match +
+  written_unverifiable（unverifiable 按 processed 入库）；
+  written_rejected = written_mismatch_rejected
+- 从原始到入库：raw − parse_error − stem_invalid − id_missing = mapped；
+  mapped − duplicate_exact = written = processed + rejected
+
 用法（仓库根执行，须先跑 etl_ape210k + build_primary_kp）：
     .venv/Scripts/python.exe -m backend.scripts.verify_etl_integrity [--db <路径>] [--raw-dir <目录>]
 """
@@ -89,15 +100,20 @@ def run(db_path, raw_dir: Path) -> dict:
                     continue
 
                 verdict = ape210k.verify_equation(mapped["analysis"], mapped["answer"])
-                stats[f"verify_{verdict}"] += 1
+                # 键名与 etl_ape210k_report.json 对齐：mismatch 行即 rejected
+                v_key = "mismatch_rejected" if verdict == "mismatch" else verdict
+                stats["verify_" + v_key] += 1
                 state = "rejected" if verdict == "mismatch" else "processed"
 
                 key = ape210k.dedup_key(mapped["stem"], mapped["answer"])
                 if key in seen_keys:
                     stats["duplicate_exact"] += 1
+                    stats["dup_" + v_key] += 1  # 重复行的验算结论：计入 verify_*（去重前），不入库
                     continue
                 seen_keys.add(key)
                 stats["written_" + state] += 1
+                if state == "processed":
+                    stats["written_" + verdict] += 1  # written_match / written_unverifiable
 
                 # ---- 库内逐字段比对（q_id 主键点查，流式不整载内存） ----
                 q_id = mapped["q_id"]
@@ -158,6 +174,11 @@ def run(db_path, raw_dir: Path) -> dict:
     expected_total = stats["written_processed"] + stats["written_rejected"]
     checks["库内总量 = 漏斗重算入库数"] = db_total == expected_total
     checks["FTS 行数 = processed"] = fts_total == stats["written_processed"]
+    checks["processed（入库）= match + unverifiable（入库行拆分）"] = (
+        stats["written_processed"] == stats.get("written_match", 0) + stats.get("written_unverifiable", 0))
+    checks["mismatch 守恒（verify = 重复剔除 + 入库 rejected）"] = (
+        stats.get("verify_mismatch_rejected", 0)
+        == stats.get("dup_mismatch_rejected", 0) + stats["written_rejected"])
 
     fts_sync_ok = 0
     for q_id in B_CLASS_QIDS:
@@ -184,6 +205,34 @@ def run(db_path, raw_dir: Path) -> dict:
         "verified_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "elapsed_seconds": elapsed,
         "funnel_replay": dict(stats),
+        "derivation": {
+            "raw_total": stats["raw_total"],
+            "minus_parse_error": stats.get("parse_error", 0),
+            "minus_stem_invalid": stats.get("stem_invalid", 0),
+            "minus_id_missing": stats.get("id_missing", 0),
+            "equals_mapped_total": (stats["raw_total"] - stats.get("parse_error", 0)
+                                    - stats.get("stem_invalid", 0) - stats.get("id_missing", 0)),
+            "minus_duplicate_exact": stats["duplicate_exact"],
+            "equals_written_total": stats["written_processed"] + stats["written_rejected"],
+            "written_processed": stats["written_processed"],
+            "written_rejected": stats["written_rejected"],
+            "processed_by_verdict": {
+                "match": stats.get("written_match", 0),
+                "unverifiable": stats.get("written_unverifiable", 0),
+            },
+            "duplicates_by_verdict": {
+                "match": stats.get("dup_match", 0),
+                "unverifiable": stats.get("dup_unverifiable", 0),
+                "mismatch_rejected": stats.get("dup_mismatch_rejected", 0),
+            },
+        },
+        "semantics_notes": {
+            "verify_*": "对每条 mapped 行（去重前）计算的验算结论，三值互斥且完备；包含后来被剔除的重复行",
+            "dup_*": "被完全重复剔除行的验算结论拆分（计入 verify_*，不入库）",
+            "written_match/written_unverifiable": "去重后按 processed 入库的行按验算结论拆分",
+            "written_rejected": "去重后入库为 rejected 的行（验算 mismatch）",
+            "verify_match ≠ processed 的原因": "verify_match 含重复行（dup_match），且 unverifiable 行也按 processed 入库",
+        },
         "diff_classification": dict(diff),
         "star_stats": dict(star_stats),
         "db_total": db_total,
@@ -205,10 +254,12 @@ def print_report(report: dict) -> None:
     print(f"核验完成：{report['elapsed_seconds']}s（原始 {f['raw_total']} 行独立重放 + 全库逐行比对）")
     print(f"漏斗重算：原始 {f['raw_total']} | 题干无效 {f.get('stem_invalid', 0)} | id 缺失 {f.get('id_missing', 0)}"
           f" | 完全重复剔除 {f['duplicate_exact']}")
-    print(f"  验算：一致 {f.get('verify_match', 0)} / 不一致(rejected) {f.get('verify_mismatch', 0)}"
+    print(f"  验算（去重前，含重复行）：一致 {f.get('verify_match', 0)} / 不一致(rejected) {f.get('verify_mismatch_rejected', 0)}"
           f" / 无法验算 {f.get('verify_unverifiable', 0)}")
-    print(f"  入库：processed {f['written_processed']} + rejected {f['written_rejected']}"
-          f"（与 ETL 报告一致性见 checks）")
+    print(f"  入库：processed {f['written_processed']}（match {f.get('written_match', 0)}"
+          f" + unverifiable {f.get('written_unverifiable', 0)}）+ rejected {f['written_rejected']}")
+    print(f"  重复行验算拆分：match {f.get('dup_match', 0)} / unverifiable {f.get('dup_unverifiable', 0)}"
+          f" / mismatch {f.get('dup_mismatch_rejected', 0)}（计入验算计数、不入库）")
     s = report["star_stats"]
     print(f"星号保留（方案 A）：含星号行 {s.get('rows_with_star', 0)} | 乘号行 {s.get('rows_mult', 0)}"
           f" | 指数行 {s.get('rows_exp', 0)} | 非标准记法行 {s.get('rows_nonstandard', 0)}"
