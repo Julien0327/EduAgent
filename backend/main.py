@@ -38,8 +38,7 @@ async def lifespan(app: FastAPI):
     # ── Phase 2 检索层预热（S3）：KP+向量矩阵载入 + kp_fts 自愈同步 + embedding 模型
     # 加载——冷启动摊平到 lifespan（§4.5 冷启动 <5s；不预热则首个请求承担 ~2s）
     try:
-        retrieval.get_retrieval_service()
-        retrieval.get_embedding_service()
+        retrieval.get_retrieval_service()  # 内部构造 KpRetriever（含 embedding 单例预热）
         log.info("检索层预热完成（KP 召回 + embedding 就绪）")
     except Exception:
         log.exception("检索层预热失败（检索功能降级不可用，主流程继续）")

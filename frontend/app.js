@@ -46,6 +46,101 @@ checkHealth();
 // 使用本地静态库：marked（Markdown→HTML）、DOMPurify（防 XSS）、KaTeX（数学公式）。
 // 流程：先抽出 LaTeX 用 KaTeX 渲染为占位符 → marked 渲染 Markdown → 还原 KaTeX HTML → DOMPurify 清洗。
 
+
+// ===== API 认证与引用/会话支持（Phase 2 / S6-S7，§10.5/§4.4/§7） =====
+// Token 存 localStorage（仅本机浏览器便利，非服务端状态）；后端未配置 token
+// 时 API 返回 503 fail-closed——页面顶部可填 token。
+function apiToken() {
+  try { return localStorage.getItem("edumate_api_token") || ""; } catch { return ""; }
+}
+function apiHeaders(extra) {
+  const h = Object.assign({ "Content-Type": "application/json" }, extra || {});
+  const t = apiToken();
+  if (t) h["X-API-Token"] = t;
+  return h;
+}
+function authErrorHint(status, detail) {
+  if (status === 401) return "认证失败（401）：请在页面上方填入正确的 API Token。";
+  if (status === 503) return "服务端未配置 EDUMATE_API_TOKEN（503 fail-closed）：请联系管理员或在服务端设置。";
+  return detail || ("HTTP " + status);
+}
+function sseUrl(url) {
+  const t = apiToken();
+  return t ? url + (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(t) : url;
+}
+
+// 会话（多轮对话，§7）：chat 返回 session_id 后存内存复用
+let currentSessionId = null;
+
+// ===== 引用面板（§4.4）：读取任务的 citations.json =====
+async function showCitations(taskId) {
+  const panel = document.getElementById("citations-panel");
+  const body = document.getElementById("citations-body");
+  if (!panel || !body) return;
+  body.textContent = "加载中…";
+  panel.style.display = "block";
+  try {
+    const resp = await fetch(`/api/tasks/${taskId}/citations`, { headers: apiHeaders() });
+    const data = await resp.json();
+    if (!resp.ok) { body.textContent = authErrorHint(resp.status, data.detail); return; }
+    if (!data.citations || data.citations.length === 0) {
+      body.textContent = "该任务没有题库/图谱引用（如纯 AI 生成任务）。";
+      return;
+    }
+    body.innerHTML = data.citations.map((c) => {
+      const used = (c.used_in || []).map(escapeHtml).join("；") || "（未装配使用位置）";
+      return `<div class="cite-item"><b>${escapeHtml(c.kind)}</b> · <code>${escapeHtml(c.ref)}</code><div class="cite-used">${used}</div></div>`;
+    }).join("");
+  } catch (err) {
+    body.textContent = "加载引用失败：" + err.message;
+  }
+}
+
+// ===== 会话回放（§7.2）：会话列表 → 消息回放 =====
+async function showSessions() {
+  const panel = document.getElementById("sessions-panel");
+  const body = document.getElementById("sessions-body");
+  if (!panel || !body) return;
+  body.textContent = "加载中…";
+  panel.style.display = "block";
+  try {
+    const resp = await fetch("/api/sessions", { headers: apiHeaders() });
+    const data = await resp.json();
+    if (!resp.ok) { body.textContent = authErrorHint(resp.status, data.detail); return; }
+    if (!data.sessions.length) { body.textContent = "暂无会话。"; return; }
+    body.innerHTML = data.sessions.map((s) =>
+      `<div class="session-row"><a href="#" onclick="openSession('${s.session_id}');return false;">` +
+      `${escapeHtml(s.title || s.session_id)}</a> <span class="muted">(${s.msg_count} 条消息)</span></div>`
+    ).join("");
+  } catch (err) {
+    body.textContent = "加载会话失败：" + err.message;
+  }
+}
+
+async function openSession(sessionId) {
+  const replyEl = document.getElementById("chat-reply");
+  const statusEl = document.getElementById("chat-status");
+  try {
+    const resp = await fetch(`/api/sessions/${sessionId}`, { headers: apiHeaders() });
+    const data = await resp.json();
+    if (!resp.ok) { statusEl.textContent = authErrorHint(resp.status, data.detail); return; }
+    currentSessionId = sessionId;
+    statusEl.textContent = `已切换到会话 ${sessionId}（后续对话延续该会话）`;
+    replyEl.innerHTML = data.messages.map((m) => {
+      const who = m.role === "user" ? "我" : "助手";
+      return `<div class="replay-msg"><span class="muted">${who}：</span>${renderRichText(m.content)}</div>`;
+    }).join("<hr class='soft'>");
+    const taskCards = data.tasks || [];
+    if (taskCards.length) {
+      replyEl.innerHTML += `<hr class='soft'><div class="muted">关联任务：${taskCards.map(
+        (t) => `${t.task_id}（${t.status}）`).join("，")}</div>`;
+    }
+  } catch (err) {
+    statusEl.textContent = "回放失败：" + err.message;
+  }
+}
+window.openSession = openSession;
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -110,17 +205,20 @@ async function sendChat() {
   replyEl.textContent = "";
 
   try {
+    const body = { message };
+    if (currentSessionId) body.session_id = currentSessionId;
     const resp = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      headers: apiHeaders(),
+      body: JSON.stringify(body),
     });
     const data = await resp.json();
     if (!resp.ok) {
-      statusEl.textContent = `请求失败（HTTP ${resp.status}）：${data.detail || "未知错误"}`;
+      statusEl.textContent = authErrorHint(resp.status, data.detail);
       return;
     }
-    statusEl.textContent = `已回复（模型：${data.model}）`;
+    if (data.session_id) currentSessionId = data.session_id;
+    statusEl.textContent = `已回复（模型：${data.model}，会话：${data.session_id.slice(0, 8)}…）`;
     replyEl.innerHTML = renderRichText(data.message);
   } catch (err) {
     statusEl.textContent = `请求失败：${err.message}`;
@@ -501,7 +599,8 @@ function renderLog() {
     lines.push({ icon: "📦", text: `生成「${a.name}」${a.file_name}`, kind: "artifact" });
   }
   if (currentStatus === "completed") {
-    lines.push({ icon: "✅", text: "任务完成", kind: "complete" });
+    lines.push({ icon: "✅", text: "任务完成（引用见下方面板）", kind: "complete" });
+    if (currentTaskId) showCitations(currentTaskId);  // §4.4 引用面板
   } else if (currentStatus === "failed") {
     lines.push({ icon: "❌", text: "任务失败", kind: "error" });
   }
@@ -638,7 +737,7 @@ function handleEvent(msg) {
 async function pollTask(taskId) {
   if (taskId !== currentTaskId) return;
   try {
-    const resp = await fetch(`/api/tasks/${taskId}`);
+    const resp = await fetch(`/api/tasks/${taskId}`, { headers: apiHeaders() });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     applySnapshot(data);
@@ -655,7 +754,7 @@ async function pollTask(taskId) {
 }
 
 function streamEvents(taskId) {
-  taskEventSource = new EventSource(`/api/tasks/${taskId}/events`);
+  taskEventSource = new EventSource(sseUrl(`/api/tasks/${taskId}/events`));
   taskEventSource.onmessage = (ev) => {
     let msg;
     try {
@@ -694,10 +793,12 @@ async function submitTask() {
   $("task-progress").scrollIntoView({ behavior: "smooth", block: "start" });
 
   try {
+    const body = { prompt };
+    if (currentSessionId) body.session_id = currentSessionId;
     const resp = await fetch("/api/tasks", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      headers: apiHeaders(),
+      body: JSON.stringify(body),
     });
     const data = await resp.json();
     if (!resp.ok) {
@@ -807,3 +908,18 @@ function initNavScrollspy() {
 initGreeting();
 initPlaceholderCycle();
 initNavScrollspy();
+
+// ===== Token 保存与面板按钮（S6/S7 前端接线） =====
+document.addEventListener("DOMContentLoaded", () => {
+  const inp = document.getElementById("api-token-input");
+  const save = document.getElementById("token-save");
+  const bs = document.getElementById("btn-sessions");
+  const bc = document.getElementById("btn-citations");
+  if (inp) inp.value = apiToken();
+  if (save) save.addEventListener("click", () => {
+    try { localStorage.setItem("edumate_api_token", (inp.value || "").trim()); } catch {}
+    if (inp) inp.placeholder = "API Token（已保存）";
+  });
+  if (bs) bs.addEventListener("click", showSessions);
+  if (bc) bc.addEventListener("click", () => currentTaskId && showCitations(currentTaskId));
+});

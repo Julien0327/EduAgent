@@ -38,12 +38,25 @@ def get_expected_token() -> str | None:
     return settings.EDUMATE_API_TOKEN or None
 
 
-def extract_token(headers) -> str | None:
-    """从请求头取 token：Authorization: Bearer x 优先，兼容 X-API-Token。"""
+def extract_token(headers, query_string: bytes | None = None) -> str | None:
+    """从请求取 token：Authorization: Bearer x 优先，兼容 X-API-Token 头。
+
+    query token（``?token=``）：仅供 SSE 端点使用——EventSource 无法自定义
+    请求头（浏览器限制）；token 不入日志（日志脱敏不记 query string）。
+    """
     auth = headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
         return auth[7:].strip() or None
-    return headers.get("x-api-token") or None
+    tok = headers.get("x-api-token")
+    if tok:
+        return tok
+    if query_string:
+        from urllib.parse import parse_qs
+        qs = parse_qs(query_string.decode("latin-1"))
+        vals = qs.get("token")
+        if vals and vals[0]:
+            return vals[0]
+    return None
 
 
 def token_ok(provided: str | None, expected: str | None) -> bool:
@@ -154,7 +167,7 @@ class SecurityMiddleware:
         if not expected:
             await self._send_json(send, 503, {"detail": "服务端未配置 EDUMATE_API_TOKEN，API 处于 fail-closed 状态"})
             return
-        if not token_ok(extract_token(headers), expected):
+        if not token_ok(extract_token(headers, scope.get("query_string")), expected):
             # 401 不区分缺/错（防探测），响应体不含内部细节
             await self._send_json(send, 401, {"detail": "未授权"})
             return

@@ -226,11 +226,27 @@
               <div id="chat-reply" class="chat-reply empty">
                 <span class="chat-placeholder">💬 在下方输入问题，开始与 AI 助手对话</span>
               </div>
+              <div class="token-row" style="margin-bottom:6px">
+                <input id="api-token-input" class="chat-input" style="flex:1" placeholder="API Token（本地保存，未配置时后端 fail-closed）" />
+                <button id="token-save" class="btn-ghost">保存 Token</button>
+              </div>
               <div class="chat-input-row">
                 <textarea id="chat-input" class="chat-input" placeholder="请输入教学相关问题…" rows="2"></textarea>
                 <button id="chat-send" class="btn-primary">发送</button>
               </div>
               <div id="chat-status" class="chat-status muted"></div>
+              <div class="chat-actions">
+                <button id="btn-sessions" class="btn-ghost">会话列表</button>
+                <button id="btn-citations" class="btn-ghost">当前任务引用</button>
+              </div>
+              <div id="sessions-panel" class="aux-panel" style="display:none">
+                <b>会话列表（点击回放）</b>
+                <div id="sessions-body"></div>
+              </div>
+              <div id="citations-panel" class="aux-panel" style="display:none">
+                <b>任务引用（题库/图谱取数溯源，§4.4）</b>
+                <div id="citations-body"></div>
+              </div>
             </div>
           </div>
         </div>
