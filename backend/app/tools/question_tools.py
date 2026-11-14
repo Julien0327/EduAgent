@@ -10,10 +10,8 @@ from pydantic import BaseModel, Field
 
 from backend.app.agent.llm_utils import structured_completion
 from backend.app.knowledge.loader import load_knowledge_points
+from backend.app.retrieval.balance import allocate_scores as _allocate_scores  # S4 上移共用
 from backend.app.tools.registry import tool
-
-# 题型权重：解答题分值高于选择/填空
-TYPE_WEIGHT = {"选择题": 1, "填空题": 1, "解答题": 2}
 
 
 class GenerateQuestionsParams(BaseModel):
@@ -41,21 +39,6 @@ class RawQuestion(BaseModel):
 
 class QuestionSet(BaseModel):
     questions: list[RawQuestion]
-
-
-def _allocate_scores(questions: list[dict], total_score: int) -> list[int]:
-    """按题型权重确定性分配分值，保证总分精确等于 total_score。"""
-    weights = [TYPE_WEIGHT.get(q["type"], 1) for q in questions]
-    total_weight = sum(weights)
-    base = total_score // total_weight
-    remainder = total_score - base * total_weight
-    scores = []
-    for i, w in enumerate(weights):
-        s = base * w
-        if i < remainder:
-            s += 1
-        scores.append(s)
-    return scores
 
 
 @tool(

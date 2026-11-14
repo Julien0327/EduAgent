@@ -18,6 +18,8 @@
 """
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 
 from backend.app.retrieval.citations import require_ref
@@ -43,10 +45,14 @@ class KpRetriever:
     """知识点召回器（启动载入 KP 元数据 + 向量矩阵；进程内单例复用）。"""
 
     def __init__(self, db_path=None, embedding_service: EmbeddingService | None = None):
-        self._conn = db.connect(db_path)
+        # check_same_thread=False：单例连接跨线程复用（FastAPI sync 端点在线程池
+        # 执行）；所有访问经 self._lock 串行化（sqlite3 对象本身非线程安全）
+        self._conn = db.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
         self._embedder = embedding_service or get_embedding_service()
-        self._load_kp()
-        self._sync_kp_fts()
+        with self._lock:
+            self._load_kp()
+            self._sync_kp_fts()
 
     # ---------- 启动载入 ----------
 
@@ -124,8 +130,9 @@ class KpRetriever:
         query = str(query).strip()
         if not query:
             return []
-        kw_raw = self._keyword_scores(query, stage)
-        vec_raw = self._vector_scores(query, stage)
+        with self._lock:
+            kw_raw = self._keyword_scores(query, stage)
+            vec_raw = self._vector_scores(query, stage)
         kw_norm = _minmax(kw_raw)
         vec_norm = _minmax(vec_raw)
         alpha = RETRIEVAL_ALPHA

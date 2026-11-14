@@ -37,7 +37,8 @@ def use_fake_llm(monkeypatch):
 
 def test_registered_tool_names():
     names = {s["function"]["name"] for s in reg.get_schemas()}
-    assert names == {"search_knowledge_points", "generate_questions", "generate_diagnosis"}
+    assert names == {"search_knowledge_points", "generate_questions",
+                     "generate_diagnosis", "query_question_bank"}
 
 
 def test_schemas_openai_format():

@@ -25,10 +25,15 @@ from backend.app.storage import db
 
 
 class RetrievalService:
-    """三阶段检索门面（构造即完成启动载入：KP + 向量矩阵 + kp_fts 自愈同步）。"""
+    """三阶段检索门面（构造即完成启动载入：KP + 向量矩阵 + kp_fts 自愈同步）。
+
+    线程模型：单例连接跨线程复用（FastAPI sync 端点在线程池执行），三阶段
+    在 ``self._lock`` 内串行执行（p95 28ms，串行无吞吐影响）。
+    """
 
     def __init__(self, db_path=None, kp_retriever: KpRetriever | None = None):
-        self._conn = db.connect(db_path)
+        self._conn = db.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
         self._kp = kp_retriever or KpRetriever(db_path)
 
     # ---------- 阶段 1 ----------
@@ -50,17 +55,18 @@ class RetrievalService:
         题面 FTS 补充路仅在 query 非空时启用（题面检索意图）。
         """
         validate_filters(filters)
-        kps = self._kp.recall(query or "", stage=stage, top_k=kp_top_k)
-        kp_ids = [k["kp_id"] for k in kps]
+        with self._lock:
+            kps = self._kp.recall(query or "", stage=stage, top_k=kp_top_k)
+            kp_ids = [k["kp_id"] for k in kps]
 
-        candidates = expand_by_kp(self._conn, kp_ids, filters, limit=question_limit * 3)
-        fts_used = False
-        if query:
-            fts_candidates = supplement_by_fts(self._conn, query, filters,
-                                               limit=question_limit * 2)
-            fts_used = bool(fts_candidates)
-            seen = {c["q_id"] for c in candidates}
-            candidates.extend(c for c in fts_candidates if c["q_id"] not in seen)
+            candidates = expand_by_kp(self._conn, kp_ids, filters, limit=question_limit * 3)
+            fts_used = False
+            if query:
+                fts_candidates = supplement_by_fts(self._conn, query, filters,
+                                                   limit=question_limit * 2)
+                fts_used = bool(fts_candidates)
+                seen = {c["q_id"] for c in candidates}
+                candidates.extend(c for c in fts_candidates if c["q_id"] not in seen)
 
         ranked = rerank(candidates, kp_ids, target_difficulty=target_difficulty,
                         with_fts_intent=fts_used)[:question_limit]

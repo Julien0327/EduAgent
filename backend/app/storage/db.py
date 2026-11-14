@@ -76,13 +76,17 @@ def get_db_path() -> Path:
     return DEFAULT_DB_PATH
 
 
-def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
+def connect(db_path: Path | str | None = None,
+            check_same_thread: bool = True) -> sqlite3.Connection:
     """新建 SQLite 连接：统一开启外键约束与 busy_timeout，行结果用 Row 工厂。
 
     所有数据库访问都必须经由本函数创建连接，保证外键约束无遗漏。
+    check_same_thread=False 供长生命周期连接跨线程复用（如检索层单例——
+    FastAPI sync 端点跑在线程池，连接建于 lifespan 线程）；复用方必须
+    自带进程内锁串行化（sqlite3 对象本身非线程安全）。
     """
     path = Path(db_path) if db_path is not None else get_db_path()
-    conn = sqlite3.connect(str(path))
+    conn = sqlite3.connect(str(path), check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
