@@ -21,7 +21,12 @@ DEFAULT_DB_PATH = REPO_ROOT / "data" / "db" / "edumate.sqlite"
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent
 # (版本号, 文件名)：V1 为全量 DDL，后续增量迁移按序号追加到本表
-MIGRATIONS: list[tuple[int, str]] = [(1, "migrations.sql")]
+# V2（Step 5-B1）：LLM 打标注解表（annotation_batches/q_annotation_results/q_kp_llm/
+# q_difficulty_llm/annotation_reviews + 消费视图），见 migrations_v2.sql 头注
+MIGRATIONS: list[tuple[int, str]] = [
+    (1, "migrations.sql"),
+    (2, "migrations_v2.sql"),
+]
 
 # 建库后必须存在的全部表（§2.3 全部表 + schema_migrations；缺任一即 fail-fast）
 EXPECTED_TABLES = (
@@ -42,6 +47,11 @@ EXPECTED_TABLES = (
     "steps",
     "eval_cases",
     "eval_runs",
+    "annotation_batches",
+    "q_annotation_results",
+    "q_kp_llm",
+    "q_difficulty_llm",
+    "annotation_reviews",
     "schema_migrations",
 )
 

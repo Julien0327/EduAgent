@@ -26,6 +26,7 @@
 | 13 | Schema 约束强化 | confidence CHECK 0–1；kp_id/batch_id 增外键；q_id 不设外键理由保留；annotation_reviews 增 `target_kp_id` 精确对应标注行 | 用户指令 2-7 | Schema 提案变更 |
 | 14 | reason 持久化 | 存 `q_annotation_results.reason`；Prompt 输出规范不变；Prompt/执行器/Schema 三者一致 | 用户指令 2-8 | 补充明确 |
 | 15 | 实施计划授权状态修正 | 5-B3（20,000）**未授权**，须 5-B2 后按实测成本单独审批；5-B4（全量）**默认禁止**，须用户单独批准预算与范围；¥1,000 仅为技术参考熔断上限 | 用户决策② | 授权表述修正 |
+| 16 | 消费视图 SQL 实现期修正（5-B1） | v_q_kp_effective 三处 JOIN 增加 `b.strategy = 'A_full_list'` 过滤（§5 已同步） | A/B 两臂各有有效批次时，原 SQL 会使同一题出现两份行、违反"B 臂不混入消费视图"设计意图 | 是——实现与文档同步修正 |
 
 **四项用户决策落地对照**：
 
@@ -241,25 +242,28 @@ SELECT b.* FROM annotation_batches b
         AND (b2.finished_at > b.finished_at
              OR (b2.finished_at = b.finished_at AND b2.batch_id > b.batch_id)));
 
--- 消费视图（Phase 2 用）：默认消费 A 臂（主线）；B 臂仅实验对比，按 batch_id 手工查询
+-- 消费视图（Phase 2 用）：默认消费 A 臂（主线）；B 臂仅实验对比，按 batch_id 手工查询。
 -- 回退规则（第二版核心修正）：仅当题目**没有任何有效 LLM 终态**（ok/unmapped 均无）才回退规则候选；
--- 不可映射（unmapped）永不回退规则
+-- 不可映射（unmapped）永不回退规则。
+-- （5-B1 实现期修正：三处 JOIN 增加 b.strategy = 'A_full_list' 过滤——否则 A/B 两臂
+--   各有有效批次时同一题会出现两份行，违反"B 臂不混入消费视图"；已同步本节 SQL。）
 CREATE VIEW v_q_kp_effective AS
 SELECT r.q_id, l.kp_id, 'llm' AS tag_source, l.is_primary, l.review_state, r.batch_id
   FROM q_annotation_results r
-  JOIN v_effective_batch b ON b.batch_id = r.batch_id
+  JOIN v_effective_batch b ON b.batch_id = r.batch_id AND b.strategy = 'A_full_list'
   JOIN q_kp_llm l ON l.q_id = r.q_id AND l.batch_id = r.batch_id
  WHERE r.status = 'ok' AND l.review_state <> 'rejected'
 UNION ALL
 SELECT r.q_id, NULL, 'llm_unmapped', 0, 'pending', r.batch_id
   FROM q_annotation_results r
-  JOIN v_effective_batch b ON b.batch_id = r.batch_id
+  JOIN v_effective_batch b ON b.batch_id = r.batch_id AND b.strategy = 'A_full_list'
  WHERE r.status = 'unmapped'
 UNION ALL
 SELECT k.q_id, k.kp_id, 'rule', 0, 'none', NULL
   FROM q_kp k
  WHERE NOT EXISTS (
-   SELECT 1 FROM q_annotation_results r JOIN v_effective_batch b ON b.batch_id = r.batch_id
+   SELECT 1 FROM q_annotation_results r
+     JOIN v_effective_batch b ON b.batch_id = r.batch_id AND b.strategy = 'A_full_list'
     WHERE r.q_id = k.q_id AND r.status IN ('ok','unmapped'));
 ```
 

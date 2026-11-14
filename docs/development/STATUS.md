@@ -10,7 +10,7 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 - **Step 2 知识图谱构建 ✅（用户已确认）**：初中 303 知识点 + 374 条前置边入库；用户抽检 61 条提出 4 处修正已全部处理（commit `03878ee`/`574c9ad`）；抽样 seed=42 复现验证不变。
 - **Step 3 F16 导入服务 ✅（用户已确认）**：模板生成 + 七步管线 + 三端点 + 17 项真实 Excel 端到端测试 + demo 冒烟 232 行 committed（commit `26e943c`/`1b4f159`）。
 - **Step 4 APE210K ETL ✅（含方案 A 修复；2026-11-13 用户最终验收，决策㉔）**：数据源核验（许可裁决=决策㉒）+ 流式清洗入库 + FTS5 + 小学 KP 规则聚合 + 100 题完整率抽样；用户复核发现 B 类清洗损坏后按**方案 A（决策㉓）修复并全量重建**：processed 207,858 题；全量 **159 passed**；全库逐行核验 0 不一致。证据见 DATA-SOURCES.md 与下表。2026-11-13 补充复核（异常扫描/漏斗口径澄清/KP 过度挂接记录）见"Step 4 补充复核"节，最终裁决见"Step 4 最终裁决与收尾"节。
-- **Step 5 LLM 打标**：**5-A 方案设计第二版完成（2026-11-14，待用户审查批准）**——`docs/development/STEP5-ANNOTATION-DESIGN.md` 按用户修订指令落实四项已定决策（①manifest 运行级入 Git/逐题明细入 staging ②试跑 A+B 共享 cap ¥10，80% 告警/100% 硬停，全量未授权 ③A/B 双臂对照（同 500 题/同模型/同 gold，费用合并）④显式 deepseek-flash）+ 九项技术修正（题级结果表 q_annotation_results 持久化不可映射、task_type/strategy 批次重构、消费视图重写、AIMD 并发、成本四场景重算含 8% 重试余量、processed 口径抽样池、S6 交集实测=0、confidence/FK 约束、reason 持久化）。推荐方案 A 主线不变；**未改任何代码/Schema/API**。获批后 5-B1（迁移+prompt+脚本，仍不调 API）→ 5-B2（500 题双臂试跑，已授权范围仅此 + ¥10）。
+- **Step 5 LLM 打标**：**5-A 方案第二版已批准 → 5-B1 工程实施完成（2026-11-14，待用户审查）**。已落地：V2 迁移（真实库已应用，数据零改动）、`backend/app/annotation/` 执行器五模块、A/B Prompt v1 + registry、500 题分层试验集（trial500_qids.jsonl，确定性复跑一致）、预算闸门/AIMD/幂等断点/manifest 全套机制、**204 passed**（159 基线 + 45 新增，全部 Mock 无真实 API）。证据见"Step 5-B1 完成证据"节。**5-B2（500 题双臂试跑，cap ¥10）待用户批准后才可执行**。
 
 ## Step 4 完成证据（2026-11-11，全部实测）
 
@@ -121,7 +121,22 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 5. **Prompt 版本管理**：prompt_version 命名规则与 manifest JSONL 存放位置（决策⑳/㉑）
 6. **填空标记说明**：LLM Prompt 中对 `((())/(()))` 等空位形态的说明文字（题干含待填空格，非缺失内容）
 
-## Step 5-A 方案设计（2026-11-13，待用户审查批准）
+## Step 5-B1 工程实施完成证据（2026-11-14，全部实测，未调任何真实 API）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| V2 迁移 | ✅ 新增 5 表（annotation_batches / q_annotation_results / q_kp_llm / q_difficulty_llm / annotation_reviews）+ 2 视图（v_effective_batch / v_q_kp_effective）+ 8 索引；真实库 `data/db/edumate.sqlite` 已应用（schema_migrations=[1,2]）；**数据零改动核验：questions 207,949（processed 207,858）/ q_kp 571,364 / KP 385 不变**；重复应用幂等（版本恒 2）。索引名冲突一次（V1 已占 idx_batches_status）→ 重命名 idx_ann_batches_status | `backend/app/storage/migrations_v2.sql`；`db.py` MIGRATIONS/EXPECTED_TABLES |
+| 题级结果表 | ✅ 不可映射（unmapped）作为有效终态持久化（q_annotation_results，PK(q_id,batch_id)）；消费视图实测：unmapped 题输出 tag_source='llm_unmapped' 且**零规则回退**（真实库当前 571,364 行全为 rule 回退态，符合"尚无 LLM 结果"预期）；failed/invalid 中间态亦落行，重跑 INSERT OR REPLACE 覆盖 | `test_annotation_schema.py::test_view_unmapped_never_falls_back_to_rule` 等 13 项 |
+| 执行器 | ✅ `backend/app/annotation/`（executor/client/pricing/prompts/recall 五模块）：批次 UNIQUE 幂等键 + 断点续跑（ok/unmapped 跳过）+ 指数退避重试 + 纠错重试 + AIMD 并发（初始 4/上限 8、连续成功缓升 +1、**429 降半至下限 1**）+ budget_group 级预算台账（无缓存最坏口径预留、80% 告警暂停、100% 硬停、实测费用不越 cap）+ manifest（Git）/逐题明细（staging）双层落盘 | `test_annotation_executor.py` 21 项（全部 Mock 客户端） |
+| Prompt v1 | ✅ A 臂 `kp_primary_v1.md`（82 清单占位符+特殊形态说明+难度锚点+3 例 few-shot）/ B 臂 `kp_recall_v1.md`（候选可能不全、禁止硬凑）；`registry.jsonl` 记录 sha256（篡改即拒绝运行）；**规则标签零泄漏**（全文不含 q_kp/ape210k_rule/规则挂接，测试断言） | `data/annotations/prompts/`；`test_annotation_prompts.py` 7 项 |
+| 500 题试验集 | ✅ 18 层全部足额（40/30/10/20/10/10/40/15/15/30×5/20/10+10/120），processed 口径池实测（S3 剩余 304/S6 剩余 594 系 S1 优先互斥消耗所致）；**确定性复跑 sha256 一致**；冻结清单仅含 q_id+层标签（决策㉒） | `data/annotations/trial500_qids.jsonl`（Git）；`build_trial500.py` 输出实录 |
+| 核验表导出器 | ✅ 50 题盲评选样（S12≥15、S1/S2/S7≥5、余量配额轮转），稳定种子（zlib.crc32，不依赖进程 hash） | `backend/scripts/export_review_sheet.py` |
+| 测试基线 | ✅ **204 passed / 0 failed** = 159 基线 + 45 新增（schema 13 + prompts 7 + executor 21 + builder 4）；存储基线 8 项随 V2 演进（版本断言 [1,2]） | 全量 pytest（2026-11-14） |
+| API 隔离 | ✅ 执行器/测试**不读取任何环境变量与 API Key**（依赖注入 ChatClient）；真实 Key 仅在 CLI `from_settings()` 存在性检查（不打印）；B 臂无召回器 fail-fast（RecallNotAvailableError，不静默降级）；`tag_questions.py` 不自动执行、无预算 cap 拒绝运行 | `client.py` 设计 + `test_processed_only_guard_before_batch_creation` / `test_real_recaller_placeholder_fails_fast` |
+
+**已知问题与遗留风险**：①B 臂 embedding 召回未实现（占位 fail-fast，待 onnxruntime/fastembed 依赖批准后 5-B2 落地）；②Mock 通过 ≠ 真实 API 验收——真实 usage/tokenizer/缓存命中率/429 行为均待 5-B2 实测；③`.env` 是否覆盖 DEEPSEEK_MODEL 默认值未核验（5-B2 开工时确认）；④manifest 的 batch_end 为 run 级口径（续跑合并累计值在批次行）。
+
+## Step 5-A 方案设计（2026-11-13，第二版已批准）
 
 - **交付物**：`docs/development/STEP5-ANNOTATION-DESIGN.md`（12 节完整设计：现状问题/范围/三方案对比/架构数据流/Schema V2 提案/500 题分层试验/50 题人工评估/成本测算/可靠性/实施计划/验收标准/风险待裁决）
 - **调查基础（实测）**：数据库只读查询（q_kp 分布 571,364 挂接/204,237 题/零挂接 3,621；题干 p50=43/p90=70；type 全库单值 'application'；82 KP 定义合计 1,477 字符；questions 无初中行）；config.py 模型默认 `deepseek-v4-flash`（遗留别名→flash 线）；迁移机制 MIGRATIONS 列表可追加 V2
@@ -174,7 +189,7 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 
 ## 待办 / 阻塞
 
-1. **Step 5-A 方案文档：待用户审查批准**（`STEP5-ANNOTATION-DESIGN.md`；批准后 5-B1 仍不调 API；两道关口=决策㉑，独立打标约束=决策㉔）。
+1. **Step 5-B1 实施成果：待用户审查**（批准确认后 5-B2 才可执行 500 题双臂试跑——范围 cap ¥10，两道关口=决策㉑，独立打标约束=决策㉔；B 臂 embedding 召回依赖需届时单独批准）。
 2. Phase 1 收尾统一 push（本地 main 领先远程；TUN 模式可能影响 git push，届时留意）。
 3. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 4. 无其他阻塞。

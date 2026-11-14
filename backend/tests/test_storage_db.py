@@ -38,13 +38,13 @@ def test_connect_enforces_foreign_keys(conn):
 def test_apply_migrations_idempotent(db_path):
     """重复应用迁移不报错、不重复记录版本。"""
     version_again = db.apply_migrations(db_path)
-    assert version_again == 1
+    assert version_again == 2
     conn = db.connect(db_path)
     try:
         versions = [
             row["version"] for row in conn.execute("SELECT version FROM schema_migrations")
         ]
-        assert versions == [1]
+        assert versions == [1, 2]
     finally:
         conn.close()
 

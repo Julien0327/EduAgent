@@ -1,0 +1,2 @@
+{"prompt_id": "kp_primary", "version": "v1.0", "file": "data/annotations/prompts/kp_primary_v1.md", "sha256": "6de108f598eb29ff1a2721aec8fdc5f5676541575cc4099f39dd783ce2bfee43", "created_at": "2026-11-14", "changes": "初始版本（Step 5-B1）：任务说明+{{KP_LIST}}+输出 JSON 规范+难度锚点+特殊形态说明+3 例 few-shot"}
+{"prompt_id": "kp_recall", "version": "v1.0", "file": "data/annotations/prompts/kp_recall_v1.md", "sha256": "e19a1da64e001d70f2deb46dae260f80c0e18f4da6d1cfe315b1befa6d0de422", "created_at": "2026-11-14", "changes": "初始版本（Step 5-B1）：任务说明+{{KP_LIST}}+输出 JSON 规范+难度锚点+特殊形态说明+3 例 few-shot"}
