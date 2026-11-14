@@ -6,6 +6,7 @@
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,6 +61,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.SERVICE_NAME, lifespan=lifespan)
+
+# ── API 安全（Phase 2 / S6，§10.5 / 决策⑪）：认证（fail-closed）+ 限流 ──
+# 纯 ASGI 中间件，先于 CORS 语义层执行（CORS 由浏览器侧拦截，二者不冲突）。
+from backend.app.api.security import RedactFilter, SecurityMiddleware  # noqa: E402
+
+app.add_middleware(SecurityMiddleware)
+logging.getLogger().addFilter(RedactFilter())  # Bearer token 绝不入日志
+if not settings.EDUMATE_API_TOKEN:
+    log.warning("EDUMATE_API_TOKEN 未配置——API 处于 fail-closed 状态（仅 /api/health 可用）；"
+                "本地开发请设置该环境变量（见 .env.example）")
 
 # CORS：默认仅放行本机开发源；部署时通过环境变量 ALLOWED_ORIGINS 注入白名单
 # （逗号分隔，见 config.Settings.ALLOWED_ORIGINS 与 .env.example；Phase 0/I3）。

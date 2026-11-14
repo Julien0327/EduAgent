@@ -25,6 +25,10 @@ class Settings:
     # SQLite 业务库（Phase 1）：默认 data/db/edumate.sqlite；可用环境变量覆盖（测试/部署）。
     DB_PATH: str | None = os.getenv("EDUMATE_DB_PATH")
 
+    # API 认证（Phase 2 / S6，§10.5 / 决策⑪）：env 注入 Access Token；
+    # 未配置 → fail-closed（仅 /api/health 可用）。不硬编码、不入库、不进日志。
+    EDUMATE_API_TOKEN: str | None = os.getenv("EDUMATE_API_TOKEN")
+
     # F16 导入（Phase 1 / Step 3）：单批数据行数上限（§3.4 IMPORT_BATCH_MAX_ROWS）。
     IMPORT_BATCH_MAX_ROWS: int = int(os.getenv("EDUMATE_IMPORT_MAX_ROWS", "5000"))
 

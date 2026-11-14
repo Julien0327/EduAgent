@@ -8,6 +8,8 @@ import json
 import threading
 
 import pytest
+
+from backend.tests.conftest import AUTH_HEADERS
 from fastapi.testclient import TestClient
 
 import backend.app.agent.llm_utils as llm_utils
@@ -157,7 +159,7 @@ def test_clarify_count():
 
 def test_sessions_api_and_chat_multiturn(fake_llm):
     fake_llm([])
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH_HEADERS) as client:
         # 无 session_id：自动新建并返回
         r1 = client.post("/api/chat", json={"message": "你好"})
         assert r1.status_code == 200
@@ -212,7 +214,7 @@ def test_f1_clarification_then_task(fake_llm):
     """信息不足 → 返回追问（200，不建任务）；补充后正常 202。"""
     fake_llm([_plan_resp("请问针对哪个章节？"),  # 预判：追问
               _plan_resp(), _lesson_resp()])     # 第二次：正常建任务
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH_HEADERS) as client:
         sid = "f1s1"
         session_store.create_session("f1 会话") if False else None
         from backend.app.storage import db as _db
@@ -236,7 +238,7 @@ def test_f1_drops_after_two_rounds(fake_llm):
     fake_llm([_plan_resp("还在追问？"),  # 预判（降级分支）
               _plan_resp(),             # understand_task（降级后任务照常执行）
               _lesson_resp()])          # 教案内容
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH_HEADERS) as client:
         sid = "f1s2"
         session_store.add_message(sid, "user", "出卷子")
         # 预置 2 轮追问记录
@@ -251,7 +253,7 @@ def test_f1_drops_after_two_rounds(fake_llm):
 def test_no_session_task_skips_clarification(fake_llm):
     """无会话任务不追问（保持 D4 语义）：直接 202。"""
     fake_llm([_plan_resp("谁问的？"), _lesson_resp()])
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH_HEADERS) as client:
         r = client.post("/api/tasks", json={"prompt": "写《一元二次方程》教案"})
         assert r.status_code == 202
         assert "need_clarification" not in r.json()

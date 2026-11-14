@@ -23,6 +23,7 @@ from backend.app.retrieval.citations import (
 )
 from backend.app.services import exam_docx, lesson_plan
 from backend.main import app
+from backend.tests.conftest import AUTH_HEADERS
 
 # S3 起检索层走真实库+模型——本模块全部用例替换为 Fake（离线）
 pytestmark = pytest.mark.usefixtures("fake_retrieval")
@@ -227,7 +228,7 @@ def test_citations_api(tmp_path, monkeypatch):
     from backend.app.storage import file_store
     monkeypatch.setattr(file_store, "OUTPUTS_ROOT", tmp_path)
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH_HEADERS) as client:
         # 任务不存在 → 404
         r = client.get("/api/tasks/nonexistent/citations")
         assert r.status_code == 404

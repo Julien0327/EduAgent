@@ -75,3 +75,16 @@ def _isolated_task_store(tmp_path, monkeypatch):
     task_store.reset()
     yield
     task_store.reset()
+
+
+@pytest.fixture(autouse=True)
+def _auth_token(monkeypatch):
+    """S6 起 API fail-closed——测试统一注入 test token（配合各 TestClient 的 AUTH 头）。"""
+    from backend.app.api.security import limiter
+    from backend.config import settings
+    monkeypatch.setattr(settings, "EDUMATE_API_TOKEN", "test-token")
+    limiter._hits.clear()  # 限流桶按测试隔离（模块级单例会跨用例累积）
+
+
+# 测试客户端统一携带的认证头（与 _auth_token 注入值一致）
+AUTH_HEADERS = {"X-API-Token": "test-token"}

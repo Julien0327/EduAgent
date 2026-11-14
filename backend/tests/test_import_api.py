@@ -13,6 +13,8 @@ import json
 import uuid
 
 import pytest
+
+from backend.tests.conftest import AUTH_HEADERS
 from fastapi.testclient import TestClient
 from openpyxl import Workbook, load_workbook
 
@@ -38,7 +40,7 @@ def env(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def client(env):
-    with TestClient(app) as c:
+    with TestClient(app, headers=AUTH_HEADERS) as c:
         yield c
 
 
@@ -347,7 +349,7 @@ def test_startup_sweeps_stale_validating(env):
     )
     conn.commit()
     conn.close()
-    with TestClient(app):  # 触发 lifespan（清扫）
+    with TestClient(app, headers=AUTH_HEADERS):  # 触发 lifespan（清扫）
         pass
     conn = db.connect(env)
     try:

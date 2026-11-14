@@ -87,6 +87,17 @@
 | ⚠️ 测试架构经验 | 后台任务线程与 fixture teardown 竞态（Fake/连接销毁）→ F1 用例**轮询等待任务终态**再 teardown；conftest 全局 autouse 隔离任务库到 tmp（测试不再写真实库） | `_wait_task_done` helper；`_isolated_task_store` fixture |
 | 测试基线 | ✅ **290 passed / 0 failed**（280 + 10） | 全量 pytest（2026-11-14） |
 
+### S6 认证与限流完成证据（2026-11-14，§10.5 / 决策⑪，全部实测）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 安全中间件 | ✅ `api/security.py` 纯 ASGI 中间件：OPTIONS/静态/AIP 放行 → 认证（`EDUMATE_API_TOKEN`，Bearer/X-API-Token 双头，`secrets.compare_digest` 常量时间比较，**401 不区分缺/错**防探测）→ 限流 | middleware 挂载于 main.py（先于 CORS 语义层） |
+| fail-closed | ✅ 未配置 token → 仅 `/api/health` 可用，其余 /api/* 一律 **503**（带正确 token 也拒）；启动 warning 提示；`.env.example` 补配置说明 | `test_fail_closed_when_token_unset` |
+| 滑动窗口限流 | ✅ 进程内实现（~60 行，单实例够用；分布式随多实例需求走变更记录）；规则=代码分支 classify（§10.5 表逐项：health 免/chat+tasks 创建 30/events 30/files+preview 60/任务与 sessions 查询 120/import 10/stats+eval 60）；超限 **429 + Retry-After** | `test_classify_limit_rules` / `test_rate_limit_429_with_retry_after` |
+| 日志脱敏 | ✅ 全局 logging.Filter：日志中 `Bearer <值>`→`Bearer ***`（token 绝不入日志）；学生姓名（张三→张*/复姓保留两字）与学号（仅留后 4 位）脱敏函数供导入链路 | `test_redact_filter_bearer` / `test_student_masking` |
+| 测试适配 | ✅ conftest：autouse 注入 test-token + AUTH_HEADERS 共享常量（7 处 TestClient 构造点）+ **限流桶按测试隔离**（模块级单例跨用例累积曾致 429——用例内多次请求仍在窗口内合法） | 3 个测试文件构造点更新 |
+| 测试基线 | ✅ **299 passed / 0 failed**（290 + 9） | 全量 pytest（2026-11-14） |
+
 ### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
 
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
@@ -94,7 +105,7 @@
 | S3 三阶段检索 + embedding | ✅ 完成（见上节） |
 | S4 NL 问数 | ✅ 完成（见上节） |
 | S5 任务持久化 + 多轮会话 | ✅ 完成（见 S5 证据表） |
-| S6 认证+限流（中段） | ⬜ |
+| S6 认证+限流（中段） | ✅ 完成（见 S6 证据表） |
 | S7 前端 + §4.5 全指标验收收尾 | ⬜（含用户参与：50 查询集核验 / 20 问句评判） |
 
 
