@@ -13,6 +13,12 @@ jinja2
 # ================= 测试（D3 开发期） =================
 pytest
 
+# ================= B 臂 Embedding 召回（Phase 1 / Step 5-B2，用户批准 2026-11-14） =================
+# 本地 bge-small-zh-v1.5 推理（设计文档 §13）；版本为 venv 实测锁定（Python 3.13.7）。
+# 模型缓存 data/models/fastembed（.gitignore models/ 覆盖，不入 Git）。
+fastembed==0.9.1
+onnxruntime==1.32.0
+
 # ================= AIP 智能体互联（官方 ACPs SDK，Phase 2 接入） =================
 # 官方 acps-sdk 2.2.0（当前不在 PyPI，需从 AtomGit 源/本地 wheel 安装）；
 # 其依赖 pydantic/fastapi/uvicorn 已在上方。

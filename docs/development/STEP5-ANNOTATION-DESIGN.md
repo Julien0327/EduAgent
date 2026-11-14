@@ -432,12 +432,12 @@ SELECT k.q_id, k.kp_id, 'rule', 0, 'none', NULL
 | 推荐依赖 | **fastembed**（内置 bge-small-zh-v1.5 支持，ONNX Runtime 后端，无 torch 重依赖）+ 其传递依赖 onnxruntime；备选 sentence-transformers+torch（体积大，不推荐） | 待批 |
 | 版本 | 获批安装时以 pip 实际解析为准（写入 requirements.txt 并记录） | 待批 |
 | 模型 | **BAAI/bge-small-zh-v1.5**（~24M 参数，512 维——与 knowledge_points.embedding 列注释既定模型一致） | — |
-| 来源/下载大小 | fastembed 首次运行自动下载**量化 ONNX** 模型至本地缓存（约 30–35MB【待下载实测，不编造精确值】；无需 ~100MB 原始 torch 权重）；国内网络需 TUN/代理（与 clone APE210K 同环境） | 待实测 |
+| 来源/下载大小 | fastembed 自动下载量化 ONNX 至本地缓存；**实测（2026-11-14）缓存 90.8MB**（含 tokenizer/config，首次下载 18.6s，高于方案期 ~30–35MB 估算——如实修正）；无需 ~100MB 原始 torch 权重 | ✅ 已实测 |
 | 磁盘占用 | 模型缓存 ~35MB【估算】+ pip 依赖安装 ~150MB（Windows wheel 含 onnxruntime【估算】） | 待实测 |
-| 内存 | 推理进程 <300MB（int8 ONNX CPU）【估算】 | 待实测 |
-| 本地推理方式 | CPU 进程内；单条目标 <50ms（技术方案 §11.2 既有阈值）；82 条 KP 定义仅 embedding 一次驻内存；每题 embedding 题干一次 → 余弦相似度 top-10（RECALL_TOP_K=10，候选数待 gold 实测校准）；**零 API 费用** | 试跑实测 |
+| 内存 | **实测 WorkingSet 273.3MB**（2026-11-14，PowerShell 查询推理进程，符合 <300MB 估算） | ✅ 已实测 |
+| 本地推理方式 | CPU 进程内；**实测：单条 ~2ms、82 条批量 0.06s、模型加载 0.8s**（远优于技术方案 §11.2 的 <50ms 阈值）；82 条 KP 向量驻内存；每题题干 embedding 一次 → 余弦 top-10；**零 API 费用** | ✅ 已实测 |
 | top-10 实现与测试 | 候选文本 = KP name+description（与 A 臂 prompt 同源快照，不触 q_kp——决策㉔）；召回结果过滤越界 id；候选空/不足如实传 LLM（B 臂 prompt 已声明候选可能不全）。单测：依赖获批后补——①82 KP 构造样本 sanity（每个 KP 一条典型题干 → top-1 命中自证）；②越界 id 过滤；③空召回路径（已有 Mock 覆盖） | 依赖获批后补 |
-| recall@10 评估 | 5-B2 以 50 题 gold：**recall@10 = gold 主知识点 ∈ B 臂候选集的比例**（B 臂专属指标，与两臂通用指标分开报告；另记 recall@5 参考）；漏召回题逐条列出（R13 治理输入） | 待试跑 |
+| recall@10 评估 | **实测（2026-11-14，50 题助手盲标初稿 gold）：recall@10 = 62.0%（31/50），recall@5 = 52.0%，漏召回 19 题**——13.5 字符 KP 描述短文本召回弱获实证，构成 B 臂天花板（B 臂 unmapped 27.8% 与此一致）；A 主线优势获实证。gold 用户确认后复算（`eval_recall.py` 可复现） | ✅ 已实测 |
 | 新增内容清单 | pip 包：fastembed、onnxruntime（版本获批时定）；网络：HF 下载通道；磁盘：~185MB；无 GPU、无服务进程 | **待用户确认** |
 
 ---

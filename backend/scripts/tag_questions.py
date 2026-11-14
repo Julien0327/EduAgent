@@ -25,7 +25,6 @@ from pathlib import Path
 
 from backend.app.annotation.client import OpenAICompatClient
 from backend.app.annotation.executor import ExecutorConfig, run_annotation
-from backend.app.annotation.recall import NotImplementedRecaller, RecallNotAvailableError
 from backend.app.storage import db
 
 
@@ -56,15 +55,26 @@ def main() -> int:
     parser.add_argument("--prompt-version", default="v1.0")
     parser.add_argument("--max-items", type=int, default=None)
     parser.add_argument("--max-concurrency", type=int, default=8)
+    parser.add_argument("--embed-cache-dir", default=None,
+                        help="B 臂模型缓存目录（默认 data/models/fastembed，D 盘不入 Git）")
     args = parser.parse_args()
 
+    resolved_db = Path(args.db) if args.db else db.get_db_path()
     if args.arm == "B":
-        raise RecallNotAvailableError(
-            "B 臂 embedding 召回尚未实现（待依赖批准后 5-B2 落地）；当前仅 A 臂可真实运行")
+        # B 臂：真实 embedding 召回（bge-small-zh-v1.5 本地推理，零 API 费用；
+        # 模型缓存 data/models/fastembed 不入 Git）。KP 定义与 A 臂同源（不触 q_kp）。
+        from backend.app.annotation.executor import _load_kp_rows
+        from backend.app.annotation.recall import EmbeddingRecaller, REPO_MODELS_DIR
+        kp_rows = _load_kp_rows(resolved_db)
+        embed_dir = Path(args.embed_cache_dir) if args.embed_cache_dir else REPO_MODELS_DIR
+        recaller = EmbeddingRecaller(kp_rows, cache_dir=embed_dir)
+        print(f"B 臂召回器就绪：{len(kp_rows)} 个 KP，模型缓存 {embed_dir}")
+    else:
+        recaller = None
 
     qids = load_qids(Path(args.qids))
     cfg = ExecutorConfig(
-        db_path=Path(args.db) if args.db else db.get_db_path(),
+        db_path=resolved_db,
         qids=qids,
         arm=args.arm,
         prompt_version=args.prompt_version,
@@ -76,7 +86,7 @@ def main() -> int:
         concurrency_max=args.max_concurrency,
     )
     client = OpenAICompatClient.from_settings()  # Key 存在性检查（不打印）
-    summary = run_annotation(cfg, client)
+    summary = run_annotation(cfg, client, recaller=recaller)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if summary["status"] == "completed" else 2
 
