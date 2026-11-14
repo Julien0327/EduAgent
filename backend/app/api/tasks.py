@@ -4,17 +4,18 @@ POST /api/tasks       提交自然语言需求，后台线程执行固定工作�
 GET  /api/tasks/{id}  回查任务结果（轮询兜底）；
 GET  /api/tasks/{id}/events  SSE 实时进度流。
 
-任务存内存（TaskStore），后台线程用 stdlib threading 执行；事件用 stdlib queue
-传递，零新增依赖，保证比赛现场稳定。下载 / 预览端点见 D4 阶段 3。
+任务 SQLite 持久化（Phase 2 / S5，§7.3：TaskStore 写穿透）；带 session_id 的
+任务走 F1 追问通道（§7.1：信息不足先追问，至多 2 轮，超限降级默认值执行）。
 """
 import json
 import queue
 import threading
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from backend.app.agent import session_store
 from backend.app.agent.context import (
     STATUS_COMPLETED,
     STATUS_FAILED,
@@ -22,6 +23,8 @@ from backend.app.agent.context import (
     TaskContext,
     task_store,
 )
+from backend.app.agent.planner import plan
+from backend.app.agent.session_store import CLARIFY_PREFIX, MAX_CLARIFY_ROUNDS
 from backend.app.agent.workflow import run_workflow
 from backend.app.services import preview as preview_service
 from backend.app.storage import file_store
@@ -35,6 +38,7 @@ router = APIRouter(prefix="/api", tags=["tasks"])
 
 class TaskRequest(BaseModel):
     prompt: str
+    session_id: str | None = None  # §7.1：任务归属会话（缺省=独立任务）
 
 
 @router.post("/tasks", status_code=202)
@@ -46,7 +50,35 @@ def create_task(req: TaskRequest) -> dict:
     if not settings.DEEPSEEK_API_KEY:
         raise HTTPException(status_code=500, detail="服务端未配置 DEEPSEEK_API_KEY，请联系管理员")
 
-    ctx = task_store.create(prompt)
+    # F1 追问通道（§7.1）：仅会话任务做预判；无会话任务保持现状不追问。
+    # 预判失败不阻塞任务创建（降级直跑）。
+    if req.session_id:
+        try:
+            history = session_store.context_window(req.session_id)
+            p = plan(prompt, history=history)
+            if p.need_clarification:
+                if session_store.clarify_count(req.session_id) < MAX_CLARIFY_ROUNDS:
+                    session_store.add_message(
+                        req.session_id, "assistant", CLARIFY_PREFIX + p.need_clarification)
+                    return JSONResponse(status_code=200, content={
+                        "need_clarification": p.need_clarification,
+                        "session_id": req.session_id,
+                        "task_id": None,
+                    })
+                # 超限：降级默认值执行，在响应注明（任务照常创建）
+                ctx = task_store.create(prompt, session_id=req.session_id)
+                ctx.push_event({"type": "note",
+                                "message": "信息不足追问超限，已按默认参数执行"})
+                _log.info("F1 降级：会话 %s 追问超限，任务 %s 按默认参数执行",
+                          req.session_id, ctx.task_id)
+                resp = ctx.to_dict()
+                resp["clarification_dropped"] = True
+                threading.Thread(target=run_workflow, args=(ctx,), daemon=True).start()
+                return JSONResponse(status_code=202, content=resp)
+        except Exception:
+            _log.exception("F1 预判失败（不阻塞任务创建）")
+
+    ctx = task_store.create(prompt, session_id=req.session_id)
     ctx.status = STATUS_RUNNING
     _log.info("任务创建：%s prompt=%s", ctx.task_id, prompt[:80])
     response = ctx.to_dict()

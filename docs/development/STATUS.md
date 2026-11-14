@@ -75,13 +75,25 @@
 | ⚠️ 生产级 bug 修复 | **检索单例连接跨线程**：TestClient 顺序化测试暴露——单例连接建于 lifespan 线程，FastAPI sync 端点跑线程池必炸（sqlite3 check_same_thread）；修复=`db.connect(check_same_thread=False)` 参数 + 检索层 `threading.Lock` 串行化（p95 28ms 串行无影响）；该修复对生产真实必要 | 测试顺序依赖暴露→全量 280 passed；db.py/kp_recall/service 三处 |
 | 测试基线 | ✅ **280 passed / 0 failed**（268 + 12） | 全量 pytest（2026-11-14） |
 
-### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
+### S5 任务持久化与多轮会话完成证据（2026-11-14，§7，全部实测离线）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| TaskStore SQLite | ✅ **接口不变**（create/get/update，§7.3）：进程内 dict 读缓存 + `update()` 全量写穿透（tasks UPSERT + steps 重建）；惰性连接 + apply_migrations 保障（CLI/测试不经 lifespan 也可落库）；WAL | workflow 在状态变化点显式 update（每节点 finally + 终态），工作流层逻辑零改动 |
+| 重启恢复 | ✅ 内存缓存清空（模拟重启）后 `get_from_db` 仍可查任务+步骤 | `test_task_store_survives_restart` |
+| 并发 10 任务 | ✅ 10 线程并发 create+update，WAL 下写不冲突、任务 ID 唯一、状态无错乱 | `test_concurrent_10_tasks_wal` |
+| 多轮会话 | ✅ `session_store.py`（sessions/messages 表，V1 已建）：chat 增 `session_id`（缺省新建，消息全量落库+上下文每轮截 2000 字符，§7.2）；`GET /api/sessions` 列表 + `GET /api/sessions/{id}` 消息+任务卡回放；`POST /api/tasks` 增 session_id（任务归属会话）；planner 注入最近 6 轮历史（structured_completion 支持 history） | API 测试（chat 两轮同会话/回放/404） |
+| F1 追问通道 | ✅ TaskPlan.need_clarification 字段；会话任务创建时预 plan：信息不足→200 返回追问（【追问】前缀落库，≤2 轮）；**超限降级默认值执行（202 + clarification_dropped 注明）**；无会话任务不追问（D4 语义保持）；预判失败不阻塞创建 | `test_f1_clarification_then_task` / `test_f1_drops_after_two_rounds` / `test_no_session_task_skips_clarification` |
+| ⚠️ 测试架构经验 | 后台任务线程与 fixture teardown 竞态（Fake/连接销毁）→ F1 用例**轮询等待任务终态**再 teardown；conftest 全局 autouse 隔离任务库到 tmp（测试不再写真实库） | `_wait_task_done` helper；`_isolated_task_store` fixture |
+| 测试基线 | ✅ **290 passed / 0 failed**（280 + 10） | 全量 pytest（2026-11-14） |
+
+
 
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
 | S2 引用注入骨架（day-1） | ✅ 完成（见上节） |
 | S3 三阶段检索 + embedding | ✅ 完成（见上节） |
 | S4 NL 问数 | ✅ 完成（见上节） |
-| S5 任务持久化 + 多轮会话 | ⬜ |
+| S5 任务持久化 + 多轮会话 | ✅ 完成（见 S5 证据表） |
 | S6 认证+限流（中段） | ⬜ |
 | S7 前端 + §4.5 全指标验收收尾 | ⬜（含用户参与：50 查询集核验 / 20 问句评判） |
 

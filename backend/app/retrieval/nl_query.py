@@ -90,11 +90,10 @@ def query_question_bank(text: str, service: RetrievalService | None = None,
     """NL 问数主入口：抽参 → 白名单校验 → 三阶段检索 → 配平。
 
     返回 {questions(带 ref/rerank_score/kp_ids/score), params_used, params_source,
-    allocation, meta}。
+    allocation, meta}。白名单校验先于任何服务/连接构造（非法参数零 SQL 零开销）。
     """
     from backend.app.retrieval.balance import allocate_scores
 
-    svc = service or get_retrieval_service()
     if params is None:
         params, source = extract_params(text)
     else:
@@ -115,6 +114,7 @@ def query_question_bank(text: str, service: RetrievalService | None = None,
     except FilterValidationError as exc:
         return {"error": f"查询参数非法：{exc}", "params_used": params.model_dump()}
 
+    svc = service or get_retrieval_service()
     out = svc.search_questions(
         params.query, stage=params.stage, filters=filters or None,
         question_limit=params.count,

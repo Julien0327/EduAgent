@@ -86,15 +86,19 @@ def structured_completion(
     submit_name: str,
     submit_model: Type[BaseModel],
     max_attempts: int = 3,
+    history: list[dict] | None = None,
 ) -> BaseModel:
-    """强制 LLM 以 submit_name 工具调用返回结构化参数，校验通过后返回模型实例。"""
+    """强制 LLM 以 submit_name 工具调用返回结构化参数，校验通过后返回模型实例。
+
+    history（Phase 2 / S5，§7.1）：多轮上下文（最近 N 轮、已截断），插在
+    system 与本轮 user 之间。
+    """
     llm = get_llm_service()
     submit_tool = model_to_tool_schema(submit_name, "提交结构化结果", submit_model)
     tool_choice = _tool_choice(submit_name)
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
+    messages = [{"role": "system", "content": system}]
+    messages.extend(history or [])
+    messages.append({"role": "user", "content": user})
 
     last_err = "未知错误"
     for _ in range(max_attempts):

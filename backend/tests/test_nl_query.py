@@ -80,9 +80,10 @@ def test_extract_params_fallback_on_llm_failure(monkeypatch):
 # ---------- 白名单二次拦截（§4.1 注入面） ----------
 
 def test_query_bank_rejects_invalid_llm_params():
-    """LLM 被诱导输出非法参数 → 白名单拦截，不产生 SQL。"""
+    """LLM 被诱导输出非法参数 → 白名单拦截，不产生 SQL、不触任何服务构造。"""
     bad = BankQueryParams(query="x", stage="ALL", count=5)
-    r = query_question_bank("any", params=bad)
+    # service 传占位对象：拦截发生在服务构造之前（不应被使用）
+    r = query_question_bank("any", params=bad, service=object())
     assert "error" in r and "stage" in r["error"]
 
 
@@ -115,19 +116,35 @@ def test_allocate_scores_empty():
 @pytest.mark.skipif(not DB_EXISTS, reason="真实业务库不存在")
 def test_query_bank_end_to_end_real_bank():
     """真实库端到端：抽参→检索→ref/processed/数量语义。"""
-    r = query_question_bank("找5道小学分数加减应用题")
-    assert "error" not in r
-    assert len(r["questions"]) <= 5
-    for q in r["questions"]:
-        assert q["ref"] == q["q_id"]
-        assert q["stage"] == "primary"
-    assert r["params_source"] in ("llm", "fallback")
+    from backend.app.retrieval.kp_recall import KpRetriever
+    from backend.app.retrieval.service import RetrievalService
+    from backend.tests.conftest import FakeEmbedder
+    svc = RetrievalService(db.DEFAULT_DB_PATH, kp_retriever=KpRetriever(
+        db.DEFAULT_DB_PATH, embedding_service=FakeEmbedder()))
+    try:
+        r = query_question_bank("找5道小学分数加减应用题", service=svc)
+        assert "error" not in r
+        assert len(r["questions"]) <= 5
+        for q in r["questions"]:
+            assert q["ref"] == q["q_id"]
+            assert q["stage"] == "primary"
+        assert r["params_source"] in ("llm", "fallback")
+    finally:
+        svc.close()
 
 
 @pytest.mark.skipif(not DB_EXISTS, reason="真实业务库不存在")
 def test_query_bank_with_score_allocation():
     """带总分约束：结果逐题配平且总分精确。"""
-    r = query_question_bank("找10道小学数学题，总分100分")
-    assert "error" not in r
-    if r.get("allocation") and r["questions"]:
-        assert sum(r["allocation"]) == 100
+    from backend.app.retrieval.kp_recall import KpRetriever
+    from backend.app.retrieval.service import RetrievalService
+    from backend.tests.conftest import FakeEmbedder
+    svc = RetrievalService(db.DEFAULT_DB_PATH, kp_retriever=KpRetriever(
+        db.DEFAULT_DB_PATH, embedding_service=FakeEmbedder()))
+    try:
+        r = query_question_bank("找10道小学数学题，总分100分", service=svc)
+        assert "error" not in r
+        if r.get("allocation") and r["questions"]:
+            assert sum(r["allocation"]) == 100
+    finally:
+        svc.close()

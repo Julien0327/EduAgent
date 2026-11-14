@@ -51,8 +51,12 @@ class LLMResponse:
 class LLMProvider:
     """LLM 厂商抽象接口。"""
 
-    def chat(self, message: str) -> dict:
-        """发送一条用户消息，返回 {"message": str, "model": str}。"""
+    def chat(self, message: str, history: list[dict] | None = None) -> dict:
+        """发送一条用户消息，返回 {"message": str, "model": str}。
+
+        history（Phase 2/S5，§7.1）：多轮上下文（最近 N 轮、已截断的
+        {"role","content"} 列表），缺省 None=单轮。
+        """
         raise NotImplementedError
 
     def chat_with_tools(
@@ -105,8 +109,10 @@ class DeepSeekProvider(LLMProvider):
         )
         return resp
 
-    def chat(self, message: str) -> dict:
-        resp = self._request([{"role": "user", "content": message}])
+    def chat(self, message: str, history: list[dict] | None = None) -> dict:
+        messages = list(history or [])
+        messages.append({"role": "user", "content": message})
+        resp = self._request(messages)
         content = resp.choices[0].message.content or ""
         return {"message": content, "model": self._model}
 

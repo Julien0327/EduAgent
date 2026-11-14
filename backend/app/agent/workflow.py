@@ -348,6 +348,12 @@ def _run_node(ctx: TaskContext, name: str, fn) -> None:
         log.error("节点失败：%s → %s", name, exc, exc_info=True)
         ctx.push_event({"type": "step", "node": name, "status": STEP_FAILED, "message": step.message})
         raise
+    finally:
+        # §7.3 持久化：每节点终态写穿透（重启后步骤可查；写失败不影响执行）
+        try:
+            task_store.update(ctx)
+        except Exception:
+            log.exception("任务步骤持久化失败（不影响执行）")
 
 
 def run_workflow(ctx: TaskContext) -> None:
@@ -356,6 +362,7 @@ def run_workflow(ctx: TaskContext) -> None:
     ctx.status = STATUS_RUNNING
     log.info("任务开始：%s", ctx.prompt[:80])
     ctx.push_event({"type": "status", "status": STATUS_RUNNING})
+    task_store.update(ctx)  # §7.3：初始快照（running）
     start = time.time()
     try:
         _run_node(ctx, "understand_task", _understand_task)
@@ -375,6 +382,7 @@ def run_workflow(ctx: TaskContext) -> None:
         log.error("任务失败：%s", exc, exc_info=True)
         ctx.push_event({"type": "status", "status": STATUS_FAILED, "error": str(exc)})
     finally:
+        task_store.update(ctx)  # §7.3：终态写穿透
         # §4.4 引用注入：任务收尾落盘 citations.json（成功/失败都保存——
         # 失败任务已发生的取数引用如实保留，覆盖率 100% 不可事后补链）
         try:

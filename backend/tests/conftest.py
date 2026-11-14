@@ -62,3 +62,16 @@ def fake_retrieval(monkeypatch):
 
     monkeypatch.setattr(kt, "get_retrieval_service", lambda: FakeKpService())
     return FakeKpService()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_task_store(tmp_path, monkeypatch):
+    """S5 起任务/会话持久化到 SQLite——所有测试隔离到临时库
+    （不写真实 data/db/edumate.sqlite；settings.DB_PATH 注入 + task_store.reset）。"""
+    from backend.app.agent.context import task_store
+    from backend.config import settings
+
+    monkeypatch.setattr(settings, "DB_PATH", str(tmp_path / "tasks.sqlite"))
+    task_store.reset()
+    yield
+    task_store.reset()

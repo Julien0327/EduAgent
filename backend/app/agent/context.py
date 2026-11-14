@@ -1,12 +1,15 @@
-"""任务上下文与内存任务存储。
+"""任务上下文与任务存储（Phase 2 / S5 起 SQLite 持久化，§7.3）。
 
 TaskContext 承载一次 Agent 任务的参数、步骤、产物与状态（对应技术方案 §4 的
-Context 组件，无 LLM、无编排逻辑）。任务存内存字典，无数据库（对应 §3 / §11）。
+Context 组件，无 LLM、无编排逻辑）。
 """
+import json
 import queue
+import sqlite3
 import threading
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from backend.app.retrieval.citations import CitationLedger
 
@@ -54,6 +57,9 @@ class TaskContext:
     # 任务收尾落盘 citations.json。__post_init__ 按 task_id 初始化。
     citations: CitationLedger = field(default=None, repr=False, compare=False)
 
+    # Phase 2/S5（§7.1）：所属会话（None=无会话/CLI 直跑）；tasks.session_id 落库
+    session_id: str | None = None
+
     def __post_init__(self):
         if self.citations is None:
             self.citations = CitationLedger(self.task_id)
@@ -91,22 +97,111 @@ class TaskContext:
 
 
 class TaskStore:
-    """内存任务存储（单进程，含并发访问锁）。"""
+    """SQLite 任务存储（Phase 2 / S5，§7.3：接口不变 create/get/update）。
 
-    def __init__(self):
+    进程内 dict 为读缓存，``update()`` 全量写穿透（tasks 行 UPSERT + steps 重建）；
+    工作流层零改动（只在状态变化点显式调 update）。重启后任务仍可从库直查
+    （get_from_db，§7.4 重启恢复验收）。
+    """
+
+    def __init__(self, db_path: str | None = None):
         self._tasks: dict[str, TaskContext] = {}
         self._lock = threading.Lock()
+        self._db_path = db_path  # None = 惰性取 settings.DB_PATH（测试可注入）
+        self._conn: sqlite3.Connection | None = None
+        self._conn_lock = threading.Lock()
 
-    def create(self, prompt: str) -> TaskContext:
+    def _get_conn(self) -> sqlite3.Connection:
+        """惰性连接（首次穿透时建立；WAL：单写连接队列，读不阻塞，§7.3）。
+
+        connect 前跑 apply_migrations（幂等）——保证 tasks/steps 表存在
+        （CLI run_task / 测试环境不经 lifespan 时也能落库）。
+        """
+        with self._conn_lock:
+            if self._conn is None:
+                from backend.app.storage import db as _db
+                path = self._db_path or _db.get_db_path()
+                _db.apply_migrations(path)
+                self._conn = _db.connect(path, check_same_thread=False)
+                try:
+                    self._conn.execute("PRAGMA journal_mode=WAL")
+                except sqlite3.OperationalError:
+                    pass  # :memory: 库不支持 WAL，忽略
+            return self._conn
+
+    def reset(self) -> None:
+        """关闭连接并清空缓存（测试隔离用；生产不调用）。"""
+        with self._conn_lock:
+            if self._conn is not None:
+                self._conn.close()
+                self._conn = None
+        self._tasks.clear()
+
+    def create(self, prompt: str, session_id: str | None = None) -> TaskContext:
         task_id = uuid.uuid4().hex[:12]
         ctx = TaskContext(task_id=task_id, prompt=prompt)
+        ctx.session_id = session_id
         with self._lock:
             self._tasks[task_id] = ctx
+        self.update(ctx)
         return ctx
 
     def get(self, task_id: str) -> TaskContext | None:
         with self._lock:
             return self._tasks.get(task_id)
+
+    def get_from_db(self, task_id: str) -> dict | None:
+        """从库直读（重启后内存缓存为空，任务/步骤仍可查——重启恢复验收路径）。"""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT task_id, session_id, prompt, status, workflow, params, error, "
+            "created_at, started_at, ended_at FROM tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        if d.get("params"):
+            try:
+                d["params"] = json.loads(d["params"])
+            except (ValueError, TypeError):
+                pass
+        d["steps"] = [
+            dict(r) for r in conn.execute(
+                "SELECT step_no, node, status, output_summary FROM steps "
+                "WHERE task_id=? ORDER BY step_no", (task_id,))
+        ]
+        return d
+
+    def update(self, ctx: TaskContext) -> None:
+        """全量快照写穿透（接口不变，§7.3；steps 表为该任务步骤的全量重建）。"""
+        conn = self._get_conn()
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self._conn_lock:
+            conn.execute(
+                """INSERT INTO tasks
+                     (task_id, session_id, prompt, status, workflow, params, error,
+                      created_at, started_at, ended_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(
+                       (SELECT created_at FROM tasks WHERE task_id=?), ?), ?, ?)
+                   ON CONFLICT(task_id) DO UPDATE SET
+                     session_id=excluded.session_id, status=excluded.status,
+                     workflow=excluded.workflow, params=excluded.params,
+                     error=excluded.error, started_at=excluded.started_at,
+                     ended_at=excluded.ended_at""",
+                (ctx.task_id, ctx.session_id, ctx.prompt, ctx.status, ctx.workflow,
+                 json.dumps(ctx.params, ensure_ascii=False, default=str), ctx.error,
+                 ctx.task_id, now, now, now),
+            )
+            conn.execute("DELETE FROM steps WHERE task_id=?", (ctx.task_id,))
+            conn.executemany(
+                """INSERT INTO steps
+                     (task_id, step_no, node, status, output_summary)
+                   VALUES (?, ?, ?, ?, ?)""",
+                [(ctx.task_id, i, s.node, s.status, (s.message or "")[:500])
+                 for i, s in enumerate(ctx.steps, 1)],
+            )
+            conn.commit()
 
 
 task_store = TaskStore()

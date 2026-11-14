@@ -26,6 +26,9 @@ class PlanParams(BaseModel):
 class TaskPlan(BaseModel):
     workflow: Literal["exam_loop", "question_gen", "lesson_plan"]
     params: PlanParams
+    # F1（§7.1）：信息不足时的追问问题（None=信息充分直接执行）；至多 2 轮，
+    # 超限由调用端降级默认值执行
+    need_clarification: str | None = None
 
 
 def _extract_chapter(prompt: str) -> str:
@@ -48,18 +51,25 @@ def fallback_plan(prompt: str) -> TaskPlan:
     return TaskPlan(workflow=workflow, params=PlanParams(chapter=chapter, topic=topic))
 
 
-def plan(prompt: str) -> TaskPlan:
-    """把自然语言任务解析为计划。LLM 失败或章节缺失时回退到确定性解析。"""
+def plan(prompt: str, history: list[dict] | None = None) -> TaskPlan:
+    """把自然语言任务解析为计划。LLM 失败或章节缺失时回退到确定性解析。
+
+    history（Phase 2 / S5，§7.1）：多轮上下文（最近 6 轮、已截断），planner
+    结合会话历史消解指代（如"再出一份"→沿用上轮章节）。
+    """
     system = (
         "你是教学任务规划器，负责把老师的自然语言需求解析为结构化计划。"
         "从需求中抽取学科、章节、题量、难度、题型，并判断要执行的工作流：\n"
         "- exam_loop：章节小测一条龙（出卷 + 成绩分析 + 学情报告）\n"
         "- question_gen：只智能组卷（出试卷 + 答题卡）\n"
         "- lesson_plan：生成教案\n"
+        "信息严重不足（如完全看不出章节与任务类型）时，在 need_clarification "
+        "字段给出一个简短的追问问题；信息足够则 need_clarification 留空。\n"
         "务必调用 submit_plan 工具提交结果。"
     )
     try:
-        result = structured_completion(system, prompt, "submit_plan", TaskPlan)
+        result = structured_completion(system, prompt, "submit_plan", TaskPlan,
+                                       history=history)
     except Exception:
         return fallback_plan(prompt)
     # LLM 未抽到章节时用确定性抽取补齐，仍无则整体回退
