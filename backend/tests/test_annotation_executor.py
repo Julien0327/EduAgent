@@ -179,10 +179,10 @@ def seeded_db(tmp_path):
     return _seed_db(tmp_path / "db.sqlite")
 
 
-def make_cfg(seeded_db, tmp_path, qids, cap=10.0, arm="A", **kw):
+def make_cfg(seeded_db, tmp_path, qids, cap=10.0, arm="A", budget_group="t", **kw):
     return ExecutorConfig(
-        db_path=seeded_db, qids=qids, arm=arm,
-        budget_group="t", budget_cap_cny=cap,
+        db_path=seeded_db, qids=qids, arm=arm, budget_group=budget_group,
+        budget_cap_cny=cap,
         manifest_dir=tmp_path / "manifests", detail_dir=tmp_path / "staging",
         backoff_base=0.0, force_period="peak", **kw)
 
@@ -342,19 +342,55 @@ def test_budget_hard_stop_no_overshoot(seeded_db, tmp_path):
     assert any(e["event"] == "budget_stop" for e in manifest)
 
 
-def test_budget_80_warning_pause(seeded_db, tmp_path):
-    """80% 告警并暂停：批次 aborted，待人工检查后续跑（决策②）。"""
-    cfg = make_cfg(seeded_db, tmp_path, qids5(), cap=0.001,
-                   worst_per_call_cny=0.0005, concurrency_initial=1,
-                   concurrency_max=1)
+def test_budget_pause_line_stops_submission(seeded_db, tmp_path):
+    """¥15 暂停线（决策㉖）：停止提交新请求（在途排水），批次 aborted 待人工确认；
+    budget_pause 事件含进度/费用/剩余题量/预计剩余费用。"""
+    cfg = make_cfg(seeded_db, tmp_path, qids5(), cap=0.001, budget_pause_at_cny=0.0008,
+                   worst_per_call_cny=0.0005, concurrency_initial=1, concurrency_max=1)
     client = MockClient(default=VALID)
     summary = run_annotation(cfg, client)
     assert summary["status"] == "aborted"
-    assert summary["stop_reason"] == "budget_80_warning_paused"
-    assert summary["counters"]["ok"] == 2  # 0.443 分/次 × 2 ≥ 80%×0.001 → 暂停
+    assert summary["stop_reason"] == "budget_pause_line"
+    assert summary["pause_requested"] is True
+    assert summary["counters"]["ok"] == 2  # 0.443 分/次 × 2 ≥ 暂停线 0.0008 → 停止
     assert summary["cost_cny"] < 0.001
     manifest = read_jsonl(tmp_path / "manifests" / f"{summary['batch_id']}.jsonl")
-    assert any(e["event"] == "budget_warning" for e in manifest)
+    pause_events = [e for e in manifest if e["event"] == "budget_pause"]
+    assert len(pause_events) == 1
+    assert pause_events[0]["remaining_items"] == 3
+    assert pause_events[0]["est_remaining_cny"] > 0
+
+
+def test_budget_remind_line_keeps_running(seeded_db, tmp_path):
+    """¥10 提醒线（决策㉖）：通知+记录实际支出，**不自动停止**。"""
+    cfg = make_cfg(seeded_db, tmp_path, qids5()[:3], cap=10.0,
+                   budget_warn_at_cny=0.0004, concurrency_initial=1, concurrency_max=1)
+    client = MockClient(default=VALID)
+    summary = run_annotation(cfg, client)
+    assert summary["status"] == "completed" and summary["counters"]["ok"] == 3
+    assert summary["reminded"] is True and summary["pause_requested"] is False
+    manifest = read_jsonl(tmp_path / "manifests" / f"{summary['batch_id']}.jsonl")
+    assert any(e["event"] == "budget_remind" for e in manifest)
+    assert not any(e["event"] == "budget_pause" for e in manifest)
+
+
+def test_budget_group_cumulative_prevents_bypass(seeded_db, tmp_path):
+    """组级累计（决策㉖）：同一 budget_group 新建批次不得绕过暂停线/硬停线。"""
+    cfg_a = make_cfg(seeded_db, tmp_path, qids5()[:2], cap=0.001,
+                     worst_per_call_cny=0.0005, budget_group="trial",
+                     concurrency_initial=1, concurrency_max=1)
+    s1 = run_annotation(cfg_a, MockClient(default=VALID))
+    assert s1["status"] == "aborted" and s1["cost_cny"] > 0
+
+    # 新建批次（B 臂，同预算组）→ 组级累计已超暂停线 → 零调用直接拦截
+    cfg_b = make_cfg(seeded_db, tmp_path, qids5()[:2], arm="B", cap=0.001,
+                     worst_per_call_cny=0.0005, budget_group="trial",
+                     concurrency_initial=1, concurrency_max=1)
+    s2 = run_annotation(cfg_b, MockClient(default=VALID), recaller=MockRecaller())
+    assert s2["calls"] == 0 and s2["counters"]["ok"] == 0
+    assert s2["stop_reason"] in ("budget_pause_line", "budget_hard_stop")
+    assert s2["status"] == "aborted"
+    assert s2["group_cost_cny"] >= s1["cost_cny"]  # 组累计包含 A 臂支出
 
 
 def test_resume_same_batch_and_completed_gate(seeded_db, tmp_path):

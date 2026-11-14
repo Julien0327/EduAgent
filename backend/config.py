@@ -31,7 +31,9 @@ class Settings:
     # DeepSeek（文本任务，OpenAI 兼容 API）
     DEEPSEEK_API_KEY: str | None = os.getenv("DEEPSEEK_API_KEY")
     DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    # 决策④（2026-11-14）：显式 deepseek-flash（官方定价页现行模型 DeepSeek-V4.1-Flash-1017）；
+    # deepseek-v4-flash 为已迁移遗留别名，弃用。
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
     LLM_TIMEOUT: float = float(os.getenv("LLM_TIMEOUT", "60"))
 
     # 说明：Qwen（多模态任务）的 Key 现存于环境变量 LLM_API_KEY，后续阶段接入。

@@ -3,16 +3,18 @@
 用法（仓库根执行）：
     .venv/Scripts/python.exe -m backend.scripts.tag_questions --arm A \
         --qids data/annotations/trial500_qids.jsonl \
-        --budget-group trial500 --budget-cny 10
+        --budget-group trial500 --budget-cny 20 \
+        --budget-warn-cny 10 --budget-pause-cny 15
 
-安全边界（5-B1 交付要求）：
+安全边界（5-B1/5-B2 交付要求）：
 - 本脚本不自动执行；仅显式运行才装配真实客户端。
 - DEEPSEEK_API_KEY 只做存在性检查（OpenAICompatClient.from_settings），不打印、不入日志。
-- arm=B 需要 embedding 召回器——当前为占位实现（RecallNotAvailableError），fail-fast 拒绝，
-  真实召回实现待依赖批准后于 5-B2 落地。
-- 预算 cap 必须 >0（决策②：拒绝无预算运行）；试跑 A/B 两臂共用同一 --budget-group
-  的 ¥10 cap（决策②③）。
-- 本脚本自身不做任何真实 API 调用的测试；Mock 验证见 backend/tests/test_annotation_executor.py。
+- arm=B 需要 embedding 召回器——占位实现 fail-fast（RecallNotAvailableError），
+  真实召回实现待依赖批准后落地。
+- 预算三线（决策㉖）：--budget-cny 硬停线（必须 >0）；--budget-warn-cny 提醒线
+  （达到→通知记录不停止）；--budget-pause-cny 暂停线（达到→停止新请求等待人工
+  确认）。同一 budget_group 的历史批次费用全部计入累计——新建批次/续跑无法绕过。
+- 两臂（A/B）共用同一 --qids 冻结题集与同一 --budget-group。
 """
 from __future__ import annotations
 
@@ -44,8 +46,13 @@ def main() -> int:
     parser.add_argument("--arm", choices=("A", "B"), required=True)
     parser.add_argument("--qids", required=True, help="试验集 q_id JSONL（build_trial500 产出）")
     parser.add_argument("--db", default=None, help="业务库路径（默认取集中配置）")
-    parser.add_argument("--budget-group", required=True, help="预算组（同组批次共享闸门）")
-    parser.add_argument("--budget-cny", type=float, required=True, help="预算组 cap（元）")
+    parser.add_argument("--budget-group", required=True, help="预算组（同组批次共享闸门与累计）")
+    parser.add_argument("--budget-cny", type=float, required=True,
+                        help="硬停线 cap（元）；500 题双臂试跑=20")
+    parser.add_argument("--budget-warn-cny", type=float, default=None,
+                        help="提醒线（元，默认 cap×0.5）；试跑传 10（通知不停止）")
+    parser.add_argument("--budget-pause-cny", type=float, default=None,
+                        help="暂停线（元，默认 cap×0.75）；试跑传 15（停止新请求待确认）")
     parser.add_argument("--prompt-version", default="v1.0")
     parser.add_argument("--max-items", type=int, default=None)
     parser.add_argument("--max-concurrency", type=int, default=8)
@@ -63,6 +70,8 @@ def main() -> int:
         prompt_version=args.prompt_version,
         budget_group=args.budget_group,
         budget_cap_cny=args.budget_cny,
+        budget_warn_at_cny=args.budget_warn_cny,
+        budget_pause_at_cny=args.budget_pause_cny,
         max_items=args.max_items,
         concurrency_max=args.max_concurrency,
     )

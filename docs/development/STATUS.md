@@ -10,7 +10,7 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 - **Step 2 知识图谱构建 ✅（用户已确认）**：初中 303 知识点 + 374 条前置边入库；用户抽检 61 条提出 4 处修正已全部处理（commit `03878ee`/`574c9ad`）；抽样 seed=42 复现验证不变。
 - **Step 3 F16 导入服务 ✅（用户已确认）**：模板生成 + 七步管线 + 三端点 + 17 项真实 Excel 端到端测试 + demo 冒烟 232 行 committed（commit `26e943c`/`1b4f159`）。
 - **Step 4 APE210K ETL ✅（含方案 A 修复；2026-11-13 用户最终验收，决策㉔）**：数据源核验（许可裁决=决策㉒）+ 流式清洗入库 + FTS5 + 小学 KP 规则聚合 + 100 题完整率抽样；用户复核发现 B 类清洗损坏后按**方案 A（决策㉓）修复并全量重建**：processed 207,858 题；全量 **159 passed**；全库逐行核验 0 不一致。证据见 DATA-SOURCES.md 与下表。2026-11-13 补充复核（异常扫描/漏斗口径澄清/KP 过度挂接记录）见"Step 4 补充复核"节，最终裁决见"Step 4 最终裁决与收尾"节。
-- **Step 5 LLM 打标**：**5-A 方案第二版已批准 → 5-B1 工程实施完成（2026-11-14，待用户审查）**。已落地：V2 迁移（真实库已应用，数据零改动）、`backend/app/annotation/` 执行器五模块、A/B Prompt v1 + registry、500 题分层试验集（trial500_qids.jsonl，确定性复跑一致）、预算闸门/AIMD/幂等断点/manifest 全套机制、**204 passed**（159 基线 + 45 新增，全部 Mock 无真实 API）。证据见"Step 5-B1 完成证据"节。**5-B2（500 题双臂试跑，cap ¥10）待用户批准后才可执行**。
+- **Step 5 LLM 打标**：**5-B2 开工准备完成（2026-11-14，等待 B 臂依赖确认后执行试跑）**——预算三线（决策㉖：¥10 提醒/¥15 暂停/¥20 硬停 + 组级累计防绕过）已实现并有专项测试；config 默认模型已切 `deepseek-flash`（决策④）；B 臂 Embedding 方案入档（设计文档 §13，依赖 fastembed+onnxruntime 待批）；执行前检查全过（.env 不存在/请求模型名恒 deepseek-flash/断点续跑/两臂隔离）；**206 passed**。**500 题双臂试跑尚未执行**——等依赖与 Key 注入方式确认。证据见"Step 5-B2 开工检查报告"节。
 
 ## Step 4 完成证据（2026-11-11，全部实测）
 
@@ -136,6 +136,21 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 
 **已知问题与遗留风险**：①B 臂 embedding 召回未实现（占位 fail-fast，待 onnxruntime/fastembed 依赖批准后 5-B2 落地）；②Mock 通过 ≠ 真实 API 验收——真实 usage/tokenizer/缓存命中率/429 行为均待 5-B2 实测；③`.env` 是否覆盖 DEEPSEEK_MODEL 默认值未核验（5-B2 开工时确认）；④manifest 的 batch_end 为 run 级口径（续跑合并累计值在批次行）。
 
+## Step 5-B2 开工检查报告（2026-11-14，等待 B 臂依赖与 Key 注入方式确认）
+
+| 检查项 | 结果 |
+|---|---|
+| 预算三线实现（决策㉖） | ✅ BudgetLedger 三线改造：¥10 提醒线（budget_remind 事件，通知+记录**不停止**）/ ¥15 暂停线（停止提交新请求、在途排水、批次 aborted 待确认；budget_pause 事件含进度/费用/剩余题量/预计剩余费用）/ ¥20 硬停线（cost+预留 ≥ cap 拒绝一切新调用预留，实支不越 cap） |
+| 组级累计防绕过 | ✅ 台账初始值 = 同 budget_group 全部历史批次 cost_cny_est 之和——**重试/续跑/新建批次均无法绕过**；专项测试：A 臂花至暂停线后新建 B 臂批次 → 零调用直接拦截 |
+| 断点续跑/Manifest/批次隔离 | ✅ 5-B1 测试全保留通过（续跑跳过已完成、批次 UNIQUE、A/B strategy 隔立、消费视图不混臂） |
+| .env 核验 | ✅ **.env 不存在**（仅 compose 注释引用 .env.example）——DEEPSEEK_MODEL 无任何环境覆盖；config.py 默认已切 `deepseek-flash`（仓库内 v4-flash 代码残留清零）。⚠️ 真实试跑需注入 DEEPSEEK_API_KEY：.env 创建或 shell export（config 走 os.getenv，**无 dotenv 加载**；若要 .env 自动加载需新增 python-dotenv 依赖——列入待批清单） |
+| 请求模型名确认 | ✅ 打标路径不读 settings：ExecutorConfig 默认 model='deepseek-flash'，CLI 无 model 参数 → 请求模型名恒为 deepseek-flash；批次记录请求名 + 响应 model_version 快照 |
+| 两臂同冻结题集 | ✅ 唯一清单 `data/annotations/trial500_qids.jsonl`（sha256 9a0880ac49e5…），CLI 均以 --qids 显式传入；A/B 各建独立批次（strategy 区分） |
+| B 臂 Embedding 方案 | ✅ 设计文档 §13 入档：fastembed + onnxruntime（无 torch）；模型 BAAI/bge-small-zh-v1.5（~24M 参数/512 维，量化 ONNX ~30–35MB【待下载实测】）；内存 <300MB【估算】；CPU <50ms/条【§11.2 目标阈值】；**零 API 费用**；top-10 实现与单测方案、recall@10 评估口径已定——**依赖未获批不安装** |
+| 测试基线 | ✅ **206 passed / 0 failed**（= 204 + 2 净增，预算三线专项测试 3 项），未降低基线；全部 Mock，无真实 API 调用 |
+
+**执行前尚差两项（等待用户确认）**：①B 臂依赖清单获批（pip：fastembed、onnxruntime；HF 模型下载 ~35MB；磁盘合计 ~185MB【估算】）；②API Key 注入方式（.env 创建 or shell export；python-dotenv 是否引入）。
+
 ## Step 5-A 方案设计（2026-11-13，第二版已批准）
 
 - **交付物**：`docs/development/STEP5-ANNOTATION-DESIGN.md`（12 节完整设计：现状问题/范围/三方案对比/架构数据流/Schema V2 提案/500 题分层试验/50 题人工评估/成本测算/可靠性/实施计划/验收标准/风险待裁决）
@@ -189,7 +204,7 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 
 ## 待办 / 阻塞
 
-1. **Step 5-B1 实施成果：待用户审查**（批准确认后 5-B2 才可执行 500 题双臂试跑——范围 cap ¥10，两道关口=决策㉑，独立打标约束=决策㉔；B 臂 embedding 召回依赖需届时单独批准）。
+1. **Step 5-B2：开工检查完成（206 passed），等待两项确认后执行 500 题双臂试跑**——①B 臂依赖清单（fastembed+onnxruntime+bge-small-zh-v1.5 下载）②API Key 注入方式（.env/export/python-dotenv）。试跑边界：cap ¥20，¥10 提醒/¥15 暂停/¥20 硬停（决策㉖）；仅 500 题 A/B；20,000 与全量仍未授权。试跑后交付 50 题核验表 + A/B 对照报告 + 费用报告。
 2. Phase 1 收尾统一 push（本地 main 领先远程；TUN 模式可能影响 git push，届时留意）。
 3. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 4. 无其他阻塞。

@@ -6,10 +6,11 @@
 - 决策㉑幂等键 (q_id, prompt_version)：批次 UNIQUE(scope,task_type,strategy,model,
   prompt_id,prompt_version)，同键重跑复用批次；断点以 q_annotation_results 终态驱动
   （status ok/unmapped 跳过，failed/invalid 重跑覆盖）。
-- 决策②预算：budget_group 级台账，任何 API 调用的 usage 都计入；实际支出 ≥80% cap
-  → 告警并暂停（批次 aborted，人工检查后续跑）；≥100% → 硬停止；提交前按
-  「无缓存最坏单次成本」预留——缓存命中不作为预算保护前提。cap 必须 >0 显式给定，
-  拒绝无预算运行。
+- 决策②/㉖预算三线：budget_group 级台账（初始值=该组历史批次费用累计——重试、
+  续跑、新建批次均无法绕过）；提醒线→通知记录不停止；暂停线→停止提交新请求
+  （在途排水后批次 aborted，人工确认后续跑）；硬停线 cap→绝对上限禁止任何新
+  请求；提交前按「无缓存最坏单次成本」预留——缓存命中不作为预算保护前提。
+  cap 必须 >0 显式给定，拒绝无预算运行。
 - 决策③双臂：A/B 各自独立批次（strategy 列），共用执行器；两臂费用各自计入
   同一 budget_group（组级累计）。
 - 决策④模型：批次记录请求模型名 + 每次调用取响应 model 快照回填。
@@ -56,7 +57,8 @@ log = get_logger("annotation.executor")
 ALLOWED_KP_MAX = 3                 # kp_ids 上限（设计文档 §4 输出规范）
 PROMOTE_STREAK = 20                # 连续成功 N 次 → 并发 +1（AIMD 加性增）
 CHECKPOINT_EVERY = 1000            # manifest 周期 checkpoint（题数）
-BUDGET_WARN_RATIO = 0.8            # 决策②：80% 告警暂停
+DEFAULT_WARN_RATIO = 0.5           # 默认提醒线 = cap×0.5（试跑显式传 ¥10/¥20，决策㉖）
+DEFAULT_PAUSE_RATIO = 0.75         # 默认暂停线 = cap×0.75（试跑显式传 ¥15/¥20，决策㉖）
 REASON_MAX_CHARS = 60              # reason 持久化截断（prompt 要求 ≤30，执行器放宽容错）
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MANIFEST_DIR = REPO_ROOT / "data" / "annotations" / "manifests"
@@ -143,27 +145,43 @@ def validate_output(content: str, allowed_kp_ids: set[str]) -> tuple[dict | None
 # ---------------------------------------------------------------- 运行期组件
 
 class BudgetLedger:
-    """budget_group 级预算台账（线程安全）。
+    """budget_group 级预算台账（线程安全，决策㉖三线规则）。
 
-    - try_reserve(worst)：提交前按无缓存最坏口径预留，cost+reserved+worst ≥ cap
-      → 拒绝并硬停（防在途调用越限；缓存命中只影响实际计费，不影响保护口径）。
-    - commit(actual, usage)：每次调用的真实 usage 计入（任何调用都累计）；实际支出
-      ≥ 80% cap → warned（告警暂停）；≥ 100% cap → hard_stopped。
+    - 提醒线 warn_at：实际支出达到 → 通知并记录（budget_remind 事件），**不停止**；
+    - 暂停线 pause_at：达到 → 停止提交新请求（在途调用排水完成后批次 aborted），
+      等待人工确认后续跑（budget_pause 事件含进度/费用/剩余题量/预计剩余费用）；
+    - 硬停线 cap：绝对上限——cost+reserved ≥ cap 即拒绝任何新调用预留，
+      **不得通过重试、续跑或新建批次绕过**（组级累计：ledger 初始值 = 该
+      budget_group 全部历史批次的 cost_cny_est 之和，见 run_annotation）。
+    费用预留一律按无缓存最坏口径（worst_per_call_cny），缓存命中不作保护前提。
     """
 
-    def __init__(self, cap_cny: float, warn_ratio: float = BUDGET_WARN_RATIO):
+    def __init__(self, cap_cny: float, warn_at_cny: float | None = None,
+                 pause_at_cny: float | None = None,
+                 initial_cost_cny: float = 0.0,
+                 warn_ratio: float = DEFAULT_WARN_RATIO,
+                 pause_ratio: float = DEFAULT_PAUSE_RATIO):
         if cap_cny <= 0:
             raise ValueError("预算 cap 必须 > 0（决策②：拒绝无预算运行）")
+        warn = warn_at_cny if warn_at_cny is not None else cap_cny * warn_ratio
+        pause = pause_at_cny if pause_at_cny is not None else cap_cny * pause_ratio
+        if not 0 < warn <= pause <= cap_cny:
+            raise ValueError(
+                f"预算线非法：提醒线={warn} 暂停线={pause} cap={cap_cny}"
+                "（须 0 < 提醒线 ≤ 暂停线 ≤ cap）")
         self.cap = float(cap_cny)
-        self.warn_ratio = warn_ratio
-        self.cost = 0.0
+        self.warn_at = float(warn)
+        self.pause_at = float(pause)
+        # 组级既有累计作为初始值：新建批次/续跑都从组累计起步（决策㉖防绕过）
+        self.cost = max(0.0, float(initial_cost_cny))
         self.reserved = 0.0
         self.input_tokens = 0
         self.output_tokens = 0
         self.cache_hit_tokens = 0
         self.calls = 0
-        self.warned = False
-        self.hard_stopped = False
+        self.reminded = self.cost >= self.warn_at
+        self.pause_requested = self.cost >= self.pause_at
+        self.hard_stopped = self.cost >= self.cap
         self._lock = threading.Lock()
 
     def try_reserve(self, worst_cny: float) -> bool:
@@ -184,8 +202,10 @@ class BudgetLedger:
             self.cache_hit_tokens += usage.cache_hit_tokens
             if self.cost >= self.cap:
                 self.hard_stopped = True
-            if self.cost >= self.cap * self.warn_ratio:
-                self.warned = True
+            if self.cost >= self.pause_at:
+                self.pause_requested = True
+            if self.cost >= self.warn_at:
+                self.reminded = True
 
 
 class AdaptiveLimiter:
@@ -253,7 +273,9 @@ class ExecutorConfig:
     task_type: str = "kp_difficulty"
     temperature: float = 0.2
     budget_group: str = "trial"
-    budget_cap_cny: float = 0.0       # 必须 >0（决策②）
+    budget_cap_cny: float = 0.0       # 必须 >0（决策②/㉖：硬停线）
+    budget_warn_at_cny: float | None = None   # 提醒线（默认 cap×0.5；试跑传 10）
+    budget_pause_at_cny: float | None = None  # 暂停线（默认 cap×0.75；试跑传 15）
     worst_per_call_cny: float = 0.005  # 无缓存最坏单次预留基准（决策②口径）
     max_items: int | None = None      # 分步执行用；终止时批次置 aborted（可续跑）
     concurrency_initial: int = 4
@@ -313,6 +335,16 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
     if cfg.max_items is not None:
         pending = deque(list(pending)[: cfg.max_items])
 
+    # 组级既有累计（决策㉖防绕过：同一 budget_group 历史批次费用全部计入初始值）
+    conn = db.connect(cfg.db_path)
+    group_spent = float(conn.execute(
+        "SELECT COALESCE(SUM(cost_cny_est), 0) s FROM annotation_batches"
+        " WHERE budget_group=?", (cfg.budget_group,)).fetchone()["s"])
+    conn.close()
+    ledger = BudgetLedger(cfg.budget_cap_cny, cfg.budget_warn_at_cny,
+                          cfg.budget_pause_at_cny, initial_cost_cny=group_spent)
+    limiter = AdaptiveLimiter(cfg.concurrency_initial, cfg.concurrency_max)
+
     manifest = _JsonlWriter(cfg.manifest_dir / f"{batch_id}.jsonl")
     detail = _JsonlWriter(cfg.detail_dir / f"tag_detail_{batch_id}.jsonl")
     manifest.write({
@@ -322,6 +354,8 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
         "prompt_id": arm_cfg["prompt_id"], "prompt_version": cfg.prompt_version,
         "prompt_sha256": prompt_sha, "kp_snapshot_sha256": kp_snapshot_sha,
         "budget_group": cfg.budget_group, "budget_cap_cny": cfg.budget_cap_cny,
+        "budget_warn_at_cny": ledger.warn_at, "budget_pause_at_cny": ledger.pause_at,
+        "group_spent_before_cny": round(group_spent, 6),
         "worst_per_call_cny": cfg.worst_per_call_cny,
         "config": {"temperature": cfg.temperature,
                    "concurrency_initial": cfg.concurrency_initial,
@@ -329,16 +363,14 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
                    "max_items": cfg.max_items, "retries": RETRY_MAX},
         "total_questions": len(cfg.qids), "pending": len(pending),
     })
-
-    ledger = BudgetLedger(cfg.budget_cap_cny)
-    limiter = AdaptiveLimiter(cfg.concurrency_initial, cfg.concurrency_max)
     rng = random.Random(42)
     counters = {"ok": 0, "unmapped": 0, "failed": 0, "invalid": 0}
     failed_qids: list[str] = []
     invalid_qids: list[str] = []
     last_model_version = ""
     checkpoint_base = 0
-    warn_event_written = False
+    remind_event_written = False
+    pause_event_written = False
 
     t0 = time.perf_counter()
 
@@ -385,8 +417,9 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
         result = None
         last_error = None
         for attempt in range(RETRY_MAX):
-            if ledger.hard_stopped:
-                last_error = "budget hard stop"
+            if ledger.pause_requested or ledger.hard_stopped:
+                last_error = ("budget pause line（暂停线已达，等待人工确认后续跑）"
+                              if ledger.pause_requested else "budget hard stop")
                 break
             try:
                 got = _call(messages)
@@ -415,7 +448,7 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
 
         # ---- 输出校验（失败→1 次带错误反馈的纠正重试）----
         parsed, err = validate_output(result.content, allowed)
-        if parsed is None:
+        if parsed is None and not (ledger.pause_requested or ledger.hard_stopped):
             fix_messages = messages + [
                 {"role": "assistant", "content": result.content},
                 {"role": "user", "content":
@@ -424,14 +457,17 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
             ]
             try:
                 fixed = _call(fix_messages)
-                if fixed is not None:
-                    limiter.on_success()
-                    result = fixed
-                    parsed, err2 = validate_output(result.content, allowed)
-                    if parsed is None:
-                        err = f"纠错重试后仍无效：{err2}"
-                    else:
-                        item["retries"] += 1
+                if fixed is None:  # 暂停/硬停触发：不再发任何请求，按 failed 中间态记录
+                    item["status"] = "failed"
+                    item["error"] = "budget pause/hard stop during corrective retry"
+                    return item
+                limiter.on_success()
+                result = fixed
+                parsed, err2 = validate_output(result.content, allowed)
+                if parsed is None:
+                    err = f"纠错重试后仍无效：{err2}"
+                else:
+                    item["retries"] += 1
             except RetryableError as exc:
                 err = f"纠错重试调用失败：{exc}"
                 item["retries"] += 1
@@ -451,9 +487,9 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
         futures: dict = {}
         stop_event_written = False
         while pending or futures:
-            # AIMD：按当前 limit 补充在途任务；预算告警/硬停后只排水不再提交
+            # AIMD：按当前 limit 补充在途任务；暂停线/硬停线触发后只排水不再提交
             while pending and len(futures) < limiter.limit \
-                    and not ledger.hard_stopped and not ledger.warned:
+                    and not ledger.hard_stopped and not ledger.pause_requested:
                 q_id = pending.popleft()
                 futures[pool.submit(_process_item, q_id)] = q_id
             if not futures:
@@ -493,30 +529,50 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
                         "output_tokens": ledger.output_tokens,
                         "cache_hit_tokens": ledger.cache_hit_tokens,
                     })
-                if ledger.warned and not warn_event_written:
-                    warn_event_written = True
+                # 提醒线（决策㉖）：通知+记录实际支出，不停止
+                if ledger.reminded and not remind_event_written:
+                    remind_event_written = True
                     manifest.write({
-                        "event": "budget_warning", "batch_id": batch_id,
-                        "ratio": BUDGET_WARN_RATIO,
-                        "cost_cny": round(ledger.cost, 6), "cap_cny": ledger.cap,
-                        "action": "暂停提交，待人工检查后续跑（断点续跑跳过已完成题）",
+                        "event": "budget_remind", "batch_id": batch_id,
+                        "remind_line_cny": ledger.warn_at,
+                        "run_cost_cny": round(ledger.cost - group_spent, 6),
+                        "group_cost_cny": round(ledger.cost, 6),
+                        "action": "提醒线已达：通知并记录实际支出，继续运行（不自动停止）",
+                    })
+                # 暂停线（决策㉖）：停止提交新请求，记录进度/费用/剩余题量/预计剩余费用
+                if ledger.pause_requested and not pause_event_written:
+                    pause_event_written = True
+                    remaining_items = len(pending) + len(futures)
+                    run_cost = ledger.cost - group_spent
+                    avg = run_cost / ledger.calls if ledger.calls else None
+                    est_remaining = (avg if avg is not None
+                                     else cfg.worst_per_call_cny) * remaining_items
+                    manifest.write({
+                        "event": "budget_pause", "batch_id": batch_id,
+                        "pause_line_cny": ledger.pause_at,
+                        "run_cost_cny": round(run_cost, 6),
+                        "group_cost_cny": round(ledger.cost, 6),
+                        "remaining_items": remaining_items,
+                        "est_remaining_cny": round(est_remaining, 6),
+                        "action": "暂停新请求（在途排水完成）；等待人工确认后续跑，"
+                                  "断点续跑跳过已完成题",
                     })
                 if ledger.hard_stopped and not stop_event_written:
                     stop_event_written = True
                     manifest.write({
                         "event": "budget_stop", "batch_id": batch_id,
                         "cost_cny": round(ledger.cost, 6), "cap_cny": ledger.cap,
-                        "action": "硬停止：停止提交，等待在途调用完成后批次置 aborted",
+                        "action": "硬停止：禁止任何新请求（重试/续跑/新建批次均被组级累计拦截）",
                     })
 
     elapsed = round(time.perf_counter() - t0, 1)
 
-    # ---- 批次收尾：aborted（预算/80% 告警/max_items）或 completed ----
+    # ---- 批次收尾：aborted（硬停/暂停线/max_items）或 completed ----
     stop_reason = None
     if ledger.hard_stopped:
         stop_reason = "budget_hard_stop"
-    elif ledger.warned:
-        stop_reason = f"budget_{int(BUDGET_WARN_RATIO * 100)}_warning_paused"
+    elif ledger.pause_requested:
+        stop_reason = "budget_pause_line"
     elif pending:
         stop_reason = "max_items" if cfg.max_items is not None else "stopped"
     status = "completed" if stop_reason is None else "aborted"
@@ -539,7 +595,8 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
             (status, last_model_version, len(cfg.qids),
              counters["ok"], counters["unmapped"], counters["failed"], counters["invalid"],
              ledger.input_tokens, ledger.output_tokens, ledger.cache_hit_tokens,
-             round(ledger.cost, 6), _utcnow() if status == "completed" else None,
+             round(ledger.cost - group_spent, 6),
+             _utcnow() if status == "completed" else None,
              f" [{stop_reason}]" if stop_reason else "", batch_id),
         )
         conn.commit()
@@ -549,7 +606,10 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
     summary = {
         "batch_id": batch_id, "status": status, "stop_reason": stop_reason,
         "counters": dict(counters), "failed_qids": failed_qids,
-        "invalid_qids": invalid_qids, "cost_cny": round(ledger.cost, 6),
+        "invalid_qids": invalid_qids,
+        "cost_cny": round(ledger.cost - group_spent, 6),   # 本 run 费用
+        "group_cost_cny": round(ledger.cost, 6),           # budget_group 累计费用
+        "reminded": ledger.reminded, "pause_requested": ledger.pause_requested,
         "calls": ledger.calls, "elapsed_seconds": elapsed,
         "input_tokens": ledger.input_tokens, "output_tokens": ledger.output_tokens,
         "cache_hit_tokens": ledger.cache_hit_tokens,
@@ -559,7 +619,9 @@ def run_annotation(cfg: ExecutorConfig, client: ChatClient,
     manifest.write({"event": "batch_end", "batch_id": batch_id, "status": status,
                     "stop_reason": stop_reason, "run_scoped": True, **counters,
                     "failed_qids": failed_qids, "invalid_qids": invalid_qids,
-                    "cost_cny": round(ledger.cost, 6), "calls": ledger.calls,
+                    "cost_cny": round(ledger.cost - group_spent, 6),
+                    "group_cost_cny": round(ledger.cost, 6),
+                    "calls": ledger.calls,
                     "input_tokens": ledger.input_tokens,
                     "output_tokens": ledger.output_tokens,
                     "cache_hit_tokens": ledger.cache_hit_tokens,
