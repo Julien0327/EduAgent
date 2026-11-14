@@ -7,6 +7,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from backend.app.retrieval.citations import REF_SEED_PREFIX
+
 # 仓库根目录：backend/app/knowledge/loader.py -> 上溯 3 级到 backend -> 再上一级到仓库根
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "data"
@@ -29,8 +31,16 @@ def load_knowledge_points() -> dict:
 
 @lru_cache(maxsize=1)
 def load_question_bank() -> dict:
-    """加载题库（10 题，共 100 分，每题关联知识点 ID）。"""
-    return _load_json(QUESTION_BANK_FILE)
+    """加载题库（10 题，共 100 分，每题关联知识点 ID）。
+
+    Phase 2/S2（§4.4）：凡题库取数必带 ref——种子题 ref = ``seed:<question_id>``
+    （与 DB 题 q_id 明确区分，见 citations.py ref 形态约定）。缓存内共享 dict，
+    注入在缓存前完成一次性处理。
+    """
+    bank = _load_json(QUESTION_BANK_FILE)
+    for q in bank["questions"]:
+        q.setdefault("ref", f"{REF_SEED_PREFIX}{q['question_id']}")
+    return bank
 
 
 @lru_cache(maxsize=1)

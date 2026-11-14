@@ -76,6 +76,9 @@ def _fetch_knowledge(ctx: TaskContext) -> str:
     })
     kps = r["knowledge_points"]
     ctx.params["knowledge_points"] = [kp["name"] for kp in kps]
+    # §4.4 引用注入：图谱取数登记 KP 引用（used_in 由产物装配节点补齐）
+    for kp in kps:
+        ctx.citations.record("kp", kp["ref"])
     return f"检索到 {len(kps)} 个知识点"
 
 
@@ -85,6 +88,9 @@ def _generate_exam_seed(ctx: TaskContext) -> str:
     ctx.params["title"] = bank["title"]
     ctx.params["questions"] = bank["questions"]
     ctx.params["question_bank"] = bank
+    # §4.4 引用注入：题库取数登记题目引用（ref=seed:<id>，loader 注入）
+    for q in bank["questions"]:
+        ctx.citations.record("question", q["ref"])
     return f"加载题库 {len(bank['questions'])} 道题（总分 {bank['total_score']}）"
 
 
@@ -107,6 +113,12 @@ def _build_exam_docx(ctx: TaskContext) -> str:
     path = file_store.build_output_path(ctx.task_id, EXAM_FILE)
     exam_docx.create_exam_docx(ctx.params["title"], ctx.params["questions"], path)
     ctx.add_artifact("试卷", EXAM_FILE, path)
+    # §4.4 装配：卷面每题的使用位置；KP 为整卷出题依据
+    for i, q in enumerate(ctx.params["questions"], 1):
+        if q.get("ref"):
+            ctx.citations.annotate("question", q["ref"], f"{EXAM_FILE}#第{i}题")
+    for ref in ctx.citations.refs("kp"):
+        ctx.citations.annotate("kp", ref, f"{EXAM_FILE}#整卷出题依据")
     return f"生成试卷 {EXAM_FILE}"
 
 
@@ -114,6 +126,10 @@ def _build_answer_sheet(ctx: TaskContext) -> str:
     path = file_store.build_output_path(ctx.task_id, ANSWER_SHEET_FILE)
     answer_sheet.create_answer_sheet_xlsx(ctx.params["title"], ctx.params["questions"], path)
     ctx.add_artifact("答题卡", ANSWER_SHEET_FILE, path)
+    # §4.4 装配：答题卡逐题位置（与试卷同题序）
+    for i, q in enumerate(ctx.params["questions"], 1):
+        if q.get("ref"):
+            ctx.citations.annotate("question", q["ref"], f"{ANSWER_SHEET_FILE}#第{i}题")
     return f"生成答题卡 {ANSWER_SHEET_FILE}"
 
 
@@ -248,12 +264,18 @@ def _build_report_pdf(ctx: TaskContext) -> str:
 
 def _generate_lesson_plan_content(ctx: TaskContext) -> str:
     topic = ctx.params.get("topic") or ctx.params.get("chapter", "")
+    # §4.4：教案基于检索到的知识点生成（KP 引用已在 _fetch_knowledge 登记，
+    # used_in 由 _build_lesson_plan_docx 装配）；KP 描述进 prompt 提升针对性
+    kp_names = ctx.params.get("knowledge_points", [])
+    kp_line = ""
+    if kp_names:
+        kp_line = f"请围绕以下知识点组织教学内容：{'、'.join(kp_names)}。\n"
     system = (
         "你是资深教师，请生成一份结构完整、可操作的教案。"
         "务必调用 submit_lesson_plan 工具提交结果。"
     )
     user = (
-        f"主题：{topic}。请给出：教学目标(objectives，3 条)、教学重点(key_points)、"
+        f"{kp_line}主题：{topic}。请给出：教学目标(objectives，3 条)、教学重点(key_points)、"
         "教学难点(difficult_points)、教学过程(process，3-4 步，每步含 step 与 detail 字段)、"
         "课后作业(homework)。"
     )
@@ -274,8 +296,11 @@ def _build_lesson_plan_docx(ctx: TaskContext) -> str:
         ctx.params.get("topic", "") or ctx.params.get("chapter", ""),
         ctx.params["lesson_content"],
         path,
+        kp_refs=ctx.citations.refs("kp"),  # §4.4：教案知识点标注
     )
     ctx.add_artifact("教案", LESSON_PLAN_FILE, path)
+    for ref in ctx.citations.refs("kp"):
+        ctx.citations.annotate("kp", ref, f"{LESSON_PLAN_FILE}#教学过程")
     return f"生成教案 {LESSON_PLAN_FILE}"
 
 
@@ -298,6 +323,7 @@ WORKFLOW_NODES = {
         ("build_answer_sheet", _build_answer_sheet),
     ],
     "lesson_plan": [
+        ("fetch_knowledge", _fetch_knowledge),
         ("generate_lesson_plan_content", _generate_lesson_plan_content),
         ("build_lesson_plan_docx", _build_lesson_plan_docx),
     ],
@@ -347,6 +373,14 @@ def run_workflow(ctx: TaskContext) -> None:
         ctx.error = str(exc)
         log.error("任务失败：%s", exc, exc_info=True)
         ctx.push_event({"type": "status", "status": STATUS_FAILED, "error": str(exc)})
+    finally:
+        # §4.4 引用注入：任务收尾落盘 citations.json（成功/失败都保存——
+        # 失败任务已发生的取数引用如实保留，覆盖率 100% 不可事后补链）
+        try:
+            path = file_store.get_outputs_dir(ctx.task_id) / "citations.json"
+            ctx.citations.save(path)
+        except Exception:
+            log.exception("citations.json 落盘失败（不影响任务状态）")
 
 
 def run_task(prompt: str) -> TaskContext:

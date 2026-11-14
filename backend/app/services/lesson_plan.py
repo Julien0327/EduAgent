@@ -27,7 +27,8 @@ def _add_heading(doc: Document, text: str) -> None:
 
 
 def create_lesson_plan_docx(
-    topic: str, content: dict, output_path: str | Path
+    topic: str, content: dict, output_path: str | Path,
+    kp_refs: list[str] | None = None,
 ) -> str:
     """根据主题与结构化正文生成教案 docx，返回文件路径。
 
@@ -39,6 +40,8 @@ def create_lesson_plan_docx(
         "process": [(step, detail), ...],
         "homework": str,
       }
+    kp_refs（Phase 2/S2，§4.4 引用注入点）：本教案知识点引用（kp_id 列表，
+    来自检索层）；非空时在文末输出知识点标注，完整 used_in 见任务引用面板。
     """
     doc = Document()
     _setup_font(doc)
@@ -84,6 +87,14 @@ def create_lesson_plan_docx(
     hw = doc.add_paragraph()
     hw.paragraph_format.first_line_indent = Pt(24)
     hw.add_run(content.get("homework", ""))
+
+    # §4.4 引用注入点：教案知识点标注（逐条 used_in 见任务引用面板）
+    if kp_refs:
+        note = doc.add_paragraph()
+        note_run = note.add_run(
+            f"知识点引用：{len(kp_refs)} 个（{', '.join(kp_refs)}），检索自知识图谱"
+        )
+        note_run.font.size = Pt(9)
 
     doc.save(str(output_path))
     return str(output_path)

@@ -201,5 +201,13 @@ def create_report_pdf(
     for s in diagnosis.get("suggestions", []):
         story.append(Paragraph("• " + s, ST_BODY))
 
+    # §4.4 引用注入点：报告数据来源页脚（成绩分析基于预置演示数据；
+    # Phase 3 归因层接入真实导入数据后，此处改由引用账本驱动）
+    story.append(Spacer(1, 10))
+    story.append(Paragraph(
+        "数据来源：内置演示题库与预置答题数据（题目/知识点引用见任务引用面板）",
+        ST_SUB,
+    ))
+
     doc.build(story)
     return str(output_path)

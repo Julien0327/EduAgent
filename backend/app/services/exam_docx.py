@@ -10,6 +10,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
+from backend.app.retrieval.citations import summarize_question_sources
+
 
 def _setup_font(doc: Document) -> None:
     """设置全局字体（含中文字体 eastAsia），避免中文显示异常。"""
@@ -59,6 +61,13 @@ def create_exam_docx(title: str, questions: list, output_path: str | Path) -> st
         if q["type"] == "解答题":
             for _ in range(3):
                 doc.add_paragraph()
+
+    # §4.4 引用注入点：试卷页脚 = 题目来源构成统计（逐题引用见任务引用面板）
+    footer_p = doc.sections[0].footer.paragraphs[0]
+    footer_p.text = summarize_question_sources(questions)
+    footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in footer_p.runs:
+        run.font.size = Pt(9)
 
     doc.save(str(output_path))
     return str(output_path)

@@ -34,12 +34,26 @@
 | ⚠️ V2 冻结数据与幂等链相撞（首次暴露） | `build_primary_kp.py` 旧 DELETE 重建语义被 `q_kp_llm.kp_id`/`q_annotation_results.primary_kp_id` 外键拦截（V2 建成后首次重跑链）→ KP 写入改 **UPSERT**（kp_id 确定性稳定、非键字段刷新——DB 小学 KP 描述随本次对齐到 KP 定义 v2 源头，kp_id/挂接不变）；防御性收缩清理仅删无引用行、被引用保留并报告 | 脚本改动 + 全量测试；重跑结果与基线一致（82 KP / 571,364 挂接 / 98.3% 覆盖 / 零命中 2 个）；V2 数据零变化（q_kp_llm 1,319 / results 1,000 / batches 2） |
 | 测试基线 | ✅ **239 passed / 0 failed**（227 + 8 tokenize + 4 verified 重放） | 全量 pytest（2026-11-14） |
 
-### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
+### S2 引用注入骨架完成证据（2026-11-14，§4.4，全部实测离线）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 账本机制 | ✅ `backend/app/retrieval/citations.py`：CitationLedger（record 幂等合并 / annotate 装配 / save-load roundtrip / §4.4 格式）；`require_ref` 取数侧强制点（漏 ref=代码缺陷 fail-fast）；ref 形态约定：DB 题=q_id、种子题=`seed:<id>`、KP=kp_id、**LLM 生成题不进账本**（页脚如实统计"AI 生成"） | 6 项机制单测 |
+| 取数侧挂钩 | ✅ `loader.load_question_bank()` 每题注入 `ref=seed:<question_id>`；`search_knowledge_points` 返回带 `ref=kp_id` | 单测断言（契约级） |
+| 工作流装配 | ✅ exam_loop：题引用 used_in=试卷/答题卡逐题位置 + KP「整卷出题依据」；lesson_plan **新增 fetch_knowledge 节点**（教案基于检索知识点生成，KP 描述进 prompt——§4.4「教案知识点标注」注入点的必要组成），KP used_in=教案教学过程；run_workflow finally 落盘 citations.json（失败任务也保存已发生引用） | 端到端 FakeLLM 测试 |
+| **覆盖率 100% 断言** | ✅ 核心验收：卷面每个带 ref 的题都在 citations.json 且 used_in 齐全（双向断言：账本无卷面之外引用）；下游丢弃引用=测试失败 | `test_exam_loop_citations_coverage_100` |
+| 文档注入 | ✅ 试卷 section footer=来源构成统计（题库/种子/AI 生成三类，python-docx 实读 footer 断言）；教案文末知识点标注（kp_refs 参数向后兼容）；报告 PDF 数据来源页脚 | 3 项单测 |
+| API | ✅ `GET /api/tasks/{id}/citations`（citations.json 为事实源；无文件返回空；任务不存在 404） | TestClient 用例（tmp_path 隔离） |
+| 测试基线 | ✅ **253 passed / 0 failed**（239 + 14）；test_tools 契约更新（KP 返回+ref）、test_workflow 全过（lesson_plan 多一节点不影响） | 全量 pytest（2026-11-14） |
+
+
 
 | 步骤 | 状态 |
 |---|---|
+### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
+
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
-| S2 引用注入骨架（day-1） | ⏳ 进行中 |
+| S2 引用注入骨架（day-1） | ✅ 完成（见下表） |
 | S3 三阶段检索模块 + embedding | ⬜ |
 | S4 NL 问数 | ⬜ |
 | S5 任务持久化 + 多轮会话 | ⬜ |

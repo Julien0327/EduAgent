@@ -58,7 +58,7 @@ def test_search_knowledge_points_valid():
     assert "error" not in r
     assert len(r["knowledge_points"]) == 7
     assert set(r["knowledge_points"][0].keys()) == {
-        "kp_id", "name", "description", "typical_types",
+        "kp_id", "ref", "name", "description", "typical_types",
     }
 
 

@@ -98,6 +98,22 @@ def task_events(task_id: str):
     )
 
 
+@router.get("/tasks/{task_id}/citations")
+def get_task_citations(task_id: str) -> dict:
+    """任务引用清单（§4.4）：读产物目录 citations.json（文件为事实源）。
+
+    任务存在但尚未产生引用（如仍在执行/无取数）→ 返回空 citations；
+    任务不存在 → 404。
+    """
+    ctx = task_store.get(task_id)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
+    path = file_store.build_output_path(task_id, "citations.json")
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {"task_id": task_id, "citations": []}
+
+
 @router.get("/tasks/{task_id}/files/{file_name}")
 def download_file(task_id: str, file_name: str, inline: bool = False):
     ctx = task_store.get(task_id)

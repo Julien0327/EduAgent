@@ -1,4 +1,8 @@
-"""知识点检索工具（确定性，不调 LLM）。"""
+"""知识点检索工具（确定性，不调 LLM）。
+
+Phase 2/S2（§4.4）：凡图谱取数必带 ref（此处 ref=kp_id）；S3 将把实现
+切换到 retrieval 层（DB 385 KP），ref 语义不变。
+"""
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -30,6 +34,7 @@ def search_knowledge_points(params: SearchKnowledgePointsParams) -> dict:
         "knowledge_points": [
             {
                 "kp_id": p["kp_id"],
+                "ref": p["kp_id"],  # §4.4：图谱取数必带引用
                 "name": p["name"],
                 "description": p.get("description", ""),
                 "typical_types": p.get("typical_types", []),

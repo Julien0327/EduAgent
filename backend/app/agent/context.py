@@ -8,6 +8,8 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 
+from backend.app.retrieval.citations import CitationLedger
+
 # 任务状态
 STATUS_PENDING = "pending"
 STATUS_RUNNING = "running"
@@ -47,6 +49,14 @@ class TaskContext:
 
     # D4：事件队列，供 SSE 实时进度流消费（纯增量，不影响既有字段与行为）。
     events: queue.Queue = field(default_factory=queue.Queue, repr=False)
+
+    # Phase 2/S2（§4.4）：任务级引用账本——凡题库/图谱取数必带 ref，装配进账本，
+    # 任务收尾落盘 citations.json。__post_init__ 按 task_id 初始化。
+    citations: CitationLedger = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self):
+        if self.citations is None:
+            self.citations = CitationLedger(self.task_id)
 
     def push_event(self, event: dict) -> None:
         """向事件队列推送一条事件。"""
