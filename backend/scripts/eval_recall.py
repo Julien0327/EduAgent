@@ -20,7 +20,7 @@ from backend.app.annotation.recall import EmbeddingRecaller, RECALL_TOP_K, REPO_
 from backend.app.storage import db
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GOLD = REPO_ROOT / "data" / "staging" / "trial50_gold_draft.jsonl"
+DEFAULT_GOLD = REPO_ROOT / "data" / "staging" / "trial50_gold_v2.jsonl"
 OUT_JSON = REPO_ROOT / "data" / "staging" / "recall10_report.json"
 OUT_MD = REPO_ROOT / "data" / "staging" / "recall10_report.md"
 
@@ -32,6 +32,8 @@ def main() -> int:
     args = parser.parse_args()
 
     gold = [json.loads(l) for l in Path(args.gold).read_text(encoding="utf-8").splitlines() if l.strip()]
+    pending = [g for g in gold if g.get("status") == "pending_verification"]
+    gold = [g for g in gold if g.get("status") != "pending_verification"]
     conn = db.connect()
     stems = {r["q_id"]: r["stem"] for r in conn.execute(
         "SELECT q_id, stem FROM questions WHERE quality_state='processed'")}
@@ -71,6 +73,7 @@ def main() -> int:
         f"- Gold：{args.gold}（**助手盲标初稿**，最终以用户确认为准）",
         f"- 召回器：bge-small-zh-v1.5 top-{args.top_k}（本地推理，{elapsed:.1f}s / {n} 题）",
         f"- **recall@{args.top_k} = {hits10}/{n} = {hits10/n:.1%}**；recall@5 = {hits5}/{n} = {hits5/n:.1%}",
+        f"- pending_verification 题排除分母：{len(pending)} 题（{[g['q_id'] for g in pending]}）",
         f"- 漏召回 {len(misses)} 题（gold 主知识点不在 top-{args.top_k}）：", "",
     ]
     for m in misses:

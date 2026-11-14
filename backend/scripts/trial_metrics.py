@@ -19,7 +19,7 @@ from pathlib import Path
 from backend.app.storage import db
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GOLD = REPO_ROOT / "data" / "staging" / "trial50_gold_draft.jsonl"
+DEFAULT_GOLD = REPO_ROOT / "data" / "staging" / "trial50_gold_v2.jsonl"
 OUT_JSON = REPO_ROOT / "data" / "staging" / "trial_ab_report.json"
 OUT_MD = REPO_ROOT / "data" / "staging" / "trial_ab_report.md"
 
@@ -76,6 +76,10 @@ def arm_metrics(conn, batch: dict, gold_rows: list[dict]) -> dict:
     llm_diff = {r["q_id"]: r["difficulty"] for r in diff_rows}
 
     def eval_subset(rows: list[dict]) -> dict:
+        # Gold v2 终版含状态字段：pending_verification（如 q_ape_1070129 源数据核查未过）
+        # 不进入指标分母，单独计数——待核查项不得伪装成已确认
+        pending = [r for r in rows if r.get("status") == "pending_verification"]
+        rows = [r for r in rows if r.get("status") != "pending_verification"]
         n = len(rows)
         primary_hit = hard_err_q = diff_ok = passed = 0
         tp = llm_total = gold_total = 0
@@ -115,6 +119,8 @@ def arm_metrics(conn, batch: dict, gold_rows: list[dict]) -> dict:
             "micro_precision": round(tp / llm_total, 4) if llm_total else None,
             "micro_recall": round(tp / gold_total, 4) if gold_total else None,
             "unmapped": unmapped_n,
+            "pending_verification": len(pending),
+            "pending_qids": [r["q_id"] for r in pending],
             "detail": detail,
         }
 
