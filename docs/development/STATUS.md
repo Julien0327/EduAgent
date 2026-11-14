@@ -87,7 +87,7 @@
 | ⚠️ 测试架构经验 | 后台任务线程与 fixture teardown 竞态（Fake/连接销毁）→ F1 用例**轮询等待任务终态**再 teardown；conftest 全局 autouse 隔离任务库到 tmp（测试不再写真实库） | `_wait_task_done` helper；`_isolated_task_store` fixture |
 | 测试基线 | ✅ **290 passed / 0 failed**（280 + 10） | 全量 pytest（2026-11-14） |
 
-
+### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
 
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
 | S2 引用注入骨架（day-1） | ✅ 完成（见上节） |
