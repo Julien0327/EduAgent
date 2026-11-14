@@ -10,6 +10,7 @@ import json
 import pytest
 
 from backend.app.data import ape210k, primary_kp
+from backend.app.retrieval import tokenize
 from backend.scripts import etl_ape210k
 from backend.app.storage import db
 
@@ -215,12 +216,19 @@ def test_etl_end_to_end_small_sample(etl_db, tmp_path):
         bad = conn.execute("SELECT q_id FROM questions WHERE quality_state='rejected'").fetchone()
         in_fts = conn.execute("SELECT COUNT(*) n FROM questions_fts WHERE q_id=?", (bad["q_id"],)).fetchone()["n"]
         assert in_fts == 0
-        # FTS5 可查（unicode61 分词：连续中文串整体成 token——子词"苹果"查不到，
-        # 中文语义级检索属 Phase 2 分词优化；此处验证同步性与可查性）
+        # FTS5 可查（Phase 2/S1 起文档文本为 jieba 分词形态，决策㉛①——
+        # 查询经 tokenize.fts_query 构造，中文子词可查）
         hit = conn.execute(
-            "SELECT q_id FROM questions_fts WHERE questions_fts MATCH '小明有5个苹果'"
+            "SELECT q_id FROM questions_fts WHERE questions_fts MATCH ?",
+            (tokenize.fts_query("小明有5个苹果"),),
         ).fetchall()
         assert len(hit) == 1 and hit[0]["q_id"] == "q_ape_9001"
+        # 子词命中（unicode61 直写时代查不到，分词后消除）
+        sub = conn.execute(
+            "SELECT q_id FROM questions_fts WHERE questions_fts MATCH ?",
+            (tokenize.fts_query("苹果"),),
+        ).fetchall()
+        assert len(sub) == 1 and sub[0]["q_id"] == "q_ape_9001"
     finally:
         conn.close()
 
@@ -259,9 +267,10 @@ def test_fts_survives_full_rebuild_semantics(etl_db, tmp_path):
     conn = db.connect(etl_db)
     try:
         assert conn.execute("SELECT COUNT(*) n FROM questions_fts").fetchone()["n"] == 2
-        # unicode61：完整连续串可查（中文子词限制见 test_etl_end_to_end_small_sample 注释）
+        # 分词形态索引：完整串与子词均可查（决策㉛①）
         assert len(conn.execute(
-            "SELECT q_id FROM questions_fts WHERE questions_fts MATCH '橘子题干内容'"
+            "SELECT q_id FROM questions_fts WHERE questions_fts MATCH ?",
+            (tokenize.fts_query("橘子题干内容"),),
         ).fetchall()) == 1
     finally:
         conn.close()

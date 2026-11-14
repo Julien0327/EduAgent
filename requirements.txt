@@ -26,3 +26,7 @@ onnxruntime==1.32.0
 # interop/discovery.py 的直接依赖，故显式列出。
 acps-sdk==2.2.0
 httpx>=0.24.0
+
+# ================= 中文分词（Phase 2 / S1，决策㉛① 用户批准） =================
+# FTS5 预分词（索引与查询共用同一 tokenize 入口）；版本为 venv 实测锁定（Python 3.13.7）。
+jieba==0.42.1

@@ -12,7 +12,9 @@
 幂等：**全量重建语义**——每次运行先删除本来源（q_ape_%）的 questions、
 questions_fts、q_kp 挂接再按当前规则写入，重跑结果与首次一致（清洗规则
 改进后重跑即生效，不存在旧状态残留）。q_id 确定性 = q_ape_<原始id>。
-重跑本脚本后如需 KP 挂接，重跑 build_primary_kp.py。
+重跑本脚本后如需 KP 挂接，重跑 build_primary_kp.py；如需人工核验标记，
+重跑 restore_verified_flags.py（Phase 2/S1 起幂等链固定三步，verified 标记
+不持久于全量重建——2026-11-14 实测教训，见 restore_verified_flags docstring）。
 
 用法（仓库根执行）：
     .venv/Scripts/python.exe -m backend.scripts.etl_ape210k [--db <路径>] [--skip-hash]
@@ -25,6 +27,7 @@ import time
 from pathlib import Path
 
 from backend.app.data import ape210k
+from backend.app.retrieval.tokenize import fts_document
 from backend.app.storage import db
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +50,9 @@ INSERT OR IGNORE INTO questions
 VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 0, ?)
 """
 _INSERT_FTS = "INSERT INTO questions_fts (q_id, stem, answer) VALUES (?, ?, ?)"
+# FTS 文档文本 = jieba 预分词形态（决策㉛①）：unicode61 对连续中文串只产生一个
+# token（中文子词不可查），写入 fts_document() 分词文本使词粒度可查。FTS 内容是
+# 索引文本非原文——原文在 questions 表，检索命中后回表取原文。
 
 
 def sha256_of(path: Path) -> str:
@@ -152,7 +158,11 @@ def run(db_path, raw_dir: Path = DEFAULT_RAW_DIR) -> dict:
             quality_state, created_at,
         ))
         if quality_state == "processed":
-            buffer_f.append((mapped["q_id"], mapped["stem"], mapped["answer"]))
+            buffer_f.append((
+                mapped["q_id"],
+                fts_document(mapped["stem"]),
+                fts_document(mapped["answer"]),
+            ))
             funnel["written_processed"] += 1
         else:
             funnel["written_rejected"] += 1

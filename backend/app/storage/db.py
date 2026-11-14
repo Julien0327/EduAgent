@@ -23,9 +23,12 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent
 # (版本号, 文件名)：V1 为全量 DDL，后续增量迁移按序号追加到本表
 # V2（Step 5-B1）：LLM 打标注解表（annotation_batches/q_annotation_results/q_kp_llm/
 # q_difficulty_llm/annotation_reviews + 消费视图），见 migrations_v2.sql 头注
+# V3（Phase 2 / S1，决策㉛①）：kp_fts 知识点关键词检索表（jieba 预分词写入），
+# 见 migrations_v3.sql 头注
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "migrations.sql"),
     (2, "migrations_v2.sql"),
+    (3, "migrations_v3.sql"),
 ]
 
 # 建库后必须存在的全部表（§2.3 全部表 + schema_migrations；缺任一即 fail-fast）
@@ -35,6 +38,7 @@ EXPECTED_TABLES = (
     "questions",
     "q_kp",
     "questions_fts",
+    "kp_fts",
     "classes",
     "students",
     "exams",
