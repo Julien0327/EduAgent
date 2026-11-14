@@ -1,16 +1,36 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-13（Phase 1 Step 4 最终收尾，决策㉔）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-14（**Phase 1 关账，决策㉚；Phase 2 待开工**）。**新会话开工前必读本文件 + docs/技术方案.md §11/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数据地基）进行中**（2026-11-11 开工，顺序与关口协议经用户逐条确认，见 DECISIONS.md ⑲–㉒）：
+**Phase 0 ✅（2026-11-10）｜Phase 1 ✅ 完成（2026-11-11 开工，2026-11-14 关账，决策㉚）｜Phase 2 可信检索 = 下一步（待开工，排雷纪律见 ROADMAP）**
 
-- **Step 1 存储层建库 ✅**：V1 全量 DDL（§2.3 全部表，questions 按⑲用 quality_state+verified）+ db 连接层（每连接强制 foreign_keys=ON）+ 8 项单测；`.gitignore` 增 data/raw|db|staging（⑳）；本地已 commit，push 集中在 Phase 1 收尾。
-- **Step 2 知识图谱构建 ✅（用户已确认）**：初中 303 知识点 + 374 条前置边入库；用户抽检 61 条提出 4 处修正已全部处理（commit `03878ee`/`574c9ad`）；抽样 seed=42 复现验证不变。
-- **Step 3 F16 导入服务 ✅（用户已确认）**：模板生成 + 七步管线 + 三端点 + 17 项真实 Excel 端到端测试 + demo 冒烟 232 行 committed（commit `26e943c`/`1b4f159`）。
-- **Step 4 APE210K ETL ✅（含方案 A 修复；2026-11-13 用户最终验收，决策㉔）**：数据源核验（许可裁决=决策㉒）+ 流式清洗入库 + FTS5 + 小学 KP 规则聚合 + 100 题完整率抽样；用户复核发现 B 类清洗损坏后按**方案 A（决策㉓）修复并全量重建**：processed 207,858 题；全量 **159 passed**；全库逐行核验 0 不一致。证据见 DATA-SOURCES.md 与下表。2026-11-13 补充复核（异常扫描/漏斗口径澄清/KP 过度挂接记录）见"Step 4 补充复核"节，最终裁决见"Step 4 最终裁决与收尾"节。
-- **Step 5：质量验收进行中——Prompt v2 阶段 A 实施完成（2026-11-14，决策㉘），等待 Gold v2 裁决与重跑授权**。已交付：Gold v2 修订提案（15 题修订+35 沿用，逐项裁决表）、kp_primary_v2.md（registry 冻结 sha256，v1 条目保留）、077/079 仅 prompt 临时消歧（KP 描述建议 5 条单独提交未执行）、消歧准确率指标、12 项新测试（**222 passed**）。**Gold v2 提案复算冒烟：A 臂 pass 68%→88%、micro-P 0.80→0.93**——归因获数据验证。500 题 A 臂 v2 重跑**未授权**（预估最坏 ¥4.45，组最坏累计 ¥7.30 < 暂停线）。详见"Prompt v2 阶段 A 实施完成"节。
+- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**全量测试 227 passed**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=最大缺口）。
+- **Step 5 冻结（决策㉚）**：prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——均不执行；LLM 标签=可加性数据（新批次随时补跑、消费视图自动生效），Phase 2 零依赖零返工；解冻需用户批准。
+- **Phase 2 开工纪律（决策㉚⑥）**：中文 FTS5 分词 day-1 → 引用注入 day-1 → 认证限流中段；时间盒 1–1.5 周；BGE 模型已就绪（data/models，Phase 1 遗产直接复用）。
+
+### Phase 1 各步完成快照
+
+- **Step 1 存储层建库 ✅**：V1 全量 DDL + db 连接层（每连接 foreign_keys=ON）+ 8 项单测；后增 V2 标注表迁移（Step 5-B1）。
+- **Step 2 知识图谱构建 ✅**：初中 303 知识点 + 374 条前置边入库；用户抽检 4 处修正已处理；seed=42 复现验证不变。
+- **Step 3 F16 导入服务 ✅**：模板生成 + 七步管线 + 三端点 + 17 项真实 Excel 端到端测试 + demo 冒烟。
+- **Step 4 APE210K ETL ✅（2026-11-13 用户最终验收，决策㉔）**：数据源核验（许可裁决=决策㉒）+ 流式清洗入库 + FTS5 + 小学 KP 规则聚合 + 方案 A 修复（决策㉓）+ 补充复核 + 最终裁决；processed 207,858；全库逐行核验 0 不一致。
+- **Step 5 LLM 打标 ✅ 管线完成并冻结（2026-11-14，决策㉚）**：设计方案两轮修订（㉕）→ B1 工程实施（V2 迁移/执行器/A·B prompt/试验集，1446f38）→ B2 三线预算+双臂真实试跑（a3b1c8e/0cbe689）→ B2 验收与核验（9bdf06f）→ prompt v2 阶段 A（b4c1f41）→ 核验指南（09855af）→ **Gold v2 终版落地 + KP 定义修订 v2（b60a203，决策㉙）**。试跑数据/gold/manifest 全部冻结保留。
+
+## Phase 1 关账与 Step 5 冻结（2026-11-14，决策㉚）
+
+用户确认收尾分法：**按"Phase 2 依赖"而非"完美"定义收尾**——C 类零返工风险项全部冻结，B 类防被动项当日完成。
+
+| 动作 | 状态 |
+|---|---|
+| 统一 push | ✅ 22 个 commit 上云（`f5c1bbe..b60a203`，main 与远程同步；SSH 经 TUN 拦截→用户关闭 TUN 后成功） |
+| Step 5 冻结 | ✅ prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——不执行；解冻需用户批准（论据与依据见决策㉚） |
+| 验收口径修订 | ✅ 「打标抽检合格率 ≥90%」→「打标管线与试跑协议完成即达标，全量标注按需执行」（81.6%+治理循环=叙事资产） |
+| 未决项落定 | ✅ 1070129 保留 pending 转噪声候选（面试素材：发现数据集 ans↔题干不一致）；079 定义建议保留不执行；87882 维持裁决；B 臂冻结 |
+| verified=1 种子 | ✅ 49 题人工核验题置 verified=1（决策⑲；Phase 4 评测 golden 就绪，pending 1070129 未标记） |
+| 简历素材清单 | ✅ `docs/development/RESUME-AMMO.md` 初稿（3 个 Phase 1 故事 + 数字 + 追问点 + 缺口检查：RAG 未做=最大缺口） |
+| Phase 2 排雷 | ✅ ROADMAP Phase 2 行载入开工纪律：中文分词 day-1 / 引用注入 day-1 / 认证限流中段 / 时间盒 1–1.5 周 / BGE 复用 |
 
 ## Step 4 完成证据（2026-11-11，全部实测）
 
@@ -281,12 +301,13 @@ Phase 0（打地基）✅ 全部完成（commit `8dbf573`）。**Phase 1（数�
 
 ## 待办 / 阻塞
 
-1. **Step 5-C 阶段 B 完成——Gold v2 落定（49 confirmed + 1 pending），等待用户**：①裁决未决事项（1070129 处置 / 079 定义建议补句 / 87882 辅助取舍）；②批准 A 臂 v2 重跑（单独授权 API；预估最坏 ¥4.45/组最坏 ¥7.30）。B 臂重跑、20,000/全量仍未授权。
-2. Phase 1 收尾统一 push（本地 main 领先远程；TUN 模式可能影响 git push，届时留意）。
-3. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
+1. **Phase 2 可信检索：待开工**（时间盒 1–1.5 周；开工纪律=决策㉚⑥：中文 FTS5 分词 day-1、引用注入 day-1、认证限流中段；建议新开会话，以 STATUS+技术方案 §4 为基准）。
+2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
+3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 无其他阻塞。
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **159 用例**（98 基线 + 8 Step1 存储 + 8 Step2 图谱 + 17 Step3 导入 + 28 Step4 ETL），Docker Desktop（基础镜像经 docker.m.daocloud.io 镜像源获取；pip 构建参数走清华源——Docker Hub auth.docker.io DNS 污染、PyPI 直连偶发哈希校验失败）。⚠️ **pytest 依赖 openssl 在 PATH**（test_interop_discovery 3 用例借 openssl 生成测试 CA；本机位于 `D:\Git\mingw64\bin`，PATH 缺失时报 WinError 2，2026-11-11 实测踩坑，补 PATH 后全绿）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **227 用例**（98 基线 + 8 存储 + 8 图谱 + 17 导入 + 28 ETL + 13 标注 schema + 7 prompt + 24 执行器/计费 + 4 试验集 + 4 B 臂召回 + 5 消歧 + 5 核验检查），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。
