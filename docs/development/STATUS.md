@@ -75,10 +75,6 @@
 | ⚠️ 生产级 bug 修复 | **检索单例连接跨线程**：TestClient 顺序化测试暴露——单例连接建于 lifespan 线程，FastAPI sync 端点跑线程池必炸（sqlite3 check_same_thread）；修复=`db.connect(check_same_thread=False)` 参数 + 检索层 `threading.Lock` 串行化（p95 28ms 串行无影响）；该修复对生产真实必要 | 测试顺序依赖暴露→全量 280 passed；db.py/kp_recall/service 三处 |
 | 测试基线 | ✅ **280 passed / 0 failed**（268 + 12） | 全量 pytest（2026-11-14） |
 
-
-
-| S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
-| S2 引用注入骨架（day-1） | ✅ 完成（见下表） |
 ### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
 
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
