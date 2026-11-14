@@ -65,3 +65,63 @@ def test_kp_lines_format():
 def test_resolve_unknown_version():
     with pytest.raises(KeyError):
         prompts.resolve_prompt_path("kp_primary", "v9.9")
+
+
+# ---------------------------------------------------------------- Prompt v2（§14）
+
+def test_v2_registered_and_fingerprint():
+    """v2 已入 registry 且 sha256 与文件一致；v1/v2 双版本并存（v1 批次可复现）。"""
+    registry = prompts.verify_registry()
+    assert registry["kp_primary"]["version"] == "v2.0"
+    v1 = [r for r in prompts.load_registry()
+          if r["prompt_id"] == "kp_primary" and r["version"] == "v1.0"]
+    assert len(v1) == 1  # v1 条目保留（历史批次指纹可校验）
+
+
+def test_v2_disambiguation_rules():
+    path = prompts.resolve_prompt_path("kp_primary", "v2.0")
+    text = path.read_text(encoding="utf-8")
+    for marker in ("主知识点消歧规则", "表层关键词不决定 primary", "关键词出现 ≠ 考查依据",
+                   "辅助允许为空", "明确题目依据", "不为提高覆盖率而扩大标签数量",
+                   "两步及以上"):
+        assert marker in text, f"v2 缺消歧规则要素：{marker}"
+
+
+def test_v2_difficulty_anchors_identical_to_v1():
+    """V2-4：难度锚点段落与 v1 逐字一致（保护 98% 难度一致率）。"""
+    def anchor_block(version):
+        path = prompts.resolve_prompt_path("kp_primary", version)
+        text = path.read_text(encoding="utf-8")
+        start = text.index("## 难度锚点")
+        return text[start:text.index("## 题干记法说明")]
+    assert anchor_block("v2.0") == anchor_block("v1.0")
+
+
+def test_v2_schema_and_json_spec_unchanged():
+    """输出 JSON 规范与 v1 兼容（executor 校验器无需变更）：字段结构级一致。"""
+    import json as _json
+
+    def json_spec(version):
+        path = prompts.resolve_prompt_path("kp_primary", version)
+        text = path.read_text(encoding="utf-8")
+        start = text.index("```json") + len("```json")
+        return _json.loads(text[start:text.index("```", start)])
+
+    v1_spec, v2_spec = json_spec("v1.0"), json_spec("v2.0")
+    assert set(v1_spec) == set(v2_spec) == {"primary", "kp_ids", "difficulty",
+                                            "confidence", "reason"}
+    assert set(v1_spec["confidence"]) == set(v2_spec["confidence"]) == {"kp", "difficulty"}
+
+
+def test_v2_counter_examples_present():
+    path = prompts.resolve_prompt_path("kp_primary", "v2.0")
+    text = path.read_text(encoding="utf-8")
+    assert "表层关键词" in text and "归总" in text  # 表层偏置反例
+    assert "用比例解" in text
+
+
+def test_v2_no_rule_leakage():
+    path = prompts.resolve_prompt_path("kp_primary", "v2.0")
+    text = path.read_text(encoding="utf-8")
+    for banned in ("q_kp", "ape210k_rule", "规则标签", "规则挂接"):
+        assert banned not in text, f"v2 泄漏 {banned!r}"

@@ -480,6 +480,37 @@ def test_processed_only_guard_before_batch_creation(seeded_db, tmp_path):
         conn.close()
 
 
+def test_v2_prompt_version_creates_independent_batch(seeded_db, tmp_path):
+    """v2 批次隔离：同题同臂不同 prompt_version → 独立批次，v1 结果零覆盖（重跑授权前提）。"""
+    cfg_v1 = make_cfg(seeded_db, tmp_path, qids5()[:2], prompt_version="v1.0",
+                      concurrency_initial=1, concurrency_max=1)
+    run_annotation(cfg_v1, MockClient(default=VALID))
+    conn = db.connect(seeded_db)
+    v1_results = conn.execute("SELECT q_id, primary_kp_id FROM q_annotation_results"
+                              " WHERE batch_id LIKE '%_a' ORDER BY q_id").fetchall()
+    conn.close()
+
+    cfg_v2 = make_cfg(seeded_db, tmp_path, qids5()[:2], prompt_version="v2.0",
+                      concurrency_initial=1, concurrency_max=1)
+    summary_v2 = run_annotation(cfg_v2, MockClient(default=VALID))
+    assert summary_v2["batch_id"] != ""
+    conn = db.connect(seeded_db)
+    try:
+        batches = conn.execute("SELECT batch_id, prompt_version FROM annotation_batches"
+                               " ORDER BY created_at").fetchall()
+        assert [b["prompt_version"] for b in batches] == ["v1.0", "v2.0"]
+        # v1 结果未被覆盖：v1 批次行仍在且内容不变
+        v1_after = conn.execute(
+            "SELECT q_id, primary_kp_id FROM q_annotation_results"
+            " WHERE batch_id=? ORDER BY q_id", (batches[0]["batch_id"],)).fetchall()
+        assert [dict(r) for r in v1_after] == [dict(r) for r in v1_results]
+        # v2 批次有独立结果
+        assert conn.execute("SELECT COUNT(*) n FROM q_annotation_results WHERE batch_id=?",
+                            (batches[1]["batch_id"],)).fetchone()["n"] == 2
+    finally:
+        conn.close()
+
+
 def test_manifest_batch_end_consistency(seeded_db, tmp_path):
     cfg = make_cfg(seeded_db, tmp_path, qids5())
     summary = run_annotation(cfg, MockClient(default=VALID))

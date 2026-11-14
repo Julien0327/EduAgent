@@ -25,6 +25,33 @@ OUT_MD = REPO_ROOT / "data" / "staging" / "trial_ab_report.md"
 
 ARM_LABEL = {"A_full_list": "A 臂（82 全清单直判）", "B_recall": "B 臂（召回 top-10 + 复判）"}
 
+# §14 V2-5：相邻 KP 族（primary 消歧准确率的"族内命中"口径；源自 5-B2 归因的语义邻近对）
+ADJACENT_GROUPS: list[set[str]] = [
+    {"kp_p_037", "kp_p_038"},   # 量率对应 / 比与按比例分配
+    {"kp_p_071", "kp_p_066"},   # 整除特征 / 因数与倍数
+    {"kp_p_036", "kp_p_015"},   # 率类问题 / 浓度问题
+    {"kp_p_031", "kp_p_082"},   # 找规律 / 简便计算
+    {"kp_p_077", "kp_p_079"},   # 加减运算（一步）/ 四则混合运算
+]
+
+
+def disambiguation_accuracy(rows: list[dict]) -> float | None:
+    """primary 消歧准确率：LLM primary 与 gold primary 相同或同属相邻族的占比。
+
+    仅统计 status=ok 的题（unmapped/failed/invalid 不进分母）；无 ok 行返回 None。
+    """
+    ok = [r for r in rows if r.get("status") == "ok"]
+    if not ok:
+        return None
+    hits = 0
+    for r in ok:
+        gp, lp = r.get("gold_primary"), r.get("llm_primary")
+        if not gp or not lp:
+            continue
+        if gp == lp or any({gp, lp} <= g for g in ADJACENT_GROUPS):
+            hits += 1
+    return round(hits / len(ok), 4)
+
 
 def arm_metrics(conn, batch: dict, gold_rows: list[dict]) -> dict:
     """单臂指标：批次运行统计 + 50 题 gold 对照（总体与 S12 层分开）。"""
@@ -91,8 +118,21 @@ def arm_metrics(conn, batch: dict, gold_rows: list[dict]) -> dict:
             "detail": detail,
         }
 
+    def collect_disambig_rows(rows: list[dict]) -> list[dict]:
+        out = []
+        for g in rows:
+            q_id = g["q_id"]
+            st = results.get(q_id, {}).get("status")
+            out.append({"status": st,
+                        "gold_primary": g["gold_primary"],
+                        "gold_kp_ids": g["gold_kp_ids"],
+                        "llm_primary": primary_of.get(q_id) if st == "ok" else None,
+                        "llm_kps": llm_kps.get(q_id, []) if st == "ok" else []})
+        return out
+
     gold_s12 = [g for g in gold_rows if g.get("stratum") == "S12_random"]
     # stratum 由 trial500 清单提供；gold 初稿未含层标签——读清单补
+    disambig = disambiguation_accuracy(collect_disambig_rows(gold_rows))
     return {
         "batch_id": batch_id,
         "model_version": batch["model_version"],
@@ -110,6 +150,7 @@ def arm_metrics(conn, batch: dict, gold_rows: list[dict]) -> dict:
             "per_question_cost_cny": round(batch["cost_cny_est"] / max(1, batch["cost_cny_est"] and batch["succeeded"] + batch["unmapped"] or 1), 6),
         },
         "trial50": eval_subset(gold_rows),
+        "disambiguation_accuracy": disambig,
     }
 
 
@@ -176,7 +217,8 @@ def main() -> int:
                   f"- 难度一致（±1）：{t50['difficulty_ok']}/{t50['n']} = {t50['difficulty_ok_rate']:.1%}",
                   f"- 硬误标题数：{t50['hard_error_questions']}",
                   f"- **合格率（主命中 ∧ 无硬误标 ∧ 难度±1）：{t50['pass']}/{t50['n']} = {t50['pass_rate']:.1%}**",
-                  f"- micro-Precision：{t50['micro_precision']}；micro-Recall：{t50['micro_recall']}；unmapped：{t50['unmapped']}", ""]
+                  f"- micro-Precision：{t50['micro_precision']}；micro-Recall：{t50['micro_recall']}；unmapped：{t50['unmapped']}",
+                  f"- primary 消歧准确率（同/相邻族）：{m.get('disambiguation_accuracy')}", ""]
         s12_rows = [g for g in gold_rows if g["stratum"] == "S12_random"]
         s12_ids = {g["q_id"] for g in s12_rows}
         s12_detail = [d for d in t50["detail"] if d["q_id"] in s12_ids]
