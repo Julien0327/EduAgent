@@ -24,6 +24,9 @@ from backend.app.retrieval.citations import (
 from backend.app.services import exam_docx, lesson_plan
 from backend.main import app
 
+# S3 起检索层走真实库+模型——本模块全部用例替换为 Fake（离线）
+pytestmark = pytest.mark.usefixtures("fake_retrieval")
+
 
 # ---------- 机制层 ----------
 
@@ -93,11 +96,20 @@ def test_seed_bank_questions_carry_ref():
 
 
 def test_search_knowledge_points_carries_ref():
-    from backend.app.tools.knowledge_tools import SearchKnowledgePointsParams, search_knowledge_points
-    r = search_knowledge_points(SearchKnowledgePointsParams(chapter="一元二次方程"))
-    assert r["knowledge_points"]
-    for kp in r["knowledge_points"]:
-        assert kp["ref"] == kp["kp_id"]
+    """真实库 385 KP 冒烟（FakeEmbedder 离线）：检索返回必带 ref=kp_id（§4.4 契约）。"""
+    from backend.app.storage import db as _db
+    from backend.app.retrieval.kp_recall import KpRetriever
+    from backend.tests.conftest import FakeEmbedder
+    if not _db.DEFAULT_DB_PATH.exists():
+        pytest.skip("真实业务库不存在")
+    ret = KpRetriever(_db.DEFAULT_DB_PATH, embedding_service=FakeEmbedder())
+    try:
+        r = ret.recall("一元二次方程", top_k=3)
+        assert r
+        for kp in r:
+            assert kp["ref"] == kp["kp_id"]
+    finally:
+        ret.close()
 
 
 # ---------- 工作流端到端：覆盖率 100%（核心断言） ----------

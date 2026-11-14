@@ -72,7 +72,8 @@ def _fetch_knowledge(ctx: TaskContext) -> str:
     params = ctx.params
     r = run_tool("search_knowledge_points", {
         "subject": params.get("subject", "数学"),
-        "chapter": params.get("chapter", ""),
+        "query": params.get("chapter", "") or "综合",
+        "stage": params.get("stage"),
     })
     kps = r["knowledge_points"]
     ctx.params["knowledge_points"] = [kp["name"] for kp in kps]

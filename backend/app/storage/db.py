@@ -25,10 +25,13 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent
 # q_difficulty_llm/annotation_reviews + 消费视图），见 migrations_v2.sql 头注
 # V3（Phase 2 / S1，决策㉛①）：kp_fts 知识点关键词检索表（jieba 预分词写入），
 # 见 migrations_v3.sql 头注
+# V4（Phase 2 / S3）：q_kp(kp_id) 反向索引——"按知识点找题"主路免全表扫
+# （实测 1.5s→ms 级），见 migrations_v4.sql 头注
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "migrations.sql"),
     (2, "migrations_v2.sql"),
     (3, "migrations_v3.sql"),
+    (4, "migrations_v4.sql"),
 ]
 
 # 建库后必须存在的全部表（§2.3 全部表 + schema_migrations；缺任一即 fail-fast）

@@ -1,44 +1,37 @@
 """知识点检索工具（确定性，不调 LLM）。
 
-Phase 2/S2（§4.4）：凡图谱取数必带 ref（此处 ref=kp_id）；S3 将把实现
-切换到 retrieval 层（DB 385 KP），ref 语义不变。
+Phase 2/S3（§4.2）：实现走 retrieval 层（DB 385 KP 双路召回，替换 Phase 0
+的种子 7 KP）；ref=kp_id（§4.4）；结构化过滤白名单由 question_search 提供。
 """
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from backend.app.knowledge.loader import load_knowledge_points
+from backend.app.retrieval.service import get_retrieval_service
 from backend.app.tools.registry import tool
 
 
 class SearchKnowledgePointsParams(BaseModel):
     subject: Literal["数学", "语文", "英语"] = Field(
-        default="数学", description="学科名称（当前种子数据仅含数学）"
+        default="数学", description="学科名称（当前仅数学有内容，§14 决策②）"
     )
-    chapter: str = Field(..., description="章节名称，如：一元二次方程")
+    query: str = Field(..., min_length=1, description="检索词，如：一元二次方程 / 分数应用题")
+    stage: Literal["primary", "junior"] | None = Field(
+        default=None, description="学段过滤：primary=小学 / junior=初中 / None=全学段"
+    )
     limit: int = Field(default=10, ge=1, le=50, description="返回知识点数量上限")
 
 
 @tool(
     name="search_knowledge_points",
-    description="根据学科与章节检索知识点，返回知识点 id、名称、描述与常见题型。",
+    description="按检索词召回知识点（关键词+向量双路），返回 kp_id、名称、描述与学段。",
     params_model=SearchKnowledgePointsParams,
 )
 def search_knowledge_points(params: SearchKnowledgePointsParams) -> dict:
-    data = load_knowledge_points()
-    # subject / chapter 是种子文件的顶层字段，逐条 kp 不含这两项
-    if data.get("subject") != params.subject or params.chapter not in data.get("chapter", ""):
+    if params.subject != "数学":
+        # schema 通用、内容只做数学（决策②）：如实返回空而非报错
         return {"knowledge_points": []}
-    points = data["knowledge_points"][: params.limit]
-    return {
-        "knowledge_points": [
-            {
-                "kp_id": p["kp_id"],
-                "ref": p["kp_id"],  # §4.4：图谱取数必带引用
-                "name": p["name"],
-                "description": p.get("description", ""),
-                "typical_types": p.get("typical_types", []),
-            }
-            for p in points
-        ]
-    }
+    kps = get_retrieval_service().search_knowledge_points(
+        params.query, stage=params.stage, top_k=params.limit
+    )
+    return {"knowledge_points": kps}

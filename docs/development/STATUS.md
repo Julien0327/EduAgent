@@ -50,10 +50,26 @@
 
 | 步骤 | 状态 |
 |---|---|
+### S3 三阶段检索模块完成证据（2026-11-14，§4.2/§4.3，全部实测）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 三阶段引擎 | ✅ `retrieval/`：`kp_recall.py`（阶段1 双路召回：kp_fts 关键词 + 向量内积，**各自 min-max 归一化**后 α=0.4 融合→去重→名称直配加分→top-k；kftS 自愈同步）｜`question_search.py`（阶段2 两步法扩展 + 阶段3 重排：KP 重合 Jaccard 0.6/难度贴合 0.25/题面 FTS 0.15 **独立归一化加权**，fts 特征仅在题面检索意图时计入）｜`service.py`（编排门面+进程单例，lifespan 预热） | 引擎测试 15 项（临时库+FakeEmbedder 离线；白名单/注入拦截/processed-only/覆盖索引） |
+| embedding 直连重构 | ✅ **弃 fastembed API 封装，直连 onnxruntime+tokenizers**（§4.3 服务器形态；arena 关闭+单线程）：与 fastembed 输出**余弦=1.0**（实现等价验证）；`build_kp_embeddings.py` 385 KP→embedding BLOB（载入 0.34s+推理 7s）；查询侧 bge 指令前缀/索引侧不加 | `embedding.py`；一致性实测（同批 3 文本余弦 1.0/1.0/1.0） |
+| **性能优化实录** | ⚠️→✅ 首测三阶段 p95 **1521ms 超标**→profile 定位：q_kp 主键前导是 q_id，按 kp_id 找题**全表扫 57 万行**（~1.5s）→ **V4 迁移补 idx_q_kp_kp 反向索引** + expand 重写**两步法**（覆盖索引取候选 q_id→主键点查字段与挂接，聚合移应用侧）→ 终测 p95 **28ms**（54 倍改善） | V4 迁移 + 实测（1521→18-62→20-28ms 三轮记录） |
+| **§4.5 指标实测回填** | ✅ 冷启动 **0.36s**（<5s✓）｜单条 embedding p95 **8.7ms**（<50ms✓）｜三阶段检索 p95 **28ms**（<500ms✓）｜模型 **94.8MB**（≤100MB✓）｜**进程内存增量 193.6MB ✗（目标 ≤150MB，偏差如实记录）** | 见下「内存偏差归因」行 |
+| **内存偏差归因链** | fastembed 封装实测增量 **224MB** → 直连 ORT（arena off）**193.6MB** → §4.3 int8 动态量化实做（94.8→**23.8MB**，per-channel 同）但**最低余弦 0.9577 < §4.5 阈值 0.99 → 按阈值守门不交付**，保持 FP32 直连；服务器 2C2G 总账仍可运行（1194MB 预估 <2G）；若未来内存吃紧：int8+重评 Recall 后阈值修订走决策流程 | `quantize_bge_onnx.py` + 10 样本一致性报告（`data/models/bge-int8/quantize_report.json`，不入 Git） |
+| 工具/工作流接线 | ✅ `search_knowledge_points` 工具切 retrieval 层（**DB 385 KP 替换种子 7 KP**，签名 chapter→query+stage，§4.4 ref 保持）；workflow fetch_knowledge 传 query；`generate_questions` 的种子 KP 映射改**尽力而为**（检索层 KP 名与种子体系不同——映射不到不再阻塞出题，如实返回 unmapped_kp_names）；conftest 增加 fake_retrieval/FakeEmbedder 替身（workflow/citations/interop 测试离线化） | 测试全量 268 passed；test_tools/test_workflow/test_citations/test_interop_aip 相应更新 |
+| 召回质量冒烟 | ✅ 「鸡兔同笼」top1 直配（via=both）｜「分数加减应用题」top3 全切题｜「一元二次方程」top3 全中（双路齐中）；初中 KP 无题目数据→题=0（预期，DB 仅小学题） | 实测输出 |
+| 测试基线 | ✅ **268 passed / 0 failed**（253 + 15 引擎） | 全量 pytest（2026-11-14） |
+
+
+
 ### Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
 
 | S1 中文 FTS5 分词（day-1） | ✅ 完成（见上节） |
 | S2 引用注入骨架（day-1） | ✅ 完成（见下表） |
+| S3 三阶段检索 + embedding | ✅ 完成（见 S3 证据表 + §4.5 实测表） |
 | S3 三阶段检索模块 + embedding | ⬜ |
 | S4 NL 问数 | ⬜ |
 | S5 任务持久化 + 多轮会话 | ⬜ |

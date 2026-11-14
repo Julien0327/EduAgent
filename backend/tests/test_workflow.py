@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
+# S3 起 fetch_knowledge 走真实检索层——本模块全部用例替换为 Fake（离线）
+pytestmark = pytest.mark.usefixtures("fake_retrieval")
+
 import backend.app.agent.llm_utils as llm_utils
 import backend.app.agent.workflow as wf
 from backend.app.agent import planner

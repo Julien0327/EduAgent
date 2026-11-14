@@ -47,6 +47,12 @@ def _clean_tasks():
     reset_tasks()
 
 
+# S3 起工作流 fetch_knowledge 走真实检索层——AIP 端到端用例替换为 Fake（离线）
+@pytest.fixture(autouse=True)
+def _fake_retrieval(fake_retrieval):
+    return fake_retrieval
+
+
 def _plan_resp(workflow: str, **params) -> LLMResponse:
     return LLMResponse(content="", model="fake", tool_calls=[{
         "id": "p1", "name": "submit_plan",

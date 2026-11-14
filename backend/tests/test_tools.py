@@ -51,19 +51,22 @@ def test_unknown_tool():
     assert "error" in r
 
 
-# ---------- search_knowledge_points ----------
+# ---------- search_knowledge_points（S3：走 retrieval 层，Fake 替身离线） ----------
 
+@pytest.mark.usefixtures("fake_retrieval")
 def test_search_knowledge_points_valid():
-    r = reg.execute("search_knowledge_points", {"subject": "数学", "chapter": "一元二次方程"})
+    r = reg.execute("search_knowledge_points", {"subject": "数学", "query": "一元二次方程"})
     assert "error" not in r
-    assert len(r["knowledge_points"]) == 7
-    assert set(r["knowledge_points"][0].keys()) == {
-        "kp_id", "ref", "name", "description", "typical_types",
-    }
+    assert r["knowledge_points"]
+    for kp in r["knowledge_points"]:
+        assert {"kp_id", "ref", "name", "description"} <= set(kp.keys())
+        assert kp["ref"] == kp["kp_id"]  # §4.4 契约
 
 
+@pytest.mark.usefixtures("fake_retrieval")
 def test_search_knowledge_points_no_match():
-    r = reg.execute("search_knowledge_points", {"subject": "数学", "chapter": "二次函数"})
+    """非数学学科（schema 通用决策②）如实返回空。"""
+    r = reg.execute("search_knowledge_points", {"subject": "语文", "query": "二次函数"})
     assert r == {"knowledge_points": []}
 
 
@@ -79,12 +82,22 @@ def test_generate_questions_invalid_param():
     assert "error" in r
 
 
-def test_generate_questions_unknown_kp():
+def test_generate_questions_unknown_kp(use_fake_llm):
+    """S3 起 KP 名来自检索层，与种子映射不同体系：映射不到不再报错阻塞，
+    如实上报 unmapped_kp_names，题目 knowledge_points 留空。"""
+    use_fake_llm([LLMResponse(content="", model="fake", tool_calls=[{
+        "id": "c1", "name": "submit_questions", "arguments": {"questions": [
+            {"type": "选择题", "stem": "s1", "options": ["A. 1", "B. 2", "C. 3", "D. 4"],
+             "answer": "A", "difficulty": "简单", "analysis": ""},
+        ]},
+    }])])
     r = reg.execute("generate_questions", {
         "knowledge_points": ["不存在的知识点"],
         "count": 1, "question_types": ["选择题"],
     })
-    assert "error" in r
+    assert "error" not in r
+    assert r["unmapped_kp_names"] == ["不存在的知识点"]
+    assert r["questions"][0]["knowledge_points"] == []
 
 
 def test_generate_questions_score_sum_and_ids(use_fake_llm):

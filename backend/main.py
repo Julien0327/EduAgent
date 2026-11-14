@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.app.api import chat, health, import_api, tasks
 from backend.app.knowledge import loader
+from backend.app.retrieval import service as retrieval
 from backend.app.storage import db, importer
 from backend.config import settings
 from backend.interop.aip_server import create_aip_router
@@ -26,13 +27,21 @@ log = get_logger("main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用启动阶段：数据库迁移 + 清扫滞留批次 + 校验种子数据 + AMP 可观测性。"""
+    """应用启动阶段：数据库迁移 + 清扫滞留批次 + 校验种子数据 + 检索/embedding 预热 + AMP。"""
     # SQLite 业务库（Phase 1）：迁移幂等；启动清扫滞留 validating 批次（§3.4 异常中断恢复）
     db.apply_migrations(settings.DB_PATH)
     swept = importer.sweep_stale_validating(settings.DB_PATH)
     if swept:
         log.warning("启动清扫：%d 个滞留 validating 批次已标记 failed", swept)
     log.info(loader.validate_seed())
+    # ── Phase 2 检索层预热（S3）：KP+向量矩阵载入 + kp_fts 自愈同步 + embedding 模型
+    # 加载——冷启动摊平到 lifespan（§4.5 冷启动 <5s；不预热则首个请求承担 ~2s）
+    try:
+        retrieval.get_retrieval_service()
+        retrieval.get_embedding_service()
+        log.info("检索层预热完成（KP 召回 + embedding 就绪）")
+    except Exception:
+        log.exception("检索层预热失败（检索功能降级不可用，主流程继续）")
     # ── AMP 心跳 + Access 日志初始化 ──
     acp_settings = load_acp_settings()
     amp_aic = acp_settings.aic or ""
