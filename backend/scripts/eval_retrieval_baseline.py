@@ -1,9 +1,11 @@
 """正式检索基线评测（Phase 2 / §4.5）。
 
 数据边界（硬性）：
-- 只读 `retrieval_eval_queries_formal_v1.jsonl`（正式集 50 条，全部 confirmed）；
+- 默认只读 `retrieval_eval_queries_formal_v1.jsonl`（正式集 50 条，全部 confirmed）；
 - **绝不读取** `retrieval_eval_queries_extra_drafts.jsonl` 参与指标（探索集 20 条，
   usage=exploratory / formal_metric=false）；脚本会断言两者无交叉。
+- Phase 2.2（决策㉝，小学单学段）可用 `--formal-file` 指向 49 条小学版
+  `retrieval_eval_queries_formal_primary_v2.jsonl`；原 50 条文件与历史报告不变。
 - 只读检索，不写业务数据；不修改运行时代码。
 
 指标（知识点阶段，口径固定）：
@@ -23,6 +25,13 @@
     .venv/Scripts/python.exe -m backend.scripts.eval_retrieval_baseline --dry-run
     # 正式基线（需用户明确授权后执行）
     .venv/Scripts/python.exe -m backend.scripts.eval_retrieval_baseline
+    # Phase 2.2 小学单学段 49 条重跑（版本化输出，不覆盖历史报告）
+    .venv/Scripts/python.exe -m backend.scripts.eval_retrieval_baseline \
+        --formal-file data/staging/retrieval_eval_queries_formal_primary_v2.jsonl \
+        --out-json data/staging/retrieval_baseline_report_primary_v2.json \
+        --out-md data/staging/retrieval_baseline_report_primary_v2.md \
+        --label "Phase 2.2 / 小学单学段" \
+        --expected-count 49 --expected-verified 49 --expected-newly 0
 """
 import argparse
 import hashlib
@@ -53,11 +62,14 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_and_validate() -> tuple[list[dict], dict]:
-    formal = load_jsonl(FORMAL_FILE)
+def load_and_validate(formal_file: Path = FORMAL_FILE, expected_count: int = 50,
+                      expected_verified: int = 49,
+                      expected_newly: int = 1) -> tuple[list[dict], dict]:
+    formal = load_jsonl(formal_file)
     extra = load_jsonl(EXTRA_FILE)
 
     checks = {
+        "formal_file": str(formal_file),
         "formal_count": len(formal),
         "formal_all_confirmed": all(q.get("status") == "confirmed" for q in formal),
         "formal_usage_all_formal": all(q.get("usage") == "formal" for q in formal),
@@ -69,15 +81,15 @@ def load_and_validate() -> tuple[list[dict], dict]:
         "extra_all_not_formal": all(q.get("formal_metric") is False
                                     and q.get("usage") == "exploratory" for q in extra),
         "no_id_overlap": not ({q["query_id"] for q in formal} & {q["query_id"] for q in extra}),
-        "formal_sha256": sha256(FORMAL_FILE),
+        "formal_sha256": sha256(formal_file),
         "extra_sha256": sha256(EXTRA_FILE),
     }
     expected = {
-        "formal_count": 50,
+        "formal_count": expected_count,
         "formal_all_confirmed": True,
         "formal_usage_all_formal": True,
-        "formal_verified_derived": 49,
-        "formal_newly_confirmed": 1,
+        "formal_verified_derived": expected_verified,
+        "formal_newly_confirmed": expected_newly,
         "formal_ids_unique": True,
         "formal_gold_primary_in_gold": True,
         "extra_count": 20,
@@ -162,8 +174,13 @@ def breakdown(rows: list[dict]) -> dict:
     return {"by_source": by_source, "by_stage": by_stage}
 
 
-def run() -> int:
-    formal, checks = load_and_validate()
+def run(formal_file: Path = FORMAL_FILE, out_json: Path = OUT_JSON,
+        out_md: Path = OUT_MD, label: str = "Phase 2 / §4.5",
+        expected_count: int = 50, expected_verified: int = 49,
+        expected_newly: int = 1) -> int:
+    formal, checks = load_and_validate(
+        formal_file, expected_count, expected_verified, expected_newly
+    )
 
     from backend.app.retrieval.embedding import MODEL_NAME
     from backend.app.retrieval.kp_recall import RETRIEVAL_ALPHA
@@ -234,10 +251,12 @@ def run() -> int:
     report = {
         "run_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "status": "ok" if not errors else "completed_with_errors",
+        "label": label,
+        "formal_count": len(formal),
         "model": MODEL_NAME,
         "alpha": RETRIEVAL_ALPHA,
         "top_k": TOP_K,
-        "eval_file": str(FORMAL_FILE),
+        "eval_file": str(formal_file),
         "eval_sha256": checks["formal_sha256"],
         "extra_file_excluded": str(EXTRA_FILE),
         "data_checks": checks,
@@ -261,13 +280,14 @@ def run() -> int:
             "note": "本地 ONNX CPU 推理（bge-small-zh-v1.5），零 API 费用",
         },
     }
-    OUT_JSON.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_json.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     lines = [
-        "# 正式检索基线报告（Phase 2 / §4.5）",
+        f"# 正式检索基线报告（{label}）",
         "",
         f"- 生成时间：{report['run_at']}｜运行状态：**{report['status']}**",
-        f"- 正式集：50 条（49 verified + 1 新确认），sha256 `{report['eval_sha256'][:16]}…`",
+        f"- 正式集：{len(formal)} 条（{checks['formal_verified_derived']} verified + "
+        f"{checks['formal_newly_confirmed']} 新确认），sha256 `{report['eval_sha256'][:16]}…`",
         f"- 探索集（20 条）**未参与**；模型 `{report['model']}`；α={report['alpha']}；top-k={TOP_K}",
         "",
         "## 汇总结论",
@@ -352,22 +372,27 @@ def run() -> int:
         lines.append(f"| {r['query_id']} | {r['source']} | {r['rank_primary'] or '-'} | "
                      f"{'✓' if r['recall5_primary'] else '✗'} | {r['mrr_primary']:.3f} | "
                      f"{r['ndcg5']:.3f} | {r['latency_ms']} |")
-    OUT_MD.write_text("\n".join(lines), encoding="utf-8")
+    out_md.write_text("\n".join(lines), encoding="utf-8")
 
     print(json.dumps(aggregates, ensure_ascii=False, indent=2))
     print(json.dumps({"timing": timing, "errors": len(errors)}, ensure_ascii=False, indent=2))
-    print(f"\n报告：{OUT_MD}\n原始数据：{OUT_JSON}")
+    print(f"\n报告：{out_md}\n原始数据：{out_json}")
     return 0 if not errors else 1
 
 
-def dry_run() -> int:
-    formal, checks = load_and_validate()
+def dry_run(formal_file: Path = FORMAL_FILE, out_json: Path = OUT_JSON,
+            out_md: Path = OUT_MD, label: str = "Phase 2 / §4.5",
+            expected_count: int = 50, expected_verified: int = 49,
+            expected_newly: int = 1) -> int:
+    formal, checks = load_and_validate(
+        formal_file, expected_count, expected_verified, expected_newly
+    )
     print(json.dumps(checks, ensure_ascii=False, indent=2))
     print(f"\n[DRY-RUN] 正式集 {len(formal)} 条构成校验通过；未加载模型、未计算任何指标。")
     print("指标口径：Recall@1/5(primary + any gold)、MRR(primary, top10)、NDCG@5(分级)。")
     print(f"协议：{PROTOCOLS}（stage_filtered 为主口径；open 为诊断口径）。")
     print("执行正式基线（需用户授权）：python -m backend.scripts.eval_retrieval_baseline")
-    print(f"输出将写入：{OUT_JSON} / {OUT_MD}")
+    print(f"输出将写入：{out_json} / {out_md}")
     return 0
 
 
@@ -375,8 +400,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="正式检索基线评测（默认需显式执行）")
     parser.add_argument("--dry-run", action="store_true",
                         help="只校验数据构成，不加载模型、不计算指标")
+    parser.add_argument("--formal-file", default=str(FORMAL_FILE),
+                        help="正式集 JSONL（默认 50 条 formal_v1；Phase 2.2 传 49 条小学版）")
+    parser.add_argument("--out-json", default=str(OUT_JSON))
+    parser.add_argument("--out-md", default=str(OUT_MD))
+    parser.add_argument("--label", default="Phase 2 / §4.5", help="报告标题/版本标签")
+    parser.add_argument("--expected-count", type=int, default=50)
+    parser.add_argument("--expected-verified", type=int, default=49)
+    parser.add_argument("--expected-newly", type=int, default=1)
     args = parser.parse_args()
-    return dry_run() if args.dry_run else run()
+    kwargs = dict(
+        formal_file=Path(args.formal_file),
+        out_json=Path(args.out_json),
+        out_md=Path(args.out_md),
+        label=args.label,
+        expected_count=args.expected_count,
+        expected_verified=args.expected_verified,
+        expected_newly=args.expected_newly,
+    )
+    return dry_run(**kwargs) if args.dry_run else run(**kwargs)
 
 
 if __name__ == "__main__":

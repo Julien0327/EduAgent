@@ -18,7 +18,8 @@
 | 入库构建器 | ✅ `build_primary_graph.py`：只管理 primary 边（先删 primary 边再全量插入），不碰初中 KP/边；支持 `--dry-run`；幂等 | 8 项测试（`test_build_primary_graph.py`） |
 | 测试基线 | ✅ **319 passed / 0 failed**（311 + 8；未改动业务运行时代码） | 全量 pytest（2026-11-15） |
 | Phase 2 Round1 证据补充 | ✅ `PHASE2_ACCEPTANCE_INDEX.md` 新增 §0：A 基线 / D Round1 / 决策㉜ / 报告链接；20 条教师问句仍待用户评分 | staging 验收索引 |
-| 未做/待批准 | 初中运行时数据清理（必须先 dry-run 并经用户批准）；小学演示数据重建；Phase 2.2 49 条小学基线；产品/技术/README/API 文档同步 | 本文件「待办」 |
+| **Phase 2.2 重基线** | ✅ 49 条小学查询（移除唯一初中查询）：**R@1 32.65% / R@5 55.10% / MRR 0.4335 / NDCG@5 0.4201**；与 D 50 条结果去 junior 后逐项吻合（**非检索回归**） | `retrieval_baseline_report_primary_v2.md/.json` |
+| 未做/待批准 | 初中运行时数据清理（必须先 dry-run 并经用户批准，未执行）；小学演示数据重建；产品/技术/README/API 文档的运行时切换部分 | 本文件「待办」 |
 
 
 - **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 311）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
@@ -491,7 +492,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 进行中（S0 范围收窄）**：小学前置图 v1.0 已冻结（87 条，见上）；下一步按顺序：Phase 2 Round1 证据补充（已补）→ 冻结代码版本 → Phase 2.2 49 条小学基线 → 初中运行时清理 dry-run（需批准）→ 小学演示数据 → Phase 3 本体。
+1. **Phase 3 进行中（S0 范围收窄）**：小学前置图 v1.0 已冻结（87 条）；Phase 2 Round1 证据补充与 Phase 2.2 49 条重基线已完成。下一步：初中运行时清理 **dry-run**（列明表/数量/外键/备份，需你批准后才执行）→ 小学演示数据（先输出数据设计与映射核对表）→ Phase 3 本体。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
