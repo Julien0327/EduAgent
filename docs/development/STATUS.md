@@ -1,10 +1,25 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-15（**Phase 2 关账，决策㉜；Phase 3 下一步**）。**新会话开工前必读本文件 + docs/技术方案.md §5/§6（Phase 3）**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-15（**Phase 3 S0 范围收窄开工，决策㉝；Phase 2 已关账**）。**新会话开工前必读本文件 + docs/技术方案.md §5/§6（Phase 3）**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 = 下一步**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 = 进行中（S0 范围收窄，决策㉝）**
+
+### Phase 3 S0-1 小学前置图冻结（2026-11-15，决策㉝）
+
+用户裁决运行时收窄为小学单学段；初中图谱归档、不参与运行时构建。本轮只做前置图草案/冻结，**未改数据库、未调 LLM、未产生费用**。
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 小学前置图 v1.0 | ✅ 82 个小学 KP / **87 条**教学依赖边（80 草案 + 7 推荐补充；用户 2026-11-15 审核通过） | `data/knowledge/primary_edges.json` |
+| 校验 | ✅ 引用完整 / 无自环 / 无重复 / DAG 无环 / 0 错误；5 个独立节点（026/027/030/031/033）；8 个根节点；55 个叶节点；最长链 6 条边 | `data/staging/primary_graph_frozen_review.md` |
+| 3 条有意未纳入 | 077→078、077→028、046→057 按用户裁决不恢复；后续如真实诊断数据证明需要再版本化调整 | 同上 §6 |
+| 入库构建器 | ✅ `build_primary_graph.py`：只管理 primary 边（先删 primary 边再全量插入），不碰初中 KP/边；支持 `--dry-run`；幂等 | 8 项测试（`test_build_primary_graph.py`） |
+| 测试基线 | ✅ **319 passed / 0 failed**（311 + 8；未改动业务运行时代码） | 全量 pytest（2026-11-15） |
+| Phase 2 Round1 证据补充 | ✅ `PHASE2_ACCEPTANCE_INDEX.md` 新增 §0：A 基线 / D Round1 / 决策㉜ / 报告链接；20 条教师问句仍待用户评分 | staging 验收索引 |
+| 未做/待批准 | 初中运行时数据清理（必须先 dry-run 并经用户批准）；小学演示数据重建；Phase 2.2 49 条小学基线；产品/技术/README/API 文档同步 | 本文件「待办」 |
+
 
 - **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 311）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
 - **Step 5 冻结（决策㉚）**：prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——均不执行；LLM 标签=可加性数据（新批次随时补跑、消费视图自动生效），Phase 2 零依赖零返工；解冻需用户批准。
@@ -476,7 +491,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 归因+观测：下一步**（技术方案 §5/§6；建议新开会话；依赖 Phase 2 检索与持久化，已就绪）。
+1. **Phase 3 进行中（S0 范围收窄）**：小学前置图 v1.0 已冻结（87 条，见上）；下一步按顺序：Phase 2 Round1 证据补充（已补）→ 冻结代码版本 → Phase 2.2 49 条小学基线 → 初中运行时清理 dry-run（需批准）→ 小学演示数据 → Phase 3 本体。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
@@ -484,6 +499,6 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **311 用例**（Phase 2 收尾；含 retrieval/tokenize/engine、citations、persistence/sessions、security、name-bonus 等新增），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **319 用例**（Phase 3 S0-1：311 + 小学前置图 8 项），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。

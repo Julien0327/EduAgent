@@ -1,0 +1,656 @@
+{
+  "version": "v1.0",
+  "status": "frozen",
+  "created_at": "2026-11-15",
+  "approved_by": "user_2026-11-15",
+  "scope": "primary_only",
+  "edge_count": 87,
+  "source_draft": "data/staging/primary_graph_draft.json",
+  "notes": "用户 2026-11-15 裁决：纳入全部 7 条推荐补充边，正式版 87 条；接受 5 个独立节点（026/027/030/031/033）；3 条有意未纳入边不恢复，后续如真实诊断数据证明需要，再版本化调整。",
+  "review_decisions": {
+    "edge_count": "87",
+    "isolated_accepted": [
+      "kp_p_026",
+      "kp_p_027",
+      "kp_p_030",
+      "kp_p_031",
+      "kp_p_033"
+    ],
+    "deliberate_omissions_not_restored": true,
+    "direction_issues": "none reported by user"
+  },
+  "deliberate_omissions": [
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_078",
+      "category": "数与运算",
+      "note": "加减是乘除的意义基础",
+      "basis": "概念上成立，但会使 077 成为全图通用根，降低归因区分度；078 作为独立基础节点保留"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_028",
+      "category": "典型应用题",
+      "note": "还原问题的加减逆推",
+      "basis": "已由 078→028 覆盖乘除逆推；避免双父过度约束"
+    },
+    {
+      "source_id": "kp_p_046",
+      "target_id": "kp_p_057",
+      "category": "几何",
+      "note": "组合图形中的三角形分解",
+      "basis": "已保留 044→057 与 050→057；保持边稀疏"
+    }
+  ],
+  "edges": [
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_079",
+      "category": "数与运算",
+      "note": "四则混合运算包含整数加减",
+      "basis": "先乘除后加减的混合运算中，加减是组成部分"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_079",
+      "category": "数与运算",
+      "note": "四则混合运算包含整数乘除",
+      "basis": "混合运算的乘除环节"
+    },
+    {
+      "source_id": "kp_p_079",
+      "target_id": "kp_p_082",
+      "category": "数与运算",
+      "note": "简便计算基于四则混合的运算顺序与运算律",
+      "basis": "简便计算需先掌握四则混合运算"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_080",
+      "category": "数与运算",
+      "note": "平方/立方是相同因数相乘的简写",
+      "basis": "乘方定义为相同因数的乘法"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_074",
+      "category": "数与运算",
+      "note": "小数加减依赖整数加减与小数点对齐",
+      "basis": "小数加减的算理是整数加减"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_074",
+      "category": "数与运算",
+      "note": "小数乘除依赖整数乘除与小数点移动",
+      "basis": "小数乘除的算理是整数乘除"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_075",
+      "category": "数与运算",
+      "note": "分数加减依赖整数加减与通分",
+      "basis": "同分母/异分母分数加减建立在整数加减上"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_075",
+      "category": "数与运算",
+      "note": "分数乘除依赖整数乘除",
+      "basis": "分数乘除的算理是整数乘除"
+    },
+    {
+      "source_id": "kp_p_075",
+      "target_id": "kp_p_076",
+      "category": "数与运算",
+      "note": "百分数是分母为100的分数",
+      "basis": "百分数与分数可互化"
+    },
+    {
+      "source_id": "kp_p_074",
+      "target_id": "kp_p_076",
+      "category": "数与运算",
+      "note": "百分数可与小数互化",
+      "basis": "百分数化为小数后按小数运算"
+    },
+    {
+      "source_id": "kp_p_079",
+      "target_id": "kp_p_081",
+      "category": "数与运算",
+      "note": "方程求解需要四则混合与逆运算",
+      "basis": "解方程综合运用四则运算"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_020",
+      "category": "数量关系与百分率",
+      "note": "平均数=总数÷份数",
+      "basis": "除法是平均数的核心运算"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_034",
+      "category": "数量关系与百分率",
+      "note": "归一问题先求单一量",
+      "basis": "单一量=总量÷份数"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_035",
+      "category": "数量关系与百分率",
+      "note": "归总问题先求总量",
+      "basis": "总量=单一量×份数"
+    },
+    {
+      "source_id": "kp_p_034",
+      "target_id": "kp_p_014",
+      "category": "数量关系与百分率",
+      "note": "工程问题先求单位时间工作量（归一）",
+      "basis": "工程问题用归一思想求效率"
+    },
+    {
+      "source_id": "kp_p_075",
+      "target_id": "kp_p_037",
+      "category": "数量关系与百分率",
+      "note": "量率对应求一个数的几分之几",
+      "basis": "分数乘法求部分量"
+    },
+    {
+      "source_id": "kp_p_076",
+      "target_id": "kp_p_037",
+      "category": "数量关系与百分率",
+      "note": "量率对应求一个数的百分之几",
+      "basis": "百分数乘法求部分量"
+    },
+    {
+      "source_id": "kp_p_037",
+      "target_id": "kp_p_036",
+      "category": "数量关系与百分率",
+      "note": "率类问题是量率对应的百分率应用",
+      "basis": "率=部分量÷总量，属量率对应"
+    },
+    {
+      "source_id": "kp_p_076",
+      "target_id": "kp_p_036",
+      "category": "数量关系与百分率",
+      "note": "率类问题用百分数表示",
+      "basis": "百分数是率的常用表示"
+    },
+    {
+      "source_id": "kp_p_075",
+      "target_id": "kp_p_038",
+      "category": "数量关系与百分率",
+      "note": "比与分数互化",
+      "basis": "比的前项/后项可写成分数"
+    },
+    {
+      "source_id": "kp_p_036",
+      "target_id": "kp_p_016",
+      "category": "数量关系与百分率",
+      "note": "利润率是百分率应用",
+      "basis": "利润率=利润÷成本"
+    },
+    {
+      "source_id": "kp_p_036",
+      "target_id": "kp_p_017",
+      "category": "数量关系与百分率",
+      "note": "折扣用百分率表示",
+      "basis": "几折=原价的百分之几十"
+    },
+    {
+      "source_id": "kp_p_036",
+      "target_id": "kp_p_018",
+      "category": "数量关系与百分率",
+      "note": "利率是百分率",
+      "basis": "利息=本金×利率×时间"
+    },
+    {
+      "source_id": "kp_p_036",
+      "target_id": "kp_p_019",
+      "category": "数量关系与百分率",
+      "note": "税率是百分率",
+      "basis": "应纳税额=收入×税率"
+    },
+    {
+      "source_id": "kp_p_017",
+      "target_id": "kp_p_041",
+      "category": "数量关系与百分率",
+      "note": "打折促销综合包含折扣",
+      "basis": "促销综合先掌握单种折扣"
+    },
+    {
+      "source_id": "kp_p_036",
+      "target_id": "kp_p_015",
+      "category": "数量关系与百分率",
+      "note": "浓度是百分率应用",
+      "basis": "浓度=溶质÷溶液"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_001",
+      "category": "典型应用题",
+      "note": "和差问题用两数之和与差",
+      "basis": "和差公式由加减关系推出"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_002",
+      "category": "典型应用题",
+      "note": "和倍问题用两数之和",
+      "basis": "和倍先求和"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_002",
+      "category": "典型应用题",
+      "note": "和倍问题用倍数关系",
+      "basis": "倍数关系用乘除"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_003",
+      "category": "典型应用题",
+      "note": "差倍问题用两数之差",
+      "basis": "差倍先求差"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_003",
+      "category": "典型应用题",
+      "note": "差倍问题用倍数关系",
+      "basis": "倍数关系用乘除"
+    },
+    {
+      "source_id": "kp_p_001",
+      "target_id": "kp_p_004",
+      "category": "典型应用题",
+      "note": "年龄问题常转化为和差",
+      "basis": "年龄差不变，按和差处理"
+    },
+    {
+      "source_id": "kp_p_001",
+      "target_id": "kp_p_005",
+      "category": "典型应用题",
+      "note": "鸡兔同笼用总头总脚的和差",
+      "basis": "假设法基于头脚差"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_005",
+      "category": "典型应用题",
+      "note": "鸡兔同笼用脚数倍数",
+      "basis": "脚数=头数×每只脚数"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_006",
+      "category": "典型应用题",
+      "note": "盈亏问题用分配份数与盈亏差额",
+      "basis": "盈亏差额÷分配差=份数"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_007",
+      "category": "典型应用题",
+      "note": "植树问题棵数与间隔数",
+      "basis": "间隔数=总长÷间距"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_028",
+      "category": "典型应用题",
+      "note": "还原问题用乘除逆运算",
+      "basis": "逆推时乘除互逆"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_022",
+      "category": "典型应用题",
+      "note": "余数问题用带余除法",
+      "basis": "被除数=除数×商+余数"
+    },
+    {
+      "source_id": "kp_p_022",
+      "target_id": "kp_p_021",
+      "category": "典型应用题",
+      "note": "周期问题用余数定位循环",
+      "basis": "余数决定落在周期第几位"
+    },
+    {
+      "source_id": "kp_p_069",
+      "target_id": "kp_p_021",
+      "category": "典型应用题",
+      "note": "周期问题常用最小公倍数确定周期",
+      "basis": "多个循环的最小公倍数"
+    },
+    {
+      "source_id": "kp_p_022",
+      "target_id": "kp_p_023",
+      "category": "典型应用题",
+      "note": "页码问题用数位与除法",
+      "basis": "按位数分段计算页码"
+    },
+    {
+      "source_id": "kp_p_079",
+      "target_id": "kp_p_032",
+      "category": "典型应用题",
+      "note": "定义新运算按四则混合顺序执行",
+      "basis": "新运算规则依赖四则运算顺序"
+    },
+    {
+      "source_id": "kp_p_014",
+      "target_id": "kp_p_025",
+      "category": "典型应用题",
+      "note": "牛吃草问题用工作效率/消耗率",
+      "basis": "草量变化率类似工程效率"
+    },
+    {
+      "source_id": "kp_p_074",
+      "target_id": "kp_p_040",
+      "category": "典型应用题",
+      "note": "估算与近似用小数四舍五入",
+      "basis": "近似值常涉及小数"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_010",
+      "category": "行程",
+      "note": "路程=速度×时间",
+      "basis": "行程基本数量关系"
+    },
+    {
+      "source_id": "kp_p_010",
+      "target_id": "kp_p_008",
+      "category": "行程",
+      "note": "相遇问题是一般行程的相向情形",
+      "basis": "相遇路程=速度和×时间"
+    },
+    {
+      "source_id": "kp_p_010",
+      "target_id": "kp_p_009",
+      "category": "行程",
+      "note": "追及问题是一般行程的同向情形",
+      "basis": "追及路程=速度差×时间"
+    },
+    {
+      "source_id": "kp_p_010",
+      "target_id": "kp_p_011",
+      "category": "行程",
+      "note": "流水行船是一般行程的速度合成",
+      "basis": "顺水/逆水速度=船速±水速"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_059",
+      "category": "单位换算",
+      "note": "长度单位换算用乘除进率",
+      "basis": "大单位化小单位乘进率"
+    },
+    {
+      "source_id": "kp_p_059",
+      "target_id": "kp_p_060",
+      "category": "单位换算",
+      "note": "面积单位由长度单位平方得到",
+      "basis": "1平方米=100平方分米"
+    },
+    {
+      "source_id": "kp_p_059",
+      "target_id": "kp_p_061",
+      "category": "单位换算",
+      "note": "体积单位由长度单位立方得到",
+      "basis": "1立方米=1000立方分米"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_062",
+      "category": "单位换算",
+      "note": "质量单位换算用乘除进率",
+      "basis": "吨/千克/克进率换算"
+    },
+    {
+      "source_id": "kp_p_063",
+      "target_id": "kp_p_064",
+      "category": "单位换算",
+      "note": "年月日属于时间单位体系",
+      "basis": "年月日换算是时间单位的一部分"
+    },
+    {
+      "source_id": "kp_p_074",
+      "target_id": "kp_p_065",
+      "category": "单位换算",
+      "note": "人民币计算用小数",
+      "basis": "元角分换算为小数"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_066",
+      "category": "数论",
+      "note": "因数与倍数由乘除定义",
+      "basis": "a×b=c 中 a、b 是 c 的因数"
+    },
+    {
+      "source_id": "kp_p_066",
+      "target_id": "kp_p_067",
+      "category": "数论",
+      "note": "质数合数由因数个数定义",
+      "basis": "质数只有1和本身两个因数"
+    },
+    {
+      "source_id": "kp_p_066",
+      "target_id": "kp_p_068",
+      "category": "数论",
+      "note": "公因数基于因数",
+      "basis": "最大公因数从公因数中取最大"
+    },
+    {
+      "source_id": "kp_p_066",
+      "target_id": "kp_p_069",
+      "category": "数论",
+      "note": "公倍数基于倍数",
+      "basis": "最小公倍数从公倍数中取最小"
+    },
+    {
+      "source_id": "kp_p_066",
+      "target_id": "kp_p_071",
+      "category": "数论",
+      "note": "整除特征判断倍数/因数",
+      "basis": "2/3/5整除规则依赖倍数概念"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_070",
+      "category": "数论",
+      "note": "奇偶性由加减判断",
+      "basis": "奇数+奇数=偶数等"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_042",
+      "category": "几何",
+      "note": "长方形周长=长+宽的和×2",
+      "basis": "周长是四条边长度之和"
+    },
+    {
+      "source_id": "kp_p_042",
+      "target_id": "kp_p_043",
+      "category": "几何",
+      "note": "正方形周长是长方形周长特例",
+      "basis": "正方形四边相等"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_044",
+      "category": "几何",
+      "note": "长方形面积=长×宽",
+      "basis": "面积是行列单位方格数"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_045",
+      "category": "几何",
+      "note": "正方形面积是长方形面积特例",
+      "basis": "正方形边长相等"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_046",
+      "category": "几何",
+      "note": "三角形面积由长方形面积推导",
+      "basis": "底×高÷2"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_047",
+      "category": "几何",
+      "note": "平行四边形面积由长方形面积割补推导",
+      "basis": "底×高"
+    },
+    {
+      "source_id": "kp_p_047",
+      "target_id": "kp_p_048",
+      "category": "几何",
+      "note": "梯形面积由平行四边形面积推导",
+      "basis": "（上底+下底）×高÷2"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_049",
+      "category": "几何",
+      "note": "圆周长=π×直径",
+      "basis": "直径与圆周率相乘"
+    },
+    {
+      "source_id": "kp_p_049",
+      "target_id": "kp_p_050",
+      "category": "几何",
+      "note": "圆面积由半径/直径求",
+      "basis": "S=πr²"
+    },
+    {
+      "source_id": "kp_p_050",
+      "target_id": "kp_p_052",
+      "category": "几何",
+      "note": "扇形面积是圆面积的一部分",
+      "basis": "圆心角占360°的分数"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_053",
+      "category": "几何",
+      "note": "长方体表面积=各面长方形面积之和",
+      "basis": "六个面的面积求和"
+    },
+    {
+      "source_id": "kp_p_078",
+      "target_id": "kp_p_053",
+      "category": "几何",
+      "note": "长方体体积=长×宽×高",
+      "basis": "体积是三个维度相乘"
+    },
+    {
+      "source_id": "kp_p_053",
+      "target_id": "kp_p_054",
+      "category": "几何",
+      "note": "正方体是长方体特例",
+      "basis": "棱长相等"
+    },
+    {
+      "source_id": "kp_p_050",
+      "target_id": "kp_p_055",
+      "category": "几何",
+      "note": "圆柱含圆面积",
+      "basis": "底面积=πr²"
+    },
+    {
+      "source_id": "kp_p_055",
+      "target_id": "kp_p_056",
+      "category": "几何",
+      "note": "圆锥体积是等底等高圆柱的1/3",
+      "basis": "V=1/3Sh"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_057",
+      "category": "几何",
+      "note": "组合图形面积分解为长方形",
+      "basis": "割补/分割求和"
+    },
+    {
+      "source_id": "kp_p_050",
+      "target_id": "kp_p_057",
+      "category": "几何",
+      "note": "组合图形面积分解为圆",
+      "basis": "圆面积求和"
+    },
+    {
+      "source_id": "kp_p_044",
+      "target_id": "kp_p_058",
+      "category": "几何",
+      "note": "图形切拼保持面积不变（以长方形面积为基础）",
+      "basis": "切拼前后面积守恒"
+    },
+    {
+      "source_id": "kp_p_020",
+      "target_id": "kp_p_072",
+      "category": "统计与概率",
+      "note": "统计图表常用平均数",
+      "basis": "平均数用于描述数据集中趋势"
+    },
+    {
+      "source_id": "kp_p_075",
+      "target_id": "kp_p_073",
+      "category": "统计与概率",
+      "note": "可能性大小用分数表示",
+      "basis": "概率=有利结果数÷总结果数"
+    },
+    {
+      "source_id": "kp_p_010",
+      "target_id": "kp_p_012",
+      "category": "行程",
+      "note": "火车过桥是一般行程的车长处理",
+      "basis": "过桥路程=车长+桥长"
+    },
+    {
+      "source_id": "kp_p_010",
+      "target_id": "kp_p_013",
+      "category": "行程",
+      "note": "环形跑道是一般行程的封闭路径",
+      "basis": "同向/反向运动的周期关系"
+    },
+    {
+      "source_id": "kp_p_080",
+      "target_id": "kp_p_029",
+      "category": "典型应用题",
+      "note": "方阵问题用平方数计数",
+      "basis": "实心方阵总数=边长平方"
+    },
+    {
+      "source_id": "kp_p_050",
+      "target_id": "kp_p_051",
+      "category": "几何",
+      "note": "环形面积=外圆面积-内圆面积",
+      "basis": "圆面积公式的差"
+    },
+    {
+      "source_id": "kp_p_063",
+      "target_id": "kp_p_024",
+      "category": "典型应用题",
+      "note": "时钟问题用时间单位与钟面刻度",
+      "basis": "分针/时针角速度按时间单位换算"
+    },
+    {
+      "source_id": "kp_p_077",
+      "target_id": "kp_p_039",
+      "category": "典型应用题",
+      "note": "连续数问题用求和",
+      "basis": "连续数求和=首尾和×项数÷2"
+    },
+    {
+      "source_id": "kp_p_020",
+      "target_id": "kp_p_039",
+      "category": "典型应用题",
+      "note": "连续数问题用平均数",
+      "basis": "连续数平均数=中间项"
+    }
+  ]
+}
