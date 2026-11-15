@@ -51,7 +51,7 @@ def generate_questions(params: GenerateQuestionsParams) -> dict:
     name_to_id = {kp["name"]: kp["kp_id"] for kp in kp_data}
     name_to_desc = {kp["name"]: kp["description"] for kp in kp_data}
 
-    # S3 起知识点名称来自检索层（DB 385 KP），与种子 KP 体系不同——kp_id 映射
+    # S3 起知识点名称来自检索层（DB 82 小学 KP；初中已按决策㉝归档），与种子 KP 体系不同——kp_id 映射
     # 尽力而为：能映射的结构标注，映射不到的如实记录 unmapped，不阻塞出题
     # （prompt 以名称+描述为核心输入）。
     mapped_ids = [name_to_id[n] for n in params.knowledge_points if n in name_to_id]

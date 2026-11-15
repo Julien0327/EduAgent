@@ -204,7 +204,7 @@ def render_report(draft: dict, kps: dict[str, str], errors: list[str],
     add("# 小学前置图检查报告")
     add("")
     add(f"- 版本：`{draft.get('version', '?')}`　状态：**{status_label}**　生成日期：{draft.get('created_at', '?')}")
-    add(f"- 范围：仅小学（primary）82 个 KP；初中图谱**不在本图内**，将按决策归档")
+    add(f"- 范围：仅小学（primary）82 个 KP；初中图谱**不在本图内**，已按决策㉝归档（2026-11-15 运行时清理）")
     add(f"- 边数：**{len(edges)}** 条（初步目标 60–80；实际以教学依赖为准）")
     add(f"- 推荐补充边：{len(additions)} 条" + ("（已纳入正式边清单）" if frozen and not additions else "（待裁决）"))
     if frozen:

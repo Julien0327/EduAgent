@@ -12,7 +12,7 @@
 相加，归一化是前提，面试考点）。融合 → 去重 → 规则重排（名称精确包含查询
 加小分）→ top-k。
 
-自愈同步：kp_fts 行集合与 knowledge_points 不一致时全量重建（385 行 <1s，
+自愈同步：kp_fts 行集合与 knowledge_points 不一致时全量重建（当前小学 82 行 <1s；
 不入幂等命令链；KP 描述/向量更新后由 build_kp_embeddings.py 清空 kp_fts，
 服务下次启动自愈重建）。
 """

@@ -3,7 +3,7 @@
 策略：
 - 引擎逻辑（融合/扩展/重排/白名单/processed-only）用**临时库 + FakeEmbedder**
   离线验证（conftest.FakeEmbedder，确定性 hash 向量）；
-- 真实库集成（385 KP + 真实 bge 模型冒烟）用 skipif 守卫——库/模型缺失时
+- 真实库集成（82 小学 KP + 真实 bge 模型冒烟）用 skipif 守卫——库/模型缺失时
   跳过而不是失败（本仓库测试基线惯例：不依赖环境完整数据也保持绿）。
 """
 import numpy as np
@@ -262,10 +262,10 @@ def test_service_full_pipeline(mini_bank_db):
 
 @pytest.mark.skipif(not DB_EXISTS, reason="真实业务库不存在（data/db/edumate.sqlite）")
 def test_real_bank_kp_recall_smoke():
-    """真实 385 KP + FakeEmbedder 冒烟：载入、自愈同步（应零重建）、召回结构。"""
+    """真实 82 小学 KP + FakeEmbedder 冒烟：载入、自愈同步（应零重建）、召回结构。"""
     ret = KpRetriever(db.DEFAULT_DB_PATH, embedding_service=FakeEmbedder())
     try:
-        out = ret.recall("一元二次方程", stage="junior", top_k=5)
+        out = ret.recall("分数运算", stage="primary", top_k=5)
         assert len(out) == 5
         assert all(kp["ref"] == kp["kp_id"] for kp in out)
     finally:

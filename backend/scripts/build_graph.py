@@ -1,5 +1,10 @@
 """知识图谱构建脚本（Phase 1 / Step 2）。
 
+> **已归档（2026-11-15，决策㉝）**：运行时只支持小学单学段，本脚本构建的初中
+> 图谱不再参与运行时。源 JSON 与脚本保留为 Phase 1 历史资产；CLI 默认拒绝执行，
+> 如需重建历史初中图谱必须显式传 ``--allow-legacy-junior``。日常小学图请用
+> ``build_primary_graph.py``（只管理 primary 边）。
+
 读取 ``data/knowledge/kp_junior_source/*.json``（册级源数据）合并后入库：
 - upsert knowledge_points / kp_edges（幂等，可重跑不重复插入）
 - fail-fast 校验（用户 2026-11-11 确认的规则）：
@@ -187,10 +192,22 @@ def build(db_path: Path | str | None = None, source_dir: Path = SOURCE_DIR) -> d
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="构建知识图谱（Phase 1 / Step 2）")
+    parser = argparse.ArgumentParser(description="构建知识图谱（Phase 1 / Step 2；已归档）")
     parser.add_argument("--db", default=None, help="业务库路径（默认 data/db/edumate.sqlite）")
     parser.add_argument("--source-dir", default=str(SOURCE_DIR), help="图谱源数据目录")
+    parser.add_argument(
+        "--allow-legacy-junior", action="store_true",
+        help="显式允许重建已归档的初中图谱（会全量替换 kp_edges，运行时默认禁止）",
+    )
     args = parser.parse_args()
+    if not args.allow_legacy_junior:
+        print(
+            "[已归档] 初中图谱不参与当前小学单学段运行时（决策㉝）。\n"
+            "如确需重建历史初中图谱，请显式传 --allow-legacy-junior；"
+            "日常小学图请用 build_primary_graph.py。",
+            file=sys.stderr,
+        )
+        return 2
     try:
         build(args.db, Path(args.source_dir))
         return 0

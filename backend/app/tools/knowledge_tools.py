@@ -1,6 +1,6 @@
 """知识点检索工具（确定性，不调 LLM）。
 
-Phase 2/S3（§4.2）：实现走 retrieval 层（DB 385 KP 双路召回，替换 Phase 0
+Phase 2/S3（§4.2）：实现走 retrieval 层（DB 82 小学 KP 双路召回，初中已按决策㉝归档，替换 Phase 0
 的种子 7 KP）；ref=kp_id（§4.4）；结构化过滤白名单由 question_search 提供。
 """
 from typing import Literal

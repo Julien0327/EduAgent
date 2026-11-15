@@ -97,7 +97,7 @@ def test_seed_bank_questions_carry_ref():
 
 
 def test_search_knowledge_points_carries_ref():
-    """真实库 385 KP 冒烟（FakeEmbedder 离线）：检索返回必带 ref=kp_id（§4.4 契约）。"""
+    """真实库 82 小学 KP 冒烟（FakeEmbedder 离线）：检索返回必带 ref=kp_id（§4.4 契约）。"""
     from backend.app.storage import db as _db
     from backend.app.retrieval.kp_recall import KpRetriever
     from backend.tests.conftest import FakeEmbedder
@@ -105,7 +105,7 @@ def test_search_knowledge_points_carries_ref():
         pytest.skip("真实业务库不存在")
     ret = KpRetriever(_db.DEFAULT_DB_PATH, embedding_service=FakeEmbedder())
     try:
-        r = ret.recall("一元二次方程", top_k=3)
+        r = ret.recall("分数运算", stage="primary", top_k=3)
         assert r
         for kp in r:
             assert kp["ref"] == kp["kp_id"]

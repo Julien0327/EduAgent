@@ -197,7 +197,9 @@ def run(db_path, raw_dir: Path) -> dict:
     kp_links = conn.execute(
         "SELECT COUNT(*) n FROM q_kp WHERE q_id LIKE 'q_ape_%'").fetchone()["n"]
     checks["小学 KP = 82"] = kp_primary == 82
-    checks["初中 KP = 303（不受影响）"] = kp_junior == 303
+    # 决策㉝（2026-11-15）：运行时收窄为小学单学段，初中图谱已归档。
+    # 历史 Phase 1 复核可从备份恢复后核对 303；当前运行时预期 0。
+    checks["初中 KP = 0（运行时小学单学段，决策㉝）"] = kp_junior == 0
     checks["逐行比对不一致 = 0"] = not mismatches
     conn.close()
 

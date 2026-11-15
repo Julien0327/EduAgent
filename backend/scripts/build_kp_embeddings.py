@@ -1,6 +1,6 @@
 """知识点向量构建脚本（Phase 2 / S3，决策㉛②）。
 
-对 knowledge_points 全表（初中 303 + 小学 82 = 385 个）批量生成 bge-small-zh-v1.5
+对 knowledge_points 全表（当前小学 82 个；初中 303 已按决策㉝归档）批量生成 bge-small-zh-v1.5
 向量（512d float32 L2 归一化），写入 V1 预留的 ``embedding`` BLOB 列
 （numpy ``.tobytes()`` 序列化，读取方 ``np.frombuffer(blob, dtype='float32')``）。
 
@@ -8,7 +8,7 @@
 语义密度最高）；**只嵌知识点不嵌题目**（§4.3 决策：题目由结构化条件过滤，
 向量语义检索题干引入噪声——面试考点）。
 
-幂等：全量覆盖语义（385 行全部重写），重跑结果一致（确定性模型推理）。
+幂等：全量覆盖语义（当前小学 82 行全部重写），重跑结果一致（确定性模型推理）。
 
 用法（仓库根执行）：
     .venv/Scripts/python.exe -m backend.scripts.build_kp_embeddings [--db <路径>]
