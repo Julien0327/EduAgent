@@ -30,6 +30,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 - 正式评测集/Gold 冻结不改；后续检索优化作为 **Round2 / Phase 2.1**，版本化报告、不覆盖基线。
 - 验收材料（staging，不入 Git）：`retrieval_baseline_report.*`、`retrieval_failure_diagnosis.*`、`retrieval_optimization_round1.*`、`retrieval_optimization_round1_supplement.*`、`PHASE2_ACCEPTANCE_INDEX.md`。
 - **下一步**：Phase 3 归因+观测（§5/§6）；建议新开会话，以 STATUS + ROADMAP + 技术方案 §5/§6 为基准。
+- 收尾 commit：`f65fa42`（2026-11-15）。
 
 ### Phase 1 各步完成快照
 
