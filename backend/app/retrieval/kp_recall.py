@@ -18,17 +18,66 @@
 """
 from __future__ import annotations
 
+import re
 import threading
 
 import numpy as np
 
 from backend.app.retrieval.citations import require_ref
 from backend.app.retrieval.embedding import EmbeddingService, get_embedding_service
-from backend.app.retrieval.tokenize import fts_document, fts_query, segment
+from backend.app.retrieval.tokenize import fts_document, fts_query, fts_query_terms
 from backend.app.storage import db
 
 RETRIEVAL_ALPHA = 0.4  # §4.2 起步值；评测期整档调整（0.3/0.4/0.5）并记录
 KP_RECALL_TOP_K = 10   # §4.2 默认 k=10
+
+# Round1：OR 关键词置信门与候选上限
+# - 有效查询词 < KEYWORD_MIN_TERMS：关键词证据不足，退回向量；
+# - 候选必须命中 >= KEYWORD_MIN_TERM_MATCHES 个查询词（name/description 子串），
+#   且命中覆盖率 >= KEYWORD_MIN_COVERAGE（2 词查询要求 2 词全中），
+#   防止单个普通词命中把无关 KP 推入融合；
+# - 通过置信门的候选按 BM25 排序后仅保留前 KEYWORD_TOP_N 个。
+KEYWORD_MIN_TERMS = 2
+KEYWORD_MIN_TERM_MATCHES = 2
+KEYWORD_MIN_COVERAGE = 0.4
+KEYWORD_TOP_N = 30
+
+# Round1 名称加分规则：仅完整知识点名称（或显式别名）触发，单字/通用词不触发。
+GENERIC_NAME_TERMS = frozenset({
+    "问题", "计算", "积", "行", "位", "和", "倍", "数", "则", "与",
+    "的", "了", "是", "有", "比", "程", "问", "答", "求",
+})
+# 简称别名（按知识点名称键控）；如需简称加分，必须在此登记明确别名。
+KP_ALIASES: dict[str, tuple[str, ...]] = {}
+_NORMALIZE_RE = re.compile(r"[^\w一-鿿]+", re.UNICODE)
+
+
+def _normalize_for_name_match(text: str) -> str:
+    """名称匹配归一化：去空白/标点，英文小写。"""
+    return _NORMALIZE_RE.sub("", str(text)).lower()
+
+
+def name_bonus_for(query: str, name: str) -> float:
+    """Round1 名称加分：仅完整名称或显式别名命中时返回 0.05，否则 0。
+
+    - 单字名称不触发（含「圆」等单字 KP）；
+    - 通用词名称不触发；
+    - 部分匹配（如查询「判别式」对名称「根的判别式」）不触发；
+    - 简称必须登记在 ``KP_ALIASES`` 中才可触发。
+    """
+    normalized_name = _normalize_for_name_match(name)
+    if len(normalized_name) < 2 or normalized_name in GENERIC_NAME_TERMS:
+        return 0.0
+    normalized_query = _normalize_for_name_match(query)
+    if normalized_name in normalized_query:
+        return 0.05
+    for alias in KP_ALIASES.get(name, ()):  # 显式别名
+        normalized_alias = _normalize_for_name_match(alias)
+        if (len(normalized_alias) >= 2
+                and normalized_alias not in GENERIC_NAME_TERMS
+                and normalized_alias in normalized_query):
+            return 0.05
+    return 0.0
 
 
 def _minmax(values: dict[str, float]) -> dict[str, float]:
@@ -105,13 +154,30 @@ class KpRetriever:
         q = fts_query(query)
         if q == '""':
             return {}
+        terms = fts_query_terms(query)
+        if len(terms) < KEYWORD_MIN_TERMS:
+            return {}  # 关键词证据不足：退回向量
         sql = "SELECT kp_id, bm25(kp_fts) AS rank FROM kp_fts WHERE kp_fts MATCH ?"
         params: list = [q]
         rows = self._conn.execute(sql, params).fetchall()
         if stage:
             rows = [r for r in rows if self._kp_meta[r["kp_id"]]["stage"] == stage]
-        # bm25 rank 越小越相关 → 取负转分数（越大越相关）再归一化
-        return {r["kp_id"]: -float(r["rank"]) for r in rows if r["rank"] is not None}
+
+        # 置信门：候选的 name+description 至少命中 KEYWORD_MIN_TERM_MATCHES 个查询词
+        confident = []
+        for r in rows:
+            if r["rank"] is None:
+                continue
+            meta = self._kp_meta.get(r["kp_id"], {})
+            text = f"{meta.get('name', '')} {meta.get('description', '')}"
+            matched = sum(1 for term in terms if term in text)
+            coverage = matched / len(terms) if terms else 0.0
+            if matched >= KEYWORD_MIN_TERM_MATCHES and coverage >= KEYWORD_MIN_COVERAGE:
+                confident.append(r)
+        # bm25 rank 为负值、越小越相关：排序后仅保留前 KEYWORD_TOP_N 个候选
+        confident = sorted(confident, key=lambda r: float(r["rank"]))[:KEYWORD_TOP_N]
+        # 取负转分数（越大越相关）再归一化
+        return {r["kp_id"]: -float(r["rank"]) for r in confident}
 
     def _vector_scores(self, query: str, stage: str | None) -> dict[str, float]:
         """向量路：查询向量 × KP 矩阵内积（余弦，已归一化向量）。"""
@@ -141,11 +207,13 @@ class KpRetriever:
         for kp_id in set(kw_norm) | set(vec_norm):
             fused[kp_id] = alpha * kw_norm.get(kp_id, 0.0) + (1 - alpha) * vec_norm.get(kp_id, 0.0)
 
-        # 规则重排（§4.2）：名称精确包含查询的加小分（平手时优先名称直配）
-        q_terms = segment(query)
+        # 规则重排（§4.2 / Round1）：仅完整知识点名称或显式别名触发 +0.05
         for kp_id, meta in self._kp_meta.items():
-            if kp_id in fused and any(t and t in meta["name"] for t in q_terms):
-                fused[kp_id] += 0.05
+            if kp_id not in fused:
+                continue
+            bonus = name_bonus_for(query, meta["name"])
+            if bonus:
+                fused[kp_id] += bonus
 
         ranked = sorted(fused.items(), key=lambda x: -x[1])[: max(1, int(top_k))]
         results = []

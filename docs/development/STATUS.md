@@ -1,14 +1,35 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-14（**Phase 2 开工，S1 中文分词完成**）。**新会话开工前必读本文件 + docs/技术方案.md §4/§7/§10.5/§11.2/§12**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-15（**Phase 2 关账，决策㉜；Phase 3 下一步**）。**新会话开工前必读本文件 + docs/技术方案.md §5/§6（Phase 3）**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 = 进行中（S1 ✅，S2 引用注入进行中；决策㉛四项已批）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 = 下一步**
 
-- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**全量测试 227 passed**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=最大缺口）。
+- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 311）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
 - **Step 5 冻结（决策㉚）**：prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——均不执行；LLM 标签=可加性数据（新批次随时补跑、消费视图自动生效），Phase 2 零依赖零返工；解冻需用户批准。
 - **Phase 2 开工纪律（决策㉚⑥）**：中文 FTS5 分词 day-1 → 引用注入 day-1 → 认证限流中段；时间盒 1–1.5 周；BGE 模型已就绪（data/models，Phase 1 遗产直接复用）。
+
+
+### Phase 2 关账（2026-11-15，决策㉜）
+
+Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认按「基线 + 已知限制」口径关账，不追求 §4.5 指标达标后再进入 Phase 3。
+
+| 项 | 结果 |
+|---|---|
+| 正式基线（A） | R@1 32.00% / R@5 54.00% / MRR 0.4317 / NDCG@5 0.4232 |
+| Round1 优化后（D，已接受） | R@1 **34.00%** / R@5 **56.00%** / MRR **0.4449** / NDCG@5 **0.4317**；any-gold R@1 36.00% / R@5 60.00% |
+| 23 条原失败 | 修复 **1**（`v_q_ape_822661`，名称加分）；剩余 22 条为向量排名/描述泛化问题 |
+| 27 条原命中 | top-5 回归 **0**；1 条 top-5 内排名下降（1116923 2→3，非回归） |
+| FTS 结构修复 | 50/50→10/50 零命中，40 条恢复候选；本评测**无 metric 增益** |
+| 名称加分修复 | 累计误触发 500→7；贡献 +2pp R@1/R@5、+0.0132 MRR、+0.0085 NDCG |
+| 已知限制/backlog | 36 条 gold primary 未进 FTS 原始候选；12 primary/19 any-gold 被置信门过滤；301084 非 gold 候选被推到第 1（min-max 风险）；长查询改写、KP 描述扩充、单位词泛化未做 |
+| 内存偏差 | 193.6MB > 150MB 目标，接受记录；FP32 保留、INT8 不启用、0.99 阈值不改 |
+| 20 条教师问句评分 | 顺延，不阻塞 Phase 3 |
+
+- 正式评测集/Gold 冻结不改；后续检索优化作为 **Round2 / Phase 2.1**，版本化报告、不覆盖基线。
+- 验收材料（staging，不入 Git）：`retrieval_baseline_report.*`、`retrieval_failure_diagnosis.*`、`retrieval_optimization_round1.*`、`retrieval_optimization_round1_supplement.*`、`PHASE2_ACCEPTANCE_INDEX.md`。
+- **下一步**：Phase 3 归因+观测（§5/§6）；建议新开会话，以 STATUS + ROADMAP + 技术方案 §5/§6 为基准。
 
 ### Phase 1 各步完成快照
 
@@ -115,7 +136,8 @@
 |---|---|---|---|
 | ONNX 导出一致性（口径改：直连 vs fastembed） | ≥0.999 | **1.0**（同批 3 文本余弦全 1.0） | ✅ 2026-11-14 |
 | INT8 量化一致性 | ≥0.99 | **0.9577**（最低，10 样本） | ❌ **不达标→int8 不交付**（阈值守门，FP32 直连） |
-| Recall@5 / Recall@1 / MRR | ≥80% / ≥50% / ≥0.6 | 【待用户】查询集 v1 核验后实测 | ⏳ |
+| Recall@5 / Recall@1 / MRR | ≥80% / ≥50% / ≥0.6 | **D: 56% / 34% / 0.4449**（A 基线 54% / 32% / 0.4317；open 42% / 24% / 0.3158） | ❌ **未达标**（接受记录，决策㉜） |
+| NDCG@5 | 记录不设阈 | **D: 0.4317**（A 基线 0.4232；open 0.3111） | 记录 |
 | 检索耗时 p95 | <500ms | **28ms**（20 条典型查询×2 轮） | ✅ |
 | 单条 embedding 耗时 | <50ms | **p95 8.7ms**（直连 FP32） | ✅ |
 | 冷启动时间 | <5s | **0.36–0.88s**（模型+矩阵+自愈同步） | ✅ |
@@ -124,7 +146,38 @@
 | 引用覆盖率 | 100% | **100%**（双向断言单测：卷面 ref ⊆ 账本且 used_in 齐全） | ✅ |
 | 典型查询相关性（20 条人工 3 分制） | ≥85% | 【待用户评判】 | ⏳ |
 
-**待用户（Phase 2 完全关口）**：①核验 50 条查询集（重点 20 条手写草稿）→ 冻结终版 → 助手实测 Recall/MRR 回填；②20 条典型教师问句人工评判（3 分制）；③内存偏差（193.6MB>150MB）裁决：接受记录 vs 启动 int8+阈值修订流程。
+**关账结论（决策㉜）**：按「基线 + 已知限制」接受；Round1 后 D 指标见上表。剩余为 Round2 backlog（长查询改写/KP 描述扩充/单位词泛化/置信门与 min-max 风险）与 20 条教师问句评分（顺延），不阻塞 Phase 3。
+
+### 正式检索基线结果（2026-11-15 执行；Round1 后 D 为最终接受口径，决策㉜）
+
+| 协议 | Recall@1(primary) | Recall@5(primary) | MRR | NDCG@5 | Top-10 命中率 | 异常 |
+|---|---|---|---|---|---|---|
+| **stage_filtered（主）** | **32.00%** | **54.00%** | **0.4317** | **0.4232** | 68.00% | 0 |
+| open（诊断） | 24.00% | 42.00% | 0.3158 | 0.3111 | 48.00% | 0 |
+
+- 正式集 50 条全部成功；探索集 20 条硬校验未混入；两种协议差异 +8pp R@1 / +12pp R@5 / +0.116 MRR。
+- 分来源（主协议）：verified 49 条 R@5=53.06%，新确认 junior 查询 1 条 R@1=100%。
+- 耗时：服务初始化 444.4ms；评测总 2603.4ms；主协议 p50 16.15ms / p95 32.47ms；open p50 16.90ms / p95 30.11ms；0 API 调用、¥0。
+- 未命中 23 条（16 条未入 top10、7 条 6–10）；主要归因：单位/通用词关键词噪声、长题干稀释向量、小学规则 KP 描述过短；详见 `data/staging/retrieval_baseline_analysis.md`。
+- **对照 §4.5 目标三项均未达标**；本轮未修复检索逻辑、未改 Gold、未改指标口径。
+
+### Phase 2 人工验收材料（2026-11-15，历史过程记录；结论已由决策㉜关账取代）
+
+> 以下为验收过程材料；最终结论以上方「Phase 2 关账」节为准。
+
+| 材料 | 位置（staging，不入 Git） | 状态 |
+|---|---|---|
+| 验收材料总索引（正式集 / 探索集分列） | `data/staging/PHASE2_ACCEPTANCE_INDEX.md` | ✅ |
+| **正式评测集 50 条** = 49 条 Gold v2 confirmed verified 派生（全量，不排除）+ 1 条新确认查询（`h_kp_j8_1408`，user_ruling_2026-11-15） | `data/staging/retrieval_eval_queries_formal_v1.jsonl` | **已确认冻结**（基线测试待授权执行） |
+| **额外探索集 20 条**（原手写草稿全部保留，`usage=exploratory`、`formal_metric=false`） | `data/staging/retrieval_eval_queries_extra_drafts.jsonl` | 不转正、不入正式指标 |
+| 正式集完整核验指南（A 区 49 条逐条含题干全文/Gold ID+名称/来源/溯源；B 区 1 条已确认查询含裁决记录；附录 A 补充此前被排除的 19 条完整信息并标对应正式编号；附录 B 探索集清单；附录 C 修改建议未执行） | `data/staging/retrieval_eval_queries_review.md` | **待您裁决**（B 区草稿未转正） |
+| 数量核对与哈希证据（正式 50 全部 confirmed / 原有 49 条 Gold 未变 / 探索 20 / ID 唯一 / Gold primary 全在图谱 / sha256 前后一致） | `data/staging/retrieval_eval_set_counts.json` | ✅ |
+| 20 条教师问句实跑结果（5 类 × 4；真实系统 Top-5 知识点融合分/题目重排分；已知限制 4 条如实记录） | `data/staging/teacher_queries_20_results.md` | **待您评分**（1–3 分 + 备注留空） |
+| 内存偏差待裁决报告（FP32 保留 / INT8 未启用 / 0.99 阈值未改；2C2G 余量 + 30 次并发探针证据） | `data/staging/memory_deviation_report.md` | **待您裁决** |
+
+> 说明：本次修正了评测集构成偏差（原 30 verified + 20 draft → 正式集 49 verified + 1 新确认查询）；**2026-11-15 用户裁决 `h_kp_j8_1408` 通过转正**（primary=kp_j8_1408、辅助无、查询原样），正式集 50 条全部 confirmed；原有 49 条 Gold 未改动；旧混合文件只读保留、已被取代；未修改检索运行时代码；未计算正式 Recall/MRR；未 push、未关账。题目重排弱 KP 占位问题作为已知缺陷记录，待正式基线后另行裁决修复范围。
+
+**正式基线测试准备**：`backend/scripts/eval_retrieval_baseline.py` 已就绪，`--dry-run` 校验通过（正式集 50 条全部 confirmed / 49+1 / 探索集 20 条未混入）；**尚未执行指标计算**，执行需用户明确授权。指标口径：Recall@1/5（primary + any gold）、MRR（primary, top10）、NDCG@5（分级）；协议 stage_filtered（主）/ open（诊断）。
 
 ## Phase 2 步骤看板（时间盒 1–1.5 周，决策㉚⑥纪律）
 
@@ -150,7 +203,7 @@
 | 验收口径修订 | ✅ 「打标抽检合格率 ≥90%」→「打标管线与试跑协议完成即达标，全量标注按需执行」（81.6%+治理循环=叙事资产） |
 | 未决项落定 | ✅ 1070129 保留 pending 转噪声候选（面试素材：发现数据集 ans↔题干不一致）；079 定义建议保留不执行；87882 维持裁决；B 臂冻结 |
 | verified=1 种子 | ✅ 49 题人工核验题置 verified=1（决策⑲；Phase 4 评测 golden 就绪，pending 1070129 未标记） |
-| 简历素材清单 | ✅ `docs/development/RESUME-AMMO.md` 初稿（3 个 Phase 1 故事 + 数字 + 追问点 + 缺口检查：RAG 未做=最大缺口） |
+| 简历素材清单 | ✅ `docs/development/RESUME-AMMO.md` 初稿（3 个 Phase 1 故事 + 数字 + 追问点 + 缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成） |
 | Phase 2 排雷 | ✅ ROADMAP Phase 2 行载入开工纪律：中文分词 day-1 / 引用注入 day-1 / 认证限流中段 / 时间盒 1–1.5 周 / BGE 复用 |
 
 ## Step 4 完成证据（2026-11-11，全部实测）
@@ -422,13 +475,14 @@
 
 ## 待办 / 阻塞
 
-1. **Phase 2 可信检索：待开工**（时间盒 1–1.5 周；开工纪律=决策㉚⑥：中文 FTS5 分词 day-1、引用注入 day-1、认证限流中段；建议新开会话，以 STATUS+技术方案 §4 为基准）。
+1. **Phase 3 归因+观测：下一步**（技术方案 §5/§6；建议新开会话；依赖 Phase 2 检索与持久化，已就绪）。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
-4. 无其他阻塞。
+4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
+5. 无其他阻塞。
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **227 用例**（98 基线 + 8 存储 + 8 图谱 + 17 导入 + 28 ETL + 13 标注 schema + 7 prompt + 24 执行器/计费 + 4 试验集 + 4 B 臂召回 + 5 消歧 + 5 核验检查），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **311 用例**（Phase 2 收尾；含 retrieval/tokenize/engine、citations、persistence/sessions、security、name-bonus 等新增），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。

@@ -267,11 +267,13 @@ def test_fts_survives_full_rebuild_semantics(etl_db, tmp_path):
     conn = db.connect(etl_db)
     try:
         assert conn.execute("SELECT COUNT(*) n FROM questions_fts").fetchone()["n"] == 2
-        # 分词形态索引：完整串与子词均可查（决策㉛①）
-        assert len(conn.execute(
+        # 分词形态索引 + Round1 OR 查询：共享「题干/内容」的两题都会命中，
+        # 断言目标题在结果中（OR 语义扩大召回，BM25 负责排序）
+        rows = conn.execute(
             "SELECT q_id FROM questions_fts WHERE questions_fts MATCH ?",
             (tokenize.fts_query("橘子题干内容"),),
-        ).fetchall()) == 1
+        ).fetchall()
+        assert "q_ape_7002" in {r["q_id"] for r in rows}
     finally:
         conn.close()
 
