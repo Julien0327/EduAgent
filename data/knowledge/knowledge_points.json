@@ -1,64 +1,81 @@
 {
   "subject": "数学",
-  "grade": "九年级",
-  "chapter": "一元二次方程",
-  "chapter_id": "ch_quad_01",
+  "grade": 6,
+  "chapter": "分数、百分数与几何",
+  "chapter_id": "primary_demo",
   "knowledge_points": [
     {
-      "kp_id": "kp_quad_01",
-      "name": "一元二次方程的定义与一般形式",
+      "kp_id": "kp_p_075",
+      "name": "分数运算",
       "level": 1,
-      "section": "21.1 一元二次方程",
-      "description": "理解一元二次方程的定义，能把方程化为一般形式 ax²+bx+c=0（a≠0），并识别二次项、一次项系数与常数项。",
-      "typical_types": ["选择题", "填空题"]
+      "section": "小学·分数",
+      "description": "含分数的四则运算。",
+      "typical_types": [
+        "填空题",
+        "解答题"
+      ]
     },
     {
-      "kp_id": "kp_quad_02",
-      "name": "直接开平方法",
+      "kp_id": "kp_p_076",
+      "name": "百分数运算",
+      "level": 1,
+      "section": "小学·百分数",
+      "description": "含百分数的运算与互化。",
+      "typical_types": [
+        "选择题",
+        "填空题"
+      ]
+    },
+    {
+      "kp_id": "kp_p_037",
+      "name": "量率对应",
       "level": 2,
-      "section": "21.2 解一元二次方程",
-      "description": "对于形如 x²=p（p≥0）或 (x+m)²=n 的方程，用直接开平方求解。",
-      "typical_types": ["选择题", "填空题"]
+      "section": "小学·分数/百分数应用",
+      "description": "求一个数的几分之几或百分之几。",
+      "typical_types": [
+        "解答题"
+      ]
     },
     {
-      "kp_id": "kp_quad_03",
-      "name": "配方法",
+      "kp_id": "kp_p_036",
+      "name": "率类问题",
       "level": 2,
-      "section": "21.2 解一元二次方程",
-      "description": "通过配方把一元二次方程化为 (x+m)²=n 的形式求解，体会转化的数学思想。",
-      "typical_types": ["填空题", "解答题"]
+      "section": "小学·百分率",
+      "description": "及格率/出勤率/发芽率等百分率问题。",
+      "typical_types": [
+        "填空题",
+        "选择题"
+      ]
     },
     {
-      "kp_id": "kp_quad_04",
-      "name": "公式法",
+      "kp_id": "kp_p_034",
+      "name": "归一问题",
       "level": 2,
-      "section": "21.2 解一元二次方程",
-      "description": "掌握求根公式 x=(-b±√(b²-4ac))/2a，能代入公式求解一元二次方程。",
-      "typical_types": ["填空题", "解答题"]
+      "section": "小学·数量关系",
+      "description": "先求单一量，再算总量。",
+      "typical_types": [
+        "解答题"
+      ]
     },
     {
-      "kp_id": "kp_quad_05",
-      "name": "因式分解法",
+      "kp_id": "kp_p_044",
+      "name": "长方形面积",
       "level": 2,
-      "section": "21.2 解一元二次方程",
-      "description": "利用提公因式、平方差、十字相乘等因式分解方法，将方程化为两个一次因式乘积为 0 求解。",
-      "typical_types": ["填空题", "解答题"]
+      "section": "小学·图形与几何",
+      "description": "长方形面积=长×宽。",
+      "typical_types": [
+        "填空题"
+      ]
     },
     {
-      "kp_id": "kp_quad_06",
-      "name": "判别式与根的个数",
-      "level": 2,
-      "section": "21.2 解一元二次方程",
-      "description": "用判别式 Δ=b²-4ac 判断一元二次方程实数根的个数：Δ>0 两个不等实根，Δ=0 两个相等实根，Δ<0 无实根。",
-      "typical_types": ["选择题", "解答题"]
-    },
-    {
-      "kp_id": "kp_quad_07",
-      "name": "一元二次方程的实际应用",
+      "kp_id": "kp_p_050",
+      "name": "圆的面积",
       "level": 3,
-      "section": "21.3 实际问题与一元二次方程",
-      "description": "将增长率、面积、行程等实际问题抽象为一元二次方程建模求解，并检验解的合理性。",
-      "typical_types": ["选择题", "解答题"]
+      "section": "小学·图形与几何",
+      "description": "圆面积 S=πr²。",
+      "typical_types": [
+        "解答题"
+      ]
     }
   ]
 }

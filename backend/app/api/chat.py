@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from backend.app.agent import session_store
 from backend.app.agent.llm_client import LLMError, get_llm_service
+from backend.app.scope import detect_unsupported_scope
 from backend.config import settings
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -29,6 +30,14 @@ def chat(req: ChatRequest) -> ChatResponse:
     message = req.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="消息不能为空，请输入教学内容或问题")
+
+    # 学段范围守卫（决策㉝）：初中/更高学段 → 友好提示，不调 LLM、不产生费用
+    scope_notice = detect_unsupported_scope(message)
+    if scope_notice:
+        session_id = req.session_id or session_store.create_session()
+        session_store.add_message(session_id, "user", message)
+        session_store.add_message(session_id, "assistant", scope_notice)
+        return ChatResponse(message=scope_notice, model="scope-guard", session_id=session_id)
 
     if not settings.DEEPSEEK_API_KEY:
         raise HTTPException(status_code=500, detail="服务端未配置 DEEPSEEK_API_KEY，请联系管理员")

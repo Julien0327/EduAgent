@@ -1,6 +1,6 @@
 # Phase 3 小学演示数据（S0-3/S0-4）
 
-> 状态：**合成演示数据已通过 F16 导入并核验**（2026-11-15）；**Phase 3 本体未开始**。
+> 状态：**合成演示数据已通过 F16 导入并核验**（2026-11-15）；**范围收尾已完成**（2026-11-16：种子切小学、初中请求守卫、前端/API 文档）；**Phase 3 本体未开始**。
 > 本文件不含题干/答案内容；完整工作簿、设计 JSON、逐条答题与核验报告在 `data/staging/`（不入 Git，决策⑳/㉒）。
 > 合成数据仅用于 Phase 3 演示与业务验证，**不得描述为真实学生数据**。
 
@@ -70,11 +70,12 @@
 .venv/Scripts/python.exe -m pytest -q
 ```
 
-## 6. 未做（范围收窄剩余项，非 Phase 3 本体）
+## 6. 范围收窄收尾（2026-11-16 完成）
 
-- 种子演示数据（`data/questions/question_bank.json` / `data/demo/student_answers.json` / `data/knowledge/knowledge_points.json`）仍是初中内容；`exam_loop` 仍走该路径。
-- 初中询问友好拦截（API 层：不创建任务、不调 LLM、不产生费用）尚未实现。
-- 前端示例文案/API 文档的运行时切换部分尚未同步。
-- Phase 3 本体（掌握度/归因/推荐/Trace/成本）未开始。
+- **种子演示数据切小学**：`data/knowledge/knowledge_points.json`（7 个小学 KP）、`data/questions/question_bank.json`（10 道小学题，100 分）、`data/demo/student_answers.json`（20 名学生，合成答题）已替换；`exam_loop` 不再使用初中“一元二次方程”种子。启动校验仍为「7 个知识点 / 10 道题 / 20 名学生」。
+- **初中请求友好拦截**：`backend/app/scope.py` + `/api/chat`、`/api/tasks` 前置守卫；返回友好提示，不创建任务、不调 LLM、不产生费用。负向测试见 `backend/tests/test_scope_guard.py`。
+- **前端示例/API 文档**：示例 chip、placeholder、欢迎文案切换为小学内容；`app.js` 处理 `scope_notice` 与 `model=scope-guard`；技术方案 §10.2 记录 API 返回形态。
+- **旧脚本归档**：`generate_demo_import.py` 默认拒绝执行（需显式 `--allow-legacy-generator`），新演示流程为 `build_primary_demo_workbook.py → import_primary_demo.py`。
+- **Phase 3 本体未开始**：掌握度/归因/推荐/Trace/成本仍待下一阶段。
 
 > 本文件为设计/导入/核验的事实汇总；详细数据与报告在 `data/staging/`。合成演示数据不得描述为真实学生数据。

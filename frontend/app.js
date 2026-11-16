@@ -218,7 +218,11 @@ async function sendChat() {
       return;
     }
     if (data.session_id) currentSessionId = data.session_id;
-    statusEl.textContent = `已回复（模型：${data.model}，会话：${data.session_id.slice(0, 8)}…）`;
+    if (data.model === "scope-guard") {
+      statusEl.textContent = "当前仅支持小学学段";
+    } else {
+      statusEl.textContent = `已回复（模型：${data.model}，会话：${data.session_id.slice(0, 8)}…）`;
+    }
     replyEl.innerHTML = renderRichText(data.message);
   } catch (err) {
     statusEl.textContent = `请求失败：${err.message}`;
@@ -807,6 +811,13 @@ async function submitTask() {
       setSubmitLoading(false);
       return;
     }
+    // 学段守卫（初中请求）：不建任务、不调 LLM，直接展示友好提示
+    if (data.scope_notice) {
+      taskStatusEl().textContent = data.scope_notice;
+      taskStatusEl().className = "task-status muted";
+      setSubmitLoading(false);
+      return;
+    }
     currentTaskId = data.task_id;
     applySnapshot(data); // 用 POST 返回的快照做首屏渲染
     streamEvents(currentTaskId);
@@ -858,10 +869,10 @@ function initGreeting() {
 
 // ===== 任务输入框动态 placeholder（用户开始输入后停止） =====
 const PLACEHOLDERS = [
-  "例如：请针对《一元二次方程》生成一次章节小测并分析学情",
+  "例如：请针对《分数与百分数》生成一次章节小测并分析学情",
   "例如：请根据本次考试结果生成班级学情报告",
   "例如：请根据薄弱知识点制定下一阶段教学方案",
-  "例如：请为《勾股定理》生成一份教案",
+  "例如：请为《圆的面积》生成一份教案",
 ];
 function initPlaceholderCycle() {
   const input = $("task-input");

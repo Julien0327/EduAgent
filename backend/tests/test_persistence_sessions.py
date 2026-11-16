@@ -123,12 +123,12 @@ def test_concurrent_10_tasks_wal(tmp_path, monkeypatch):
 
 def test_session_store_lifecycle():
     sid = session_store.create_session()
-    session_store.add_message(sid, "user", "帮我出一份一元二次方程的卷子")
+    session_store.add_message(sid, "user", "帮我出一份分数与百分数的卷子")
     session_store.add_message(sid, "assistant", "好的，已生成")
     session_store.add_message(sid, "user", "再出一份难度高的")
 
     data = session_store.get_session(sid)
-    assert data["title"] and "一元二次方程" in data["title"]  # 首条消息作标题
+    assert data["title"] and "分数与百分数" in data["title"]  # 首条消息作标题
     assert len(data["messages"]) == 3
     assert data["messages"][0]["role"] == "user"
 
@@ -194,7 +194,7 @@ def _wait_task_done(task_id: str, timeout: float = 5.0):
 
 def _plan_resp(need_clarification=None) -> LLMResponse:
     args = {"workflow": "lesson_plan",
-            "params": {"subject": "数学", "chapter": "一元二次方程", "topic": "一元二次方程"}}
+            "params": {"subject": "数学", "chapter": "分数与百分数", "topic": "分数与百分数"}}
     if need_clarification:
         args["need_clarification"] = need_clarification
     return LLMResponse(content="", model="fake", tool_calls=[
@@ -227,7 +227,7 @@ def test_f1_clarification_then_task(fake_llm):
         # 会话里多了追问消息
         assert session_store.clarify_count(sid) == 1
         # 第二次（信息补足的表述）：正常创建
-        r2 = client.post("/api/tasks", json={"prompt": "出《一元二次方程》教案", "session_id": sid})
+        r2 = client.post("/api/tasks", json={"prompt": "出《分数与百分数》教案", "session_id": sid})
         assert r2.status_code == 202
         assert r2.json().get("clarification_dropped") is None
         assert _wait_task_done(r2.json()["task_id"]) is not None  # 线程跑完再 teardown
@@ -254,7 +254,7 @@ def test_no_session_task_skips_clarification(fake_llm):
     """无会话任务不追问（保持 D4 语义）：直接 202。"""
     fake_llm([_plan_resp("谁问的？"), _lesson_resp()])
     with TestClient(app, headers=AUTH_HEADERS) as client:
-        r = client.post("/api/tasks", json={"prompt": "写《一元二次方程》教案"})
+        r = client.post("/api/tasks", json={"prompt": "写《分数与百分数》教案"})
         assert r.status_code == 202
         assert "need_clarification" not in r.json()
         assert _wait_task_done(r.json()["task_id"]) is not None

@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-15（**Phase 3 S0 范围收窄：小学前置图 87 条已冻结、初中运行时已清理、Phase 2.2 小学基线完成、小学演示数据已导入并核验，决策㉝**）。**新会话开工前必读本文件 + docs/技术方案.md §5/§6（Phase 3）**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-16（**Phase 3 S0 范围收窄完成**：小学前置图 87 条、初中运行时清理、Phase 2.2 小学基线、小学演示数据导入核验、种子切小学、初中请求守卫、前端/API 文档同步；**342 passed**；等待验收后进入 Phase 3 本体）。**新会话开工前必读本文件 + docs/技术方案.md §5/§6（Phase 3）**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -65,13 +65,26 @@
 | 测试 | ✅ **325 passed / 0 failed** | 全量 pytest（2026-11-15） |
 | 主/辅角色 | ✅ `data/annotations/primary_demo_mapping.jsonl`（49 行，Git）保留 primary/aux 与来源；辅助 KP 不作为同等强度证据，Phase 3 实现时处理 | 映射清单 |
 | 合成标记 | ✅ 班级 school 字段、考试标题、工作簿文件名、报告均标注“演示/合成”；不得描述为真实学生数据 | 报告 |
-| 未做（范围收窄剩余） | 种子演示 JSON 仍为初中（exam_loop 路径）；初中询问友好拦截；前端示例/API 文档运行时切换；Phase 3 本体未开始 | 见 `PHASE3-PRIMARY-DEMO.md` §6 |
+| 未做（范围收窄剩余） | 已完成（见 S0-5） | 见 `PHASE3-PRIMARY-DEMO.md` §6 |
+| 汇总 | `docs/development/PHASE3-PRIMARY-DEMO.md`；运行时代码/测试基线：342 passed（S0-5 后） | — |
 
-- 汇总：`docs/development/PHASE3-PRIMARY-DEMO.md`。运行时代码/测试基线：325 passed；**未 push**。
+### Phase 3 S0-5 范围收尾（2026-11-16，已完成）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 种子演示切小学 | ✅ 7 个小学 KP / 10 道小学题 / 20 名虚拟学生；class=六年级演示班；启动校验通过；成绩分析 avg 77.3、及格率 90%，薄弱分数/量率/率类/百分数/归一，几何正常 | `data/knowledge/knowledge_points.json`、`data/questions/question_bank.json`、`data/demo/student_answers.json` |
+| exam_loop | ✅ 使用小学种子；`test_workflow` 16 项通过；试卷/答题卡/报告产物正常 | 全量 pytest |
+| 初中请求守卫 | ✅ `backend/app/scope.py` + `/api/chat`（200 scope-guard）/`/api/tasks`（200 scope_notice、task_id=null）；不创建任务、不调 LLM/planner；17 项负向测试 | `test_scope_guard.py` |
+| 前端/API 文档 | ✅ 示例 chip/placeholder/欢迎语切小学；`submitTask` 处理 scope_notice；`sendChat` 处理 model=scope-guard；技术方案 §10.2 记录返回形态；`GET /` 200 且含“分数与百分数”、无“一元二次方程” | 前端实测 |
+| 旧脚本归档 | ✅ `generate_demo_import.py` 默认拒绝（需 `--allow-legacy-generator`）；新流程 `build_primary_demo_workbook → import_primary_demo` | 脚本守卫 |
+| 全量测试 | ✅ **342 passed / 0 failed** | 全量 pytest（2026-11-16） |
+| 剩余 | Phase 3 本体未开始；等待用户验收 | — |
+
+- 执行报告：`data/staging/primary_scope_closeout_report.md`。**未 push**。
 
 
 
-- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 325）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
+- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 342）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
 - **Step 5 冻结（决策㉚）**：prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——均不执行；LLM 标签=可加性数据（新批次随时补跑、消费视图自动生效），Phase 2 零依赖零返工；解冻需用户批准。
 - **Phase 2 开工纪律（决策㉚⑥）**：中文 FTS5 分词 day-1 → 引用注入 day-1 → 认证限流中段；时间盒 1–1.5 周；BGE 模型已就绪（data/models，Phase 1 遗产直接复用）。
 
@@ -541,7 +554,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 S0 范围收窄基本完成，等待验收**：小学前置图 87 条已入库；Phase 2.2 基线完成；初中运行时清理完成；小学演示数据（合成）已通过 F16 导入并核验（325 passed）。**剩余范围项**：种子演示 JSON 仍为初中（exam_loop 路径）、初中询问友好拦截、前端示例/API 文档运行时切换。以上完成并经用户验收后，再进入 Phase 3 本体（掌握度/归因/推荐/Trace/成本）。
+1. **Phase 3 S0 范围收窄已完成，等待验收**：小学前置图 87 条已入库；Phase 2.2 基线完成；初中运行时清理完成；小学演示数据（合成）已通过 F16 导入并核验；种子演示 JSON 已切小学；初中请求守卫、前端示例/API 文档同步完成；**342 passed**。用户验收后正式进入 Phase 3 本体（掌握度/归因/推荐/Trace/成本）。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
@@ -549,6 +562,6 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **325 用例**（Phase 3 S0：311 + 前置图 8 + 清理 2 + 演示工作簿 4），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **342 用例**（Phase 3 S0：311 + 前置图 8 + 清理 2 + 演示工作簿 4 + 学段守卫 17），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。

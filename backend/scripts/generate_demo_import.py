@@ -1,5 +1,11 @@
 """演示数据导入冒烟脚本（Phase 1 / Step 3）。
 
+> **已由新的小学演示数据流程取代（决策㉝，2026-11-15）**：
+> 当前运行时只支持小学单学段，演示数据请用
+> ``build_primary_demo_workbook.py`` → ``import_primary_demo.py``。
+> 本脚本保留为 Phase 1 历史资产；CLI 默认拒绝执行，如确需重放历史
+> 初中演示流程必须显式传 ``--allow-legacy-generator``。
+
 把仓库自带演示数据（data/questions/question_bank.json + data/demo/student_answers.json）
 合成为 F16 统一模板工作簿（真实 xlsx，写入 data/staging/，不入 Git），再走
 importer 完整七步管线导入业务库——验证"真实 Excel 端到端"链路（非 Mock）。
@@ -111,10 +117,21 @@ def counts_stable(db_path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="生成演示导入工作簿并走完整导入管线")
+    parser = argparse.ArgumentParser(description="生成演示导入工作簿并走完整导入管线（已归档）")
     parser.add_argument("--db", default=None, help="业务库路径（默认 data/db/edumate.sqlite）")
     parser.add_argument("--skip-import", action="store_true", help="只生成 xlsx 不导入")
+    parser.add_argument(
+        "--allow-legacy-generator", action="store_true",
+        help="显式允许重放已归档的初中演示流程（运行时默认禁止）",
+    )
     args = parser.parse_args()
+    if not args.allow_legacy_generator:
+        print(
+            "[已归档] 演示数据请用新流程：build_primary_demo_workbook.py → import_primary_demo.py。\n"
+            "如确需重放历史初中演示流程，请显式传 --allow-legacy-generator。",
+            file=sys.stderr,
+        )
+        return 2
 
     data = build_demo_workbook()
     STAGING_DIR.mkdir(parents=True, exist_ok=True)

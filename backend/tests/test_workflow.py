@@ -43,7 +43,7 @@ def _plan_resp(workflow: str, **params) -> LLMResponse:
     return LLMResponse(content="", model="fake", tool_calls=[{
         "id": "p1", "name": "submit_plan",
         "arguments": {"workflow": workflow,
-                      "params": {"subject": "数学", "chapter": "一元二次方程", **params}},
+                      "params": {"subject": "数学", "chapter": "分数与百分数", **params}},
     }])
 
 
@@ -80,7 +80,7 @@ def _lesson_resp() -> LLMResponse:
 
 def test_exam_loop_completes(use_fake_llm):
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    ctx = wf.run_task("请对《一元二次方程》做章节小测并生成学情报告")
+    ctx = wf.run_task("请对《分数与百分数》做章节小测并生成学情报告")
     assert ctx.status == "completed", ctx.error
     assert ctx.workflow == "exam_loop"
     assert [a.file_name for a in ctx.artifacts] == ["01_试卷.docx", "02_答题卡.xlsx", "03_学情报告.pdf"]
@@ -90,7 +90,7 @@ def test_exam_loop_completes(use_fake_llm):
 
 def test_question_gen_completes(use_fake_llm):
     use_fake_llm([_plan_resp("question_gen", count=2), _questions_resp(2)])
-    ctx = wf.run_task("帮我智能组一套《一元二次方程》的卷子")
+    ctx = wf.run_task("帮我智能组一套《分数与百分数》的卷子")
     assert ctx.status == "completed", ctx.error
     assert ctx.workflow == "question_gen"
     assert [a.file_name for a in ctx.artifacts] == ["01_试卷.docx", "02_答题卡.xlsx"]
@@ -98,7 +98,7 @@ def test_question_gen_completes(use_fake_llm):
 
 def test_lesson_plan_completes(use_fake_llm):
     use_fake_llm([_plan_resp("lesson_plan"), _lesson_resp()])
-    ctx = wf.run_task("帮我写一份《一元二次方程》的教案")
+    ctx = wf.run_task("帮我写一份《分数与百分数》的教案")
     assert ctx.status == "completed", ctx.error
     assert ctx.workflow == "lesson_plan"
     assert [a.file_name for a in ctx.artifacts] == ["01_教案.docx"]
@@ -107,7 +107,7 @@ def test_lesson_plan_completes(use_fake_llm):
 def test_workflow_emits_events(use_fake_llm):
     """工作流执行过程中向事件队列推送 step/status/artifact 事件（D4 前置）。"""
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    ctx = wf.run_task("请对《一元二次方程》做章节小测并生成学情报告")
+    ctx = wf.run_task("请对《分数与百分数》做章节小测并生成学情报告")
     assert ctx.status == "completed"
     events = []
     while not ctx.events.empty():
@@ -127,7 +127,7 @@ def test_workflow_emits_events(use_fake_llm):
 def test_workflow_fails_gracefully_on_tool_error(use_fake_llm):
     """A2A + 本地诊断均失败 → 降级兜底，任务仍 completed（P2-8 新契约）。"""
     use_fake_llm([_plan_resp("exam_loop"), LLMResponse()])  # 第二次为空 → 校验重试耗尽
-    ctx = wf.run_task("请对《一元二次方程》做章节小测并生成学情报告")
+    ctx = wf.run_task("请对《分数与百分数》做章节小测并生成学情报告")
     # New contract: double-failure triggers degraded fallback, workflow completes
     assert ctx.status == "completed"
     diag = ctx.params.get("diagnosis", {})
@@ -142,7 +142,7 @@ def test_workflow_timeout(use_fake_llm, monkeypatch):
     """超时上限触发后任务中止，status=failed 且 error 含超时说明。"""
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
     monkeypatch.setattr(wf, "WORKFLOW_TIMEOUT", 0)
-    ctx = wf.run_task("请对《一元二次方程》做章节小测并生成学情报告")
+    ctx = wf.run_task("请对《分数与百分数》做章节小测并生成学情报告")
     assert ctx.status == "failed"
     assert "秒上限" in ctx.error
 
@@ -150,9 +150,9 @@ def test_workflow_timeout(use_fake_llm, monkeypatch):
 def test_planner_fallback_on_llm_failure(monkeypatch):
     """LLM 返回空（未调用工具）→ 规划器确定性回退，不抛异常。"""
     monkeypatch.setattr(llm_utils, "get_llm_service", lambda: FakeLLM([]))
-    p = planner.plan("请对《一元二次方程》做一次章节小测并生成学情报告")
+    p = planner.plan("请对《分数与百分数》做一次章节小测并生成学情报告")
     assert p.workflow == "exam_loop"
-    assert p.params.chapter == "一元二次方程"
+    assert p.params.chapter == "分数与百分数"
 
 
 # ---------- 任务接口 ----------
@@ -166,7 +166,7 @@ def test_create_task_ok(use_fake_llm, fake_settings):
     from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     assert res["status"] == "running"
     # 异步执行：轮询至终态（后台线程瞬时完成）
     cur = res
@@ -185,7 +185,7 @@ def test_task_events_stream(use_fake_llm, fake_settings):
     from backend.app.agent.context import task_store
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     for _ in range(200):
         cur = tasks.get_task(res["task_id"])
         if cur["status"] in ("completed", "failed"):
@@ -238,7 +238,7 @@ def test_download_file(use_fake_llm, fake_settings):
     from fastapi.responses import FileResponse
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     cur = _wait_completed(tasks, res["task_id"])
     assert cur["status"] == "completed"
 
@@ -252,7 +252,7 @@ def test_download_file_not_found(use_fake_llm, fake_settings):
     from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     _wait_completed(tasks, res["task_id"])
     with pytest.raises(HTTPException) as exc:
         tasks.download_file(res["task_id"], "不存在.docx")
@@ -264,7 +264,7 @@ def test_preview_exam_and_answer_sheet(use_fake_llm, fake_settings):
     from fastapi.responses import HTMLResponse
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     _wait_completed(tasks, res["task_id"])
 
     exam = tasks.preview_task(res["task_id"], "exam")
@@ -281,7 +281,7 @@ def test_preview_lesson(use_fake_llm, fake_settings):
     from fastapi.responses import HTMLResponse
 
     use_fake_llm([_plan_resp("lesson_plan"), _lesson_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="帮我写一份《一元二次方程》的教案"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="帮我写一份《分数与百分数》的教案"))
     cur = _wait_completed(tasks, res["task_id"])
     assert cur["status"] == "completed"
 
@@ -295,7 +295,7 @@ def test_preview_unknown_kind(use_fake_llm, fake_settings):
     from backend.app.api import tasks
 
     use_fake_llm([_plan_resp("exam_loop"), _diag_resp()])
-    res = tasks.create_task(tasks.TaskRequest(prompt="请对《一元二次方程》做章节小测"))
+    res = tasks.create_task(tasks.TaskRequest(prompt="请对《分数与百分数》做章节小测"))
     _wait_completed(tasks, res["task_id"])
     with pytest.raises(HTTPException) as exc:
         tasks.preview_task(res["task_id"], "nope")

@@ -26,6 +26,7 @@ from backend.app.agent.context import (
 from backend.app.agent.planner import plan
 from backend.app.agent.session_store import CLARIFY_PREFIX, MAX_CLARIFY_ROUNDS
 from backend.app.agent.workflow import run_workflow
+from backend.app.scope import detect_unsupported_scope
 from backend.app.services import preview as preview_service
 from backend.app.storage import file_store
 from backend.config import settings
@@ -46,6 +47,16 @@ def create_task(req: TaskRequest) -> dict:
     prompt = req.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="任务描述不能为空，请输入你的需求")
+
+    # 学段范围守卫（决策㉝）：初中/更高学段 → 200 + 提示，不创建任务、不调 LLM、不产生费用
+    scope_notice = detect_unsupported_scope(prompt)
+    if scope_notice:
+        return JSONResponse(status_code=200, content={
+            "scope_notice": scope_notice,
+            "task_id": None,
+            "session_id": req.session_id,
+            "stage_supported": "primary",
+        })
 
     if not settings.DEEPSEEK_API_KEY:
         raise HTTPException(status_code=500, detail="服务端未配置 DEEPSEEK_API_KEY，请联系管理员")
