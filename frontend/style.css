@@ -1721,3 +1721,22 @@ body {
   .diag-state-cards { grid-template-columns: repeat(2, 1fr); }
   .obs-cards { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===== 数据导入页（F16，复用后端导入 API） ===== */
+.imp-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.imp-file { max-width: 280px; font-size: 12px; }
+.imp-force { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.imp-force input { margin: 0; }
+.imp-batch-row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.imp-batch-row .chat-input { flex: 1 1 220px; max-width: 380px; }
+.imp-recent { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.imp-chip { font-size: 11.5px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; padding: 1px 10px; text-decoration: none; white-space: nowrap; }
+.imp-chip:hover { background: #dbeafe; }
+.imp-meta { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: #374151; margin: 4px 0 10px; }
+.imp-sheet { margin: 6px 0 14px; }
+.imp-sheet-block { margin: 6px 0 10px; }
+.imp-sheet-block > b { font-size: 12.5px; color: #374151; }
+.imp-issue-table { font-size: 12px; }
+.imp-issue-error td:last-child { color: #b91c1c; }
+.imp-issue-warning td:last-child { color: #92400e; }
+.imp-fatal { font-size: 12.5px; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 6px 10px; margin: 8px 0; }

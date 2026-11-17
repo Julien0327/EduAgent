@@ -40,6 +40,9 @@
         <a class="nav-item" href="#analysis">
           <span class="nav-ic">◈</span><span>学情分析</span>
         </a>
+        <a class="nav-item" href="#import">
+          <span class="nav-ic">⇪</span><span>数据导入</span>
+        </a>
         <a class="nav-item" href="#lesson">
           <span class="nav-ic">◫</span><span>教学方案</span>
         </a>
@@ -146,6 +149,39 @@
 
         <div id="task-result" class="task-result"></div>
         <div id="task-artifacts" class="task-artifacts"></div>
+      </section>
+
+      <!-- F16 数据导入（复用后端导入 API：模板下载 / 文件上传 / 批次状态 / 逐 Sheet 错误报告） -->
+      <section id="import" class="panel">
+        <div class="panel-head">
+          <h2>数据导入（F16）</h2>
+          <p class="panel-desc">通过统一 F16 模板导入 班级 / 学生 / 考试 / 卷面 / 答题 数据。前端直连现有后端导入 API（不重复造导入逻辑、不改模板格式）：上传后返回批次报告，可逐 Sheet 查看错误与警告；导入成功的班级会自动出现在「学情分析」页。</p>
+        </div>
+
+        <div class="imp-toolbar">
+          <button id="imp-template" class="btn-ghost" type="button">⬇ 下载导入模板</button>
+          <input id="imp-file" class="imp-file" type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+          <select id="imp-kind" class="diag-select" aria-label="导入类型">
+            <option value="full" selected>整簿导入（full）</option>
+            <option value="classes">仅班级（classes）</option>
+            <option value="students">仅学生（students）</option>
+            <option value="exam">仅考试/卷面（exam）</option>
+            <option value="answers">仅答题记录（answers）</option>
+          </select>
+          <label class="imp-force"><input id="imp-force" type="checkbox" disabled /> 覆盖重导（仅答题记录）</label>
+          <button id="imp-upload" class="btn-primary" type="button">上传并导入 →</button>
+          <span id="imp-status" class="diag-status"></span>
+        </div>
+
+        <div class="imp-batch-row">
+          <span class="muted">批次查询：</span>
+          <input id="imp-batch-id" class="chat-input" placeholder="输入批次 ID，如 imp_20261117xxxxxx" />
+          <button id="imp-query" class="btn-ghost" type="button">查询批次</button>
+          <span id="imp-recent" class="imp-recent"></span>
+        </div>
+
+        <div id="imp-report"></div>
       </section>
 
       <!-- 教学方案 -->

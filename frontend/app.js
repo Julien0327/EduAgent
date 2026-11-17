@@ -1318,6 +1318,243 @@ function renderTrace(d, box) {
   box.innerHTML = html;
 }
 
+// ===== 数据导入页（复用后端导入 API；前端零业务计算） =====
+
+const IMPORT_RECENT_KEY = "edumate_import_recent";
+const IMPORT_KIND_LABELS = {
+  full: "整簿导入", classes: "仅班级", students: "仅学生",
+  exam: "仅考试/卷面", answers: "仅答题记录",
+};
+const IMPORT_STATUS_LABELS = {
+  committed: "已提交", partial: "部分成功（含错误行）", failed: "失败", validating: "校验中",
+};
+const IMPORT_SHEET_ORDER = ["班级", "学生", "考试", "考试题目", "答题记录"];
+const IMP_ERROR_LABELS = {
+  E_REQUIRED: "必填缺失", E_TYPE: "类型错误", E_ENUM: "取值非法", E_RANGE: "范围越界",
+  E_DATE: "日期格式", E_REF: "关联定位失败", E_DUP: "重复", E_CONFLICT: "与库冲突",
+  E_INTEGRITY: "完整性",
+};
+const IMP_WARNING_LABELS = {
+  W_TOTAL_SCORE: "总分与分值和", W_KP: "知识点未命中", W_HEADER: "未识别表头列",
+};
+
+function impRecent() {
+  try { return JSON.parse(localStorage.getItem(IMPORT_RECENT_KEY) || "[]"); } catch { return []; }
+}
+function saveImpRecent(list) {
+  try { localStorage.setItem(IMPORT_RECENT_KEY, JSON.stringify(list.slice(0, 8))); } catch {}
+}
+function setImpStatus(msg, isErr) {
+  const el = $("imp-status");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "diag-status" + (isErr ? " diag-err" : "");
+}
+function pushImpRecent(batchId) {
+  const list = impRecent().filter((b) => b !== batchId);
+  list.unshift(batchId);
+  saveImpRecent(list);
+  renderImpRecent();
+}
+function renderImpRecent() {
+  const el = $("imp-recent");
+  if (!el) return;
+  const list = impRecent();
+  if (!list.length) { el.innerHTML = '<span class="muted">（本地上传过的批次可一键回查）</span>'; return; }
+  el.innerHTML = list.map((b) =>
+    `<a href="#" data-batch="${escapeHtml(b)}" class="imp-chip">${escapeHtml(b.slice(0, 20))}…</a>`
+  ).join("");
+  el.querySelectorAll("a[data-batch]").forEach((a) =>
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      $("imp-batch-id").value = a.dataset.batch;
+      loadImportBatch(a.dataset.batch);
+    }));
+}
+
+async function downloadImportTemplate() {
+  setImpStatus("正在下载模板…");
+  try {
+    const resp = await fetch("/api/import/template", { headers: { "X-API-Token": apiToken() } });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      setImpStatus(authErrorHint(resp.status, typeof d.detail === "string" ? d.detail : ""), true);
+      return;
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "edumate_import_template.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setImpStatus("模板已下载（5 个数据工作表 + 填写说明，表头为标准字段名）");
+  } catch (err) {
+    setImpStatus("下载失败：" + err.message, true);
+  }
+}
+
+async function uploadImportFile() {
+  const file = $("imp-file").files && $("imp-file").files[0];
+  if (!file) { setImpStatus("请先选择 xlsx 文件", true); return; }
+  const kind = $("imp-kind").value;
+  const force = $("imp-force").checked;
+  const btn = $("imp-upload");
+  setImpStatus("上传解析中…（校验按 F16 七步管线执行）");
+  if (btn) btn.disabled = true;
+  try {
+    const buf = await file.arrayBuffer();
+    let url = `/api/import?kind=${encodeURIComponent(kind)}&file_name=${encodeURIComponent(file.name)}`;
+    if (force) url += "&force=true";
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-API-Token": apiToken() },
+      body: buf,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail;
+      if (resp.status === 409 && detail && detail.reason === "duplicate_fingerprint" && detail.original_batch) {
+        renderImportReport(detail.original_batch);
+        pushImpRecent(detail.original_batch.batch_id);
+        setImpStatus("重复文件已拒绝：该文件此前已导入过（原批次见下方报告）", true);
+      } else if (resp.status === 409 && detail && detail.reason === "import_busy" && detail.rejected_batch) {
+        renderImportReport(detail.rejected_batch);
+        pushImpRecent(detail.rejected_batch.batch_id);
+        setImpStatus("导入忙：已有批次在处理中，本次已拒绝（409）", true);
+      } else {
+        setImpStatus(authErrorHint(resp.status, typeof detail === "string" ? detail : ""), true);
+        $("imp-report").innerHTML = `<p class="diag-err">${escapeHtml(
+          typeof detail === "string" ? detail : JSON.stringify(detail || {}))}</p>`;
+      }
+      return;
+    }
+    renderImportReport(data);
+    pushImpRecent(data.batch_id);
+    if (data.status === "committed" || data.status === "partial") {
+      $("imp-file").value = "";
+      setImpStatus(
+        data.status === "committed"
+          ? `导入成功（批次 ${data.batch_id.slice(0, 22)}…）`
+          : `导入完成，但有 ${(data.errors || []).filter((e) => e.level === "error").length} 行错误未写入（详见下方报告）`);
+      // 新班出现在「学情分析」下拉（S5 班级列表已随库刷新；不改诊断计算）
+      const hint = "；已刷新「学情分析」班级下拉，可到该页加载新班诊断";
+      initDiagClasses().then(() => setImpStatus($("imp-status").textContent + hint));
+    } else {
+      setImpStatus("导入未写入任何行（详见下方报告）", true);
+    }
+  } catch (err) {
+    setImpStatus("上传失败：" + err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function loadImportBatch(batchId) {
+  const id = (batchId || $("imp-batch-id").value).trim();
+  if (!id) { setImpStatus("请输入批次 ID", true); return; }
+  setImpStatus("查询批次中…");
+  try {
+    const resp = await fetch(`/api/import/${encodeURIComponent(id)}`, { headers: apiHeaders() });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      setImpStatus(authErrorHint(resp.status, data.detail), true);
+      return;
+    }
+    renderImportReport(data);
+    pushImpRecent(data.batch_id);
+    setImpStatus(`批次 ${data.batch_id}：${IMPORT_STATUS_LABELS[data.status] || data.status}`);
+  } catch (err) {
+    setImpStatus("查询失败：" + err.message, true);
+  }
+}
+
+function importStatusBadge(status) {
+  const cls = status === "committed" ? "badge-ok"
+    : status === "failed" ? "badge-bad"
+    : "badge-warn";
+  return `<span class="usage-badge ${cls}">${escapeHtml(IMPORT_STATUS_LABELS[status] || status)}</span>`;
+}
+
+function renderImpIssues(items, codeLabels) {
+  if (!items.length) return '<p class="muted">无。</p>';
+  return `<table class="diag-table imp-issue-table"><thead><tr><th>行号</th><th>字段</th><th>错误码</th><th>说明</th></tr></thead><tbody>${
+    items.map((i) => {
+      const label = codeLabels[i.code] || "";
+      return `<tr class="imp-issue-${i.level}"><td>${fmtNum(i.row)}</td>` +
+        `<td><code>${escapeHtml(i.field || "—")}</code></td>` +
+        `<td><code title="${escapeHtml(label)}">${escapeHtml(i.code)}</code></td>` +
+        `<td>${escapeHtml(i.message)}</td></tr>`;
+    }).join("")
+  }</tbody></table>`;
+}
+
+function renderImportReport(report) {
+  const box = $("imp-report");
+  if (!box) return;
+  if (!report) { box.innerHTML = '<p class="muted">（暂无导入记录）</p>'; return; }
+  const errors = report.errors || [];
+  const warnings = report.warnings || [];
+  const errGroups = IMPORT_SHEET_ORDER
+    .map((s) => ({ sheet: s, items: errors.filter((e) => e.sheet === s) }))
+    .filter((g) => g.items.length);
+
+  let html = "";
+  html += `<div class="imp-meta">${importStatusBadge(report.status)}` +
+    `<span>批次 <code>${escapeHtml(report.batch_id || "")}</code></span>` +
+    `<span>${escapeHtml(IMPORT_KIND_LABELS[report.kind] || report.kind || "—")}</span>` +
+    `<span>文件 ${escapeHtml(report.file_name || "—")}</span>` +
+    `<span>总行 ${fmtNum(report.total_rows)} · 成功 ${fmtNum(report.ok_rows)} · 失败 ${fmtNum(report.failed_rows)}</span>` +
+    `<span>sha256 <code>${escapeHtml((report.file_sha256 || "").slice(0, 12))}…</code></span>` +
+    `<span>创建 ${escapeHtml(report.created_at || "—")}</span></div>`;
+
+  html += `<div class="imp-sheet"><b>错误（${errors.filter((e) => e.level === "error").length}）</b>`;
+  if (report.fatal) html += `<div class="imp-fatal">${escapeHtml(report.fatal)}</div>`;
+  if (errGroups.length) {
+    for (const g of errGroups) {
+      html += `<div class="imp-sheet-block"><b>工作表「${escapeHtml(g.sheet)}」</b>` +
+        renderImpIssues(g.items, IMP_ERROR_LABELS) + `</div>`;
+    }
+  } else {
+    html += "<p class=\"muted\">无——校验全部通过，所有数据行均已写入。</p>";
+  }
+  html += "</div>";
+
+  const warnGroup = IMPORT_SHEET_ORDER
+    .map((s) => ({ sheet: s, items: warnings.filter((e) => e.sheet === s && e.level === "warning") }))
+    .filter((g) => g.items.length);
+  html += `<div class="imp-sheet"><b>警告（${warnings.length}）</b>`;
+  if (warnGroup.length) {
+    for (const g of warnGroup) {
+      html += `<div class="imp-sheet-block"><b>工作表「${escapeHtml(g.sheet)}」</b>` +
+        renderImpIssues(g.items, IMP_WARNING_LABELS) + `</div>`;
+    }
+  } else {
+    html += "<p class=\"muted\">无。</p>";
+  }
+  html += "</div>";
+
+  html += '<p class="muted">说明：error = 该行不写入；warning = 已写入并记录。' +
+    '批次状态 — 已提交：全部成功；部分成功：含错误行；失败：无可写入数据或关联大面积断裂/写入异常。</p>';
+
+  box.innerHTML = html;
+}
+
+function initImport() {
+  const tpl = $("imp-template"), up = $("imp-upload"), q = $("imp-query"),
+        kind = $("imp-kind"), force = $("imp-force");
+  if (tpl) tpl.addEventListener("click", downloadImportTemplate);
+  if (up) up.addEventListener("click", uploadImportFile);
+  if (q) q.addEventListener("click", () => loadImportBatch());
+  if (kind && force) kind.addEventListener("change", () => {
+    force.disabled = kind.value !== "answers";
+    if (kind.value !== "answers") force.checked = false;
+  });
+  renderImpRecent();
+}
+
 function initDiagnosis() {
   const load = $("diag-load"), rep = $("diag-report");
   if (load) load.addEventListener("click", loadDiagnosis);
@@ -1334,3 +1571,4 @@ function initObserve() {
 
 initDiagnosis();
 initObserve();
+initImport();

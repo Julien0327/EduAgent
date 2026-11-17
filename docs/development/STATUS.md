@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-17（**Phase 3 S5 完成**：诊断 PDF + 前端学情诊断页/运行观测页，真实演示班 PDF pypdf 实读核验 + 起服冒烟全过，400 passed；S6 待启动）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-17（**Phase 3 S5 完成**：诊断 PDF + 前端学情诊断页/运行观测页，400 passed；**F16 前端导入与端到端验收前置任务完成**：导入页+真实上传+新班诊断→推荐→PDF，401 passed，决策㉟；S6 待启动）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -163,7 +163,27 @@
 | 测试 | ✅ **400 passed / 0 failed**（394 + 6 PDF） | 全量 pytest（2026-11-17） |
 | 未改冻结数据 | ✅ 题库/图谱/演示数据/S1-S4 口径零改动；未破坏既有工作流（exam_loop/lesson_plan 回归通过） | 全量回归 |
 
-- S5 完成；S6（10 例 GT + 关账）未开始，待用户验收。
+### Phase 3 F16 前端导入与端到端验收前置任务（2026-11-17，已完成，待验收）
+
+> 用户指令：S6 之前插入「前端 F16 导入与端到端验收」任务——前端实现 F16 导入页，复用现有后端导入 API；真实 Excel 上传 → 数据入库 → 班级诊断 → 真实题库推荐 → PDF 报告；保证冻结题库/知识图谱/S1–S5 已验收功能不受影响。
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 前端导入页 | ✅ 导航新增「数据导入」：模板下载（GET /api/import/template → Blob 下载）、文件上传（kind 选择 full/classes/students/exam/answers + answers 可勾覆盖重导；octet-stream POST /api/import）、批次状态查询（上传后自动展示 + localStorage 最近批次一键回查 + 按 batch_id 查询）、**逐 Sheet 错误报告**（状态徽标 / 计数 / fatal / 五表分组 error+warning：行号·字段·错误码·说明） | `frontend/index.html` #import 节、`app.js`「数据导入页」块、`style.css` .imp-* |
+| 复用后端 | ✅ **零后端改动**：直连既有 3 端点（template / POST import / GET {batch_id}），不动 import 七步管线、数据库结构、F16 模板格式 | `import_api.py` 未动 |
+| 新班入分析页 | ✅ 导入成功（committed/partial）后前端自动刷新「学情分析」班级下拉并提示前往加载诊断（/api/classes 实时数据，不改诊断计算） | app.js `refreshDiagClassesAfterImport` |
+| E2E 工作簿 | ✅ `build_f16_e2e_workbook.py`：**复用 demo 同一份 49 道 verified 题、同一 A/B 题序**（主/辅角色由此可经 `primary_demo_mapping.jsonl` 按「考试标签A/B+题号」解析 → **零诊断改动**）；班级/学生/考试名/答题全新（六（1）班（F16导入演示）/ P01–P20 / 新考试标题·日期）；合成标记齐全；`--run-suffix` 支持生成全新一版以便重复上传验收 | `data/staging/f16_e2e_workbook_report.md/.json` |
+| 真实导入 | ✅ 批次 `imp_20261117125830_568fac`：**committed 1052/1052/0，0 错误 0 警告** | L3 报告 |
+| 端到端 | ✅ 上传 → 入库 → **新班出现在 /api/classes（20 学生/980 答题）** → 学情分析诊断（2 场考试/980 答题/覆盖 40 KP /**6 归因链 / 6 组真实题库推荐**，q_ape_* source=ape210k 逐条可回查）→ 报告任务 completed（`04_诊断结果.json` + `05_学情诊断报告.pdf` 18.9KB，叙述**模板兜底 ¥0**）→ **pypdf 实读 PDF 文本核验：班级名/推荐练习/归因链/合成声明逐项 ✓** | `data/staging/f16_import_e2e_report.md/.json`；任务 `a145b6194cc6` |
+| 冻结/既有不受影响 | ✅ 全量 pytest **401 passed / 0 failed**（400 基线 + 1 新增 L2 集成）；演示班计数（20 学生/2 考试/49 题/980 答题）与题库 207,949 / q_kp 571,364 / KP 82 / 边 87 / kp_fts 82 / q_kp_llm 1,319 / annotation 1,000 / verified 49 **逐项不变**；demo 班诊断仍 200 | SQL 实测 + L2.demo_diag 断言 |
+| 三层测试 | ✅ **L1** 全量 pytest（401 passed）；**L2** HTTP 集成（`test_import_analysis_flow.py`：真库副本隔离 → 模板 → 上传 → 批次 → classes 新班 → 诊断 → 报告任务 → 04/05 产物，唯一 run_suffix 版班级，可重跑、不污染真库）；**L3** 真环境 E2E（uvicorn 8011 起服 + 脚本模拟前端全链路 + 冒烟：/ 含导入页、/app.js 200、无 token 401 / 带 token 200） | 本表 + 测试文件 |
+| 限制（如实记录） | 诊断主/辅角色仍来自映射清单（按题绑定、非按班）：若用户经前端上传一个使用**全新题目/新题序**的班级，需其题目角色已登记在映射清单内方可诊断——沿用 S1 既有口径，本任务不改诊断模块 | 决策㉟ |
+
+- 前端叙述沿用 S5 口径：E2E 用模板兜底（未设 LLM Key）、¥0；如需真实 LLM 叙述可另跑（成本单次）。
+- 工作簿/报告均标注「演示/合成」；L3 已将基础版新班导入真实库（新增资产，未覆盖既有数据）。
+- 本任务验收后再进入 S6。
+
+- S6（10 例 GT + 关账）未开始，待用户验收本任务后启动。
 
 
 
