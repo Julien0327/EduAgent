@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-17（**Phase 3 S5 完成**：诊断 PDF + 前端学情诊断页/运行观测页，400 passed；**F16 前端导入与端到端验收前置任务完成**：导入页+真实上传+新班诊断→推荐→PDF，401 passed，决策㉟；S6 待启动）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-17（**Phase 3 全部完成，待最终人工验收**：S0–S6 验收；前端 F16 导入与端到端验收；Gold 10 例一致率 10/10；端到端复核（JSON/PDF/Trace/成本/重启回放/权重重算）；关账文档/决策㊱；**401 passed**；未 push——待最终验收后统一推送）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 = 进行中（S0 范围收窄，决策㉝）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（S0–S6 完成，待最终人工验收后统一 push，决策㉟㊱）**
 
 ### Phase 3 S0-1 小学前置图冻结（2026-11-15，决策㉝）
 
@@ -183,7 +183,36 @@
 - 工作簿/报告均标注「演示/合成」；L3 已将基础版新班导入真实库（新增资产，未覆盖既有数据）。
 - 本任务验收后再进入 S6。
 
-- S6（10 例 GT + 关账）未开始，待用户验收本任务后启动。
+### Phase 3 S6 验收与关账（2026-11-17，Gold 已冻结、端到端复核完成，待最终人工验收）
+
+**① Gold 验收（10 例 GT）**
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| Gold 定义 | ✅ 10 例 GT 用户 2026-11-17 冻结（6 条修订纳入后不再改）：直接前置失败/两跳/多分支冲突保留/前置全好→自身/前置不足阻断 low/目标不足不出链/无覆盖不出链/近期权重翻转根因/辅助权重改弱判定/环保护 | `data/gt/diagnosis_gt_gold.json`（Git） |
+| 独立评测 | ✅ `eval_diagnosis.py`：每例独立内存 SQLite + **独立角色映射 fixture（不读生产映射文件）**；走 data_access→compute_mastery(λ=0.5,全集)→attribution 同一确定性链路 | `backend/scripts/eval_diagnosis.py`（Git） |
+| 一致率 | ✅ **10/10 = 100%（目标 ≥80%）**；逐断言明细 + 每例合成库留档 | `data/staging/eval_diagnosis_report.md/.json`、`eval_diagnosis_dbs/` |
+| 关键断言实测 | GT-03 候选{A1,A2}+conflict=true+root=A2+low；GT-08 近期2:1 P1=0.6867 / 取消近期 P1=0.74 → 根因 P2→P1 翻转；GT-09 mastery=0.40、主证据 0.80、aux_share=0.50 | report 逐例 |
+| 口径边界（如实） | **10 例 & 100% 一致率只代表冻结案例上的算法行为一致性，不代表真实教学诊断准确率 100%**；Gold 由用户冻结（Gold 归用户惯例） | 决策㊱ |
+
+**② 端到端复核（演示班 `cls_3b71d97847`，全部为本次实际运行、不复用历史报告）**
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 模板兜底链路（¥0） | ✅ 任务 `5313a2f89e64` completed：6 归因链 / 6 组 18 道真实推荐 / 覆盖 40 KP；JSON↔PDF 一致性（链目标/根因名 6/6、推荐 q_id 12/12、叙述来源徽标、合成声明、数据范围）；Trace 4 节点全 done、usage_source=none、totals cost=NULL **不以 ¥0 冒充**、cost_recompute_ok；引用 **24/24 有 used_in（kp 6 + question 18）** | `data/staging/s6_e2e_review_report.md/.json` |
+| 真实 LLM 链路 | ✅ 任务 `3dd58219759f`：narrate 节点一次真实 deepseek-flash（tokens 712/1235、**cost=¥0.00515**、price_version=deepseek-cny-2026-11-13-v1、单价快照 unit）；Σ明细=Σ步骤 recompute_ok=True | 同上 |
+| 重启后回放 | ✅ 新服务实例读取同一业务库：`/api/tasks` 列表含该任务（completed）；`/trace` 库直读回放 4 步骤、totals 与运行期一致、cost_recompute_ok=True（模板+provider 两任务均过） | 同上 |
+| **已知限制（如实）** | ⚠️ 重启后 `/api/tasks/{id}` 单任务快照、`/citations`、`/files` 为 404——依赖进程内 task_store 缓存（citations.json 与产物文件在磁盘但未接线回放）；官方重启回放面为 `/api/tasks` 列表 + `/trace`（库直读）。按纪律**不擅自修改 S4/S5 冻结逻辑**，留待后续决策 | 同上 |
+| 角色权重重算 | ✅ λ=1 与设计参考一致（max|diff|=**0.0001**，2/40 KP 为 4 位小数舍入 ulp）；当前 λ=0.5 与设计参考差异=**辅助证据权重引入**（翻转 KP `kp_p_038`：design 0.6286 normal → λ.5 0.5629 weak，aux_share 0.5556>0.5 低置信）；薄弱 λ0/λ.5=6 个、λ1=5 个，与 S1 敏感性报告逐项一致 | 同上 |
+
+**③ 关账**
+- 文档：本 STATUS、DECISIONS ㊱、ROADMAP、技术方案 §5/§6 实测回填、RESUME-AMMO 已更新。
+- 复现方法：`python -m backend.scripts.eval_diagnosis`（Gold 一致率）；`python -m backend.scripts.s6_e2e_review e2e|provider|replay|reweight`（端到端复核，用法见脚本 docstring）。
+- 数据许可边界沿用决策㉒：APE210K 本地个人开发/测试不设限、GitHub 仅公开代码/ETL/结构/不含题目内容的统计；不提交数据集本身、不随公开产品提供、不用于企业商业部署。
+- 全量 pytest **401 passed / 0 failed**。
+- commit：Gold+评估器 `9dfb1ae`、复核脚本 `fabcfaa`、关账文档（本次提交）。**未 push**——Phase 3 全部提交待最终验收后统一检查并推送。
+
+- **Phase 3 全阶段（S0–S6）验收完成，待用户最终人工验收**。
 
 
 
