@@ -164,12 +164,12 @@ def mode_e2e(base, token, **kw) -> dict:
                            c["target_name"] in pdf_text)
         root_names = sum(1 for c in chains if c.get("root_name") and c["root_name"] in pdf_text)
         qids = [q["q_id"] for g in recs for q in g.get("questions", [])]
-        qid_hits = sum(1 for q in qids[:12] if q in pdf_text)
+        qid_hits = sum(1 for q in qids if q in pdf_text)
         src_badge = ("AI 叙述" in pdf_text or "模板兜底" in pdf_text)
         pdf_checks = {
             "chain_target_names": f"{target_names}/{len(chains)} 命中",
             "chain_root_names": f"{root_names}/{len(chains)} 命中",
-            "rec_qids_sample": f"{qid_hits}/{min(12, len(qids))} 命中（前12）",
+            "rec_qids_all": f"{qid_hits}/{len(qids)} 命中（全量）",
             "narration_source_badge": bool(src_badge),
             "synthetic_declaration": ("合成" in pdf_text or "演示" in pdf_text),
             "data_scope_present": "数据范围" in pdf_text or "场考试" in pdf_text,

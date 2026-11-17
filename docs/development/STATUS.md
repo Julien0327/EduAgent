@@ -199,7 +199,7 @@
 
 | 项 | 结果 | 证据 |
 |---|---|---|
-| 模板兜底链路（¥0） | ✅ 任务 `5313a2f89e64` completed：6 归因链 / 6 组 18 道真实推荐 / 覆盖 40 KP；JSON↔PDF 一致性（链目标/根因名 6/6、推荐 q_id 12/12、叙述来源徽标、合成声明、数据范围）；Trace 4 节点全 done、usage_source=none、totals cost=NULL **不以 ¥0 冒充**、cost_recompute_ok；引用 **24/24 有 used_in（kp 6 + question 18）** | `data/staging/s6_e2e_review_report.md/.json` |
+| 模板兜底链路（¥0） | ✅ 任务 `5313a2f89e64` completed：6 归因链 / 6 组 18 道真实推荐 / 覆盖 40 KP；JSON↔PDF 一致性（链目标/根因名 6/6、**推荐 q_id 18/18 全量命中 PDF**、叙述来源徽标、合成声明、数据范围）；Trace 4 节点全 done、usage_source=none、totals cost=NULL **不以 ¥0 冒充**、cost_recompute_ok；引用 **24/24 有 used_in（kp 6 + question 18）** | `data/staging/s6_e2e_review_report.md/.json` |
 | 真实 LLM 链路 | ✅ 任务 `3dd58219759f`：narrate 节点一次真实 deepseek-flash（tokens 712/1235、**cost=¥0.00515**、price_version=deepseek-cny-2026-11-13-v1、单价快照 unit）；Σ明细=Σ步骤 recompute_ok=True | 同上 |
 | 重启后回放 | ✅ 新服务实例读取同一业务库：`/api/tasks` 列表含该任务（completed）；`/trace` 库直读回放 4 步骤、totals 与运行期一致、cost_recompute_ok=True（模板+provider 两任务均过） | 同上 |
 | **已知限制（如实）** | ⚠️ 重启后 `/api/tasks/{id}` 单任务快照、`/citations`、`/files` 为 404——依赖进程内 task_store 缓存（citations.json 与产物文件在磁盘但未接线回放）；官方重启回放面为 `/api/tasks` 列表 + `/trace`（库直读）。按纪律**不擅自修改 S4/S5 冻结逻辑**，留待后续决策 | 同上 |
