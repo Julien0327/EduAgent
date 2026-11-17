@@ -77,6 +77,23 @@ class RetrievalService:
                      "fts_supplement_used": fts_used},
         }
 
+    def search_by_kp(self, kp_ids: list[str], filters: dict | None = None,
+                     question_limit: int = 20,
+                     target_difficulty: int | None = None) -> list[dict]:
+        """按指定 KP 直接召回+重排题目（阶段 2/3，无查询文本/无 FTS）。
+
+        供诊断推荐复用：绕过阶段 1 的 query 召回，按已知根因/目标 KP 扩展候选
+        并按阶段 3 重排。返回题目 dict（q_id/ref/stage/type/stem/answer/
+        difficulty/score/kp_ids）。
+        """
+        validate_filters(filters)
+        if not kp_ids:
+            return []
+        with self._lock:
+            candidates = expand_by_kp(self._conn, kp_ids, filters,
+                                      limit=question_limit * 3)
+        return rerank(candidates, kp_ids, target_difficulty=target_difficulty)[:question_limit]
+
     def close(self) -> None:
         self._kp.close()
         self._conn.close()

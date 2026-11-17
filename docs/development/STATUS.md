@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-16（**Phase 3 S2 完成**：确定性归因 + 置信度分级，367 passed；λ=0.5 已裁决）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-17（**Phase 3 S3 完成**：真实题库推荐 + LLM 叙述 + 服务/API/工作流，379 passed；λ=0.5）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -112,6 +112,23 @@
 | 未改冻结数据 | ✅ 未补边、未改图谱/题库/演示数据、未调 LLM | — |
 
 - S2 只到归因规则；S3（推荐 + 叙述 + 服务/API/工作流）未开始。
+
+### Phase 3 S3 推荐 + 叙述 + 服务/API/工作流（2026-11-17，已完成，待验收）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 检索层 | ✅ `RetrievalService.search_by_kp`：按指定 KP 直查（阶段 2/3，无 query/无 FTS），供推荐复用 | `service.py` |
+| 推荐 | ✅ `diagnosis/recommend.py`：根因巩固（先）+ 目标针对性（后），按知识点去重；多根因各一组；低置信/阻断如实反映；默认排除已完成题，候选不足按「难度带→已完成题」放宽并记录策略；难度带 D4；只出真实题，禁止 LLM 编题 | 单元测试 |
+| 叙述 | ✅ `diagnosis/narrate.py`：LLM 只解释确定性结果（硬约束不改事实、辅助证据标注）；无 Key/失败/异常 → 模板兜底 | 单元测试（template/llm 成功/llm 失败） |
+| 统一服务层 | ✅ `diagnosis/service.py`：`build_diagnosis()` 确定性诊断（数据+掌握度+归因+推荐），API/工作流/前端复用一套逻辑 | 集成测试 |
+| 工作流 | ✅ `class_diagnosis`：compute_diagnosis → narrate → write_diagnosis_json；`run_workflow(skip_plan=True)`；产物 `04_诊断结果.json`；KP+推荐题登记引用 | 工作流 e2e |
+| API | ✅ `GET /api/classes`、`GET /api/diagnosis/class/{id}`（确定性 JSON）、`POST /api/diagnosis/class/{id}/report`（202+SSE）；POST diagnosis 限流 30 | API 集成测试 |
+| 真实推荐结果 | ✅ 演示班：6 条归因链 → 6 组推荐（1 根因 + 5 目标），18 道真实题，全部 source=ape210k、逐条 q_id 可回查、难度带符合 D4、严格口径无放宽 | `recommendation_report.md` |
+| 兜底验证 | ✅ 无 Key → narration_source=template；工作流 e2e 产物 narration=template；LLM 失败/成功路径单测覆盖 | 测试 |
+| 测试 | ✅ **379 passed / 0 failed**（367 + 12） | 全量 pytest（2026-11-17） |
+| 未改冻结数据 | ✅ 未改题库/图谱/演示数据/S1/S2 口径；未把合成数据说成真实教学效果 | — |
+
+- S3 只到推荐+叙述+服务/API/工作流；S4（Trace + 成本）未开始。
 
 
 
@@ -585,7 +602,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 S2 完成，待验收**：确定性归因 + 置信度分级（367 passed；λ=0.5）。用户验收 S2 后进入 S3（推荐 + 叙述 + 服务/API/工作流）。
+1. **Phase 3 S3 完成，待验收**：真实题库推荐 + LLM 叙述（模板兜底）+ 统一服务层 + class_diagnosis 工作流 + API（379 passed）。用户验收 S3 后进入 S4（Trace + 成本）。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。

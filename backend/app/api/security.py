@@ -89,6 +89,8 @@ def classify_limit(method: str, path: str) -> int | None:
         return 120  # 任务回查 / trace / citations 等
     if method == "POST" and path in ("/api/chat", "/api/tasks"):
         return 30
+    if method == "POST" and path.startswith("/api/diagnosis/"):
+        return 30  # 诊断报告创建（走工作流，有成本）
     if path.startswith("/api/import"):
         return 10
     if path.startswith("/api/stats") or path.startswith("/api/eval"):

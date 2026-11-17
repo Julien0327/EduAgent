@@ -28,7 +28,7 @@ from backend.app.agent.llm_utils import structured_completion
 from backend.app.agent.planner import plan
 from backend.app.knowledge import loader
 from backend.app.services import answer_sheet, exam_docx, lesson_plan, report_pdf, score_analysis
-from backend.app.storage import file_store
+from backend.app.storage import db, file_store
 from backend.logging_config import task_logger
 from backend.interop.orchestrator import orchestrate_sync
 from backend.interop.config import AcpSettings
@@ -40,6 +40,7 @@ EXAM_FILE = "01_试卷.docx"
 ANSWER_SHEET_FILE = "02_答题卡.xlsx"
 REPORT_FILE = "03_学情报告.pdf"
 LESSON_PLAN_FILE = "01_教案.docx"
+DIAGNOSIS_FILE = "04_诊断结果.json"
 
 
 class ProcessStep(BaseModel):
@@ -305,6 +306,61 @@ def _build_lesson_plan_docx(ctx: TaskContext) -> str:
     return f"生成教案 {LESSON_PLAN_FILE}"
 
 
+# ---------- Phase 3 / S3：class_diagnosis 工作流节点 ----------
+
+def _compute_diagnosis(ctx: TaskContext) -> str:
+    """确定性诊断：数据 + 掌握度 + 归因 + 真实题库推荐（零 LLM）。"""
+    from backend.app.diagnosis import service as diagnosis_service
+
+    class_id = ctx.params["class_id"]
+    conn = db.connect(None)
+    try:
+        diagnosis = diagnosis_service.build_diagnosis(conn, class_id)
+    finally:
+        conn.close()
+    ctx.params["diagnosis"] = diagnosis
+    ctx.params["class_name"] = diagnosis["data_scope"]["class_name"]
+    # §4.4：归因链 KP + 推荐题登记引用
+    for c in diagnosis["chains"]:
+        for kp in c["path"]:
+            ctx.citations.record("kp", kp)
+    for group in diagnosis["recommendations"]:
+        for q in group["questions"]:
+            ctx.citations.record("question", q["q_id"])
+    return (f"诊断完成：覆盖 {diagnosis['data_scope']['kp_covered_count']} 个知识点，"
+            f"{len(diagnosis['chains'])} 条归因链，"
+            f"{sum(g['candidate_count'] for g in diagnosis['recommendations'])} 道推荐题")
+
+
+def _narrate_diagnosis(ctx: TaskContext) -> str:
+    """LLM 只解释确定性结果；失败/无 Key → 模板兜底。"""
+    from backend.app.diagnosis import narrate as narrate_mod
+
+    narration = narrate_mod.narrate_diagnosis(ctx.params["diagnosis"])
+    ctx.params["narration"] = narration
+    return f"诊断叙述（{narration['narration_source']}）"
+
+
+def _write_diagnosis_json(ctx: TaskContext) -> str:
+    import json
+    from backend.app.storage import file_store as fs
+
+    path = fs.build_output_path(ctx.task_id, DIAGNOSIS_FILE)
+    payload = {
+        "diagnosis": ctx.params["diagnosis"],
+        "narration": ctx.params["narration"],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    ctx.add_artifact("诊断结果", DIAGNOSIS_FILE, path)
+    for c in ctx.params["diagnosis"]["chains"]:
+        for kp in c["path"]:
+            ctx.citations.annotate("kp", kp, f"{DIAGNOSIS_FILE}#归因链")
+    for group in ctx.params["diagnosis"]["recommendations"]:
+        for q in group["questions"]:
+            ctx.citations.annotate("question", q["q_id"], f"{DIAGNOSIS_FILE}#推荐")
+    return f"生成诊断结果 {DIAGNOSIS_FILE}"
+
+
 # 各工作流的剩余节点（① understand_task 之后）
 WORKFLOW_NODES = {
     "exam_loop": [
@@ -327,6 +383,11 @@ WORKFLOW_NODES = {
         ("fetch_knowledge", _fetch_knowledge),
         ("generate_lesson_plan_content", _generate_lesson_plan_content),
         ("build_lesson_plan_docx", _build_lesson_plan_docx),
+    ],
+    "class_diagnosis": [
+        ("compute_diagnosis", _compute_diagnosis),
+        ("narrate_diagnosis", _narrate_diagnosis),
+        ("write_diagnosis_json", _write_diagnosis_json),
     ],
 }
 
@@ -356,8 +417,11 @@ def _run_node(ctx: TaskContext, name: str, fn) -> None:
             log.exception("任务步骤持久化失败（不影响执行）")
 
 
-def run_workflow(ctx: TaskContext) -> None:
-    """执行任务：① 理解任务 → 按工作流执行剩余节点。失败即中止。"""
+def run_workflow(ctx: TaskContext, skip_plan: bool = False) -> None:
+    """执行任务：① 理解任务 → 按工作流执行剩余节点。失败即中止。
+
+    skip_plan=True：跳过 Planner（直接任务，如 class_diagnosis 已带 class_id）。
+    """
     log = task_logger("app.agent.workflow", ctx.task_id)
     ctx.status = STATUS_RUNNING
     log.info("任务开始：%s", ctx.prompt[:80])
@@ -365,7 +429,8 @@ def run_workflow(ctx: TaskContext) -> None:
     task_store.update(ctx)  # §7.3：初始快照（running）
     start = time.time()
     try:
-        _run_node(ctx, "understand_task", _understand_task)
+        if not skip_plan:
+            _run_node(ctx, "understand_task", _understand_task)
         nodes = WORKFLOW_NODES.get(ctx.workflow)
         if nodes is None:
             raise ValueError(f"未知工作流：{ctx.workflow}")
@@ -396,4 +461,13 @@ def run_task(prompt: str) -> TaskContext:
     """创建任务上下文并同步执行（供 CLI / 测试使用）。"""
     ctx = task_store.create(prompt)
     run_workflow(ctx)
+    return ctx
+
+
+def run_class_diagnosis_task(class_id: str) -> TaskContext:
+    """创建班级诊断任务上下文并同步执行（class_diagnosis，不经 Planner）。"""
+    ctx = task_store.create(f"班级诊断：{class_id}")
+    ctx.workflow = "class_diagnosis"
+    ctx.params = {"class_id": class_id}
+    run_workflow(ctx, skip_plan=True)
     return ctx
