@@ -117,8 +117,24 @@ def list_tasks(limit: int = 50, offset: int = 0) -> dict:
             r["task_id"]: dict(r) for r in conn.execute(
                 "SELECT task_id, COUNT(*) AS step_count, SUM(tokens_in) AS tokens_in, "
                 "SUM(tokens_out) AS tokens_out, SUM(cost) AS cost, "
-                "SUM(latency_ms) AS latency_ms FROM steps GROUP BY task_id")
+                "SUM(latency_ms) AS latency_ms, "
+                "SUM(CASE WHEN usage_source IS NOT NULL THEN 1 ELSE 0 END) AS traced_steps "
+                "FROM steps GROUP BY task_id")
         }
+        # 模型调用次数：解析 steps.llm_calls JSON 明细（kind='llm' 逐次计数）。
+        # 仅对“有 Trace 记录”的任务给出计数；S4 之前的历史任务未采集 Trace，
+        # 调用次数为未知（None → 前端显示「—」），不以 0 冒充。
+        for tid in agg:
+            agg[tid]["llm_call_count"] = 0 if agg[tid].pop("traced_steps") else None
+        for r in conn.execute(
+                "SELECT task_id, llm_calls FROM steps WHERE llm_calls IS NOT NULL"):
+            try:
+                calls = json.loads(r["llm_calls"])
+            except (ValueError, TypeError):
+                continue
+            n = sum(1 for c in calls if c.get("kind") == "llm")
+            if n and r["task_id"] in agg and agg[r["task_id"]]["llm_call_count"] is not None:
+                agg[r["task_id"]]["llm_call_count"] += n
     finally:
         conn.close()
     tasks = []

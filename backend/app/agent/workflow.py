@@ -41,6 +41,7 @@ ANSWER_SHEET_FILE = "02_答题卡.xlsx"
 REPORT_FILE = "03_学情报告.pdf"
 LESSON_PLAN_FILE = "01_教案.docx"
 DIAGNOSIS_FILE = "04_诊断结果.json"
+DIAGNOSIS_PDF_FILE = "05_学情诊断报告.pdf"
 
 
 class ProcessStep(BaseModel):
@@ -361,6 +362,23 @@ def _write_diagnosis_json(ctx: TaskContext) -> str:
     return f"生成诊断结果 {DIAGNOSIS_FILE}"
 
 
+def _build_diagnosis_pdf(ctx: TaskContext) -> str:
+    """Phase 3 / S5：学情诊断报告 PDF——只排版统一诊断结果，不重算指标。"""
+    from backend.app.services.diagnosis_pdf import create_diagnosis_pdf
+
+    path = file_store.build_output_path(ctx.task_id, DIAGNOSIS_PDF_FILE)
+    create_diagnosis_pdf(ctx.params["diagnosis"], ctx.params.get("narration"), path)
+    ctx.add_artifact("学情诊断报告", DIAGNOSIS_PDF_FILE, path)
+    # §4.4：归因链 KP 与推荐题的 used_in 装配到 PDF
+    for c in ctx.params["diagnosis"]["chains"]:
+        for kp in c["path"]:
+            ctx.citations.annotate("kp", kp, f"{DIAGNOSIS_PDF_FILE}#归因链")
+    for group in ctx.params["diagnosis"]["recommendations"]:
+        for q in group["questions"]:
+            ctx.citations.annotate("question", q["q_id"], f"{DIAGNOSIS_PDF_FILE}#推荐练习")
+    return f"生成诊断报告 {DIAGNOSIS_PDF_FILE}"
+
+
 # 各工作流的剩余节点（① understand_task 之后）
 WORKFLOW_NODES = {
     "exam_loop": [
@@ -388,6 +406,7 @@ WORKFLOW_NODES = {
         ("compute_diagnosis", _compute_diagnosis),
         ("narrate_diagnosis", _narrate_diagnosis),
         ("write_diagnosis_json", _write_diagnosis_json),
+        ("build_diagnosis_pdf", _build_diagnosis_pdf),
     ],
 }
 

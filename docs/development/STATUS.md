@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-17（**Phase 3 S4 完成**：Trace + 成本真实采集（V5 迁移、逐次 usage、价格版本固化、重启回放、真实 Provider 验证四方对账一致），394 passed）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-17（**Phase 3 S5 完成**：诊断 PDF + 前端学情诊断页/运行观测页，真实演示班 PDF pypdf 实读核验 + 起服冒烟全过，400 passed；S6 待启动）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -148,6 +148,22 @@
 
 - 真实验证任务 `9213b5b1f55f` 留在库中作为可回放样例（产物 `04_诊断结果.json`）。
 - S4 完成；S5（报告 PDF 升级 + 前端观测页）未开始。
+
+### Phase 3 S5 诊断 PDF + 前端诊断/观测页（2026-11-17，已完成，待验收）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 诊断 PDF | ✅ `services/diagnosis_pdf.py::create_diagnosis_pdf`：**只排版统一诊断结果，零重算**；含数据范围/合成数据声明、四状态统计+明细（状态/掌握度/样本/主辅样本/aux_share）、归因链（路径/置信度/阻断/aux>0.5 警示/低置信提示/证据追溯 q_id↔角色↔考试）、推荐练习（root/target 分组、q_id/难度/来源/理由、放宽策略、候选不足如实）、叙述来源徽标（AI 叙述(LLM)/模板兜底）；STSong-Light 中文、长表 repeatRows 分页、Paragraph 换行、页脚页码 | 6 项 PDF 测试（pypdf 实读文本断言） |
+| 工作流 | ✅ class_diagnosis 增 `build_diagnosis_pdf` 节点 → 产物 `05_学情诊断报告.pdf`；引用 used_in 装配到 PDF（#归因链/#推荐练习） | S3 e2e 更新断言 |
+| 前端·学情分析页 | ✅ 班级下拉（/api/classes）→ 加载诊断（/api/diagnosis/class/{id}）：四状态卡、掌握度明细表（含 aux_share）、归因链卡片（路径/置信度徽标/阻断红色提示/aux>0.5 警示/证据追溯 details）、推荐分组（真实 q_id/难度/来源/放宽标注）、合成数据徽标；「生成诊断报告」→ POST report → 轮询 → 产物下载 + **叙述来源徽标**；前端零业务计算 | 起服冒烟 |
+| 前端·运行观测页 | ✅ 成本面板（/api/stats/cost：窗口汇总+按天，口径说明：仅 steps、标注批次不混入、NULL 不计入）；任务列表（/api/tasks：类型/状态/时间/步骤/模型调用/tokens/成本，库直读）；点击行 → Trace 详情（/api/tasks/{id}/trace）：totals+**成本可复算徽标**、逐节点状态/耗时/模型/usage 徽标、llm_calls 明细表（attempt/tokens/cache/usage_source/价格版本/时段单价/成本/延迟/错误）、tool 调用行；**NULL 显示「—/—(未返回)」不伪装 0**；历史任务（S4 前无 Trace）调用次数显示「—」 | 起服冒烟 |
+| API 修正 | ✅ 任务列表 `llm_call_count`：有 Trace 任务给真实计数（含 0）；S4 前历史任务无采集 → None（前端「—」），不以 0 冒充 | 冒烟实测三类任务 |
+| 真实演示验证 | ✅ 演示班跑 class_diagnosis（**模板兜底，0 次 LLM 调用、¥0**）：任务 `9985c8294461`，PDF 5 页 18.9KB，pypdf 实读核验 14 项全真（推荐 18 题 q_id、6 链 KP 名、掌握度 4 位小数、叙述来源、合成声明逐项在 PDF 文本中） | `diagnosis_demo_verification.md/.json` |
+| 起服冒烟 | ✅ uvicorn 8010：/ 200 含新 UI；/api/classes 200（真实演示班）；/api/diagnosis 200（6 链/6 推荐/82 mastery）；/api/tasks 200（29 任务）；/api/tasks/{id}/trace 200（recompute_ok=true、provider 明细）；/api/stats/cost 200；错误路径：trace-404 / diagnosis-422 / 无 token-401 | 冒烟实录 |
+| 测试 | ✅ **400 passed / 0 failed**（394 + 6 PDF） | 全量 pytest（2026-11-17） |
+| 未改冻结数据 | ✅ 题库/图谱/演示数据/S1-S4 口径零改动；未破坏既有工作流（exam_loop/lesson_plan 回归通过） | 全量回归 |
+
+- S5 完成；S6（10 例 GT + 关账）未开始，待用户验收。
 
 
 
@@ -621,7 +637,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 S4 完成，待验收**：Trace + 成本真实采集（V5 迁移、逐次 usage 记录、NULL 语义、价格版本固化、`/api/tasks`+`/trace`+`/stats/cost`、重启回放、真实 Provider 1 次调用四方对账一致），394 passed。用户验收 S4 后进入 S5（报告 PDF 升级 + 前端观测页）。
+1. **Phase 3 S5 完成，待验收**：诊断 PDF（pypdf 实读核验）+ 前端学情诊断页/运行观测页 + 真实演示班端到端（0 次 LLM 调用），400 passed。用户验收 S5 后进入 S6（10 例 GT 起草 → 用户冻结 Gold → 一致率评测 → 关账）。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
@@ -629,6 +645,6 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **394 用例**（Phase 2 收尾 311 + S0：前置图 8/清理 2/演示工作簿 4/学段守卫 17 + S1 掌握度 13 + S2 归因 12 + S3 推荐叙述 12 + S4 Trace 15），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **400 用例**（Phase 2 收尾 311 + S0：前置图 8/清理 2/演示工作簿 4/学段守卫 17 + S1 掌握度 13 + S2 归因 12 + S3 推荐叙述 12 + S4 Trace 15 + S5 诊断 PDF 6），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。⚠️ **杀本地起服进程用 `taskkill //F //PID <pid>`**（PID 从 `netstat -ano | grep :<port>` 取；MSYS pkill 与 `taskkill //IM uvicorn.exe` 均杀不掉原生 python 进程——2026-11-17 踩坑：旧进程占端口导致冒烟测到旧代码，须核对响应与新逻辑一致）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。

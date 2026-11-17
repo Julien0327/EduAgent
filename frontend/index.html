@@ -53,6 +53,9 @@
         </a>
 
         <div class="nav-group-label">系统</div>
+        <a class="nav-item" href="#observe">
+          <span class="nav-ic">◷</span><span>运行观测</span>
+        </a>
         <a class="nav-item" href="#settings">
           <span class="nav-ic">⚙</span><span>设置</span>
         </a>
@@ -127,8 +130,20 @@
       <section id="analysis" class="panel">
         <div class="panel-head">
           <h2>学情分析</h2>
-          <p class="panel-desc">任务完成后，班级表现、薄弱知识点与教学建议将在此汇总。</p>
+          <p class="panel-desc">班级诊断基于 F16 导入的考试数据（统一诊断服务，确定性计算）；任务完成后，班级表现与教学建议将在此汇总。</p>
         </div>
+
+        <!-- S5：班级诊断（数据全部来自 /api/diagnosis，前端不重复计算） -->
+        <div class="diag-panel">
+          <div class="diag-toolbar">
+            <select id="diag-class" class="diag-select" aria-label="选择班级"></select>
+            <button id="diag-load" class="btn-ghost" type="button">加载诊断</button>
+            <button id="diag-report" class="btn-ghost" type="button">生成诊断报告</button>
+            <span id="diag-status" class="diag-status"></span>
+          </div>
+          <div id="diag-content"></div>
+        </div>
+
         <div id="task-result" class="task-result"></div>
         <div id="task-artifacts" class="task-artifacts"></div>
       </section>
@@ -191,6 +206,28 @@
           <span class="empty-icon">◌</span>
           <p>暂无历史任务 · 完成一次任务后即可在此查看</p>
         </div>
+      </section>
+
+      <!-- 运行观测（Phase 3 / S5：Trace + 成本，数据来自 S4 真实 API） -->
+      <section id="observe" class="panel">
+        <div class="panel-head">
+          <h2>运行观测</h2>
+          <p class="panel-desc">任务 Trace 与成本观测。数据来自 tasks/steps 持久化（重启后历史可查）；成本范围：仅业务任务节点的 LLM 调用，标注批次费用独立台账、不混入；成本=真实 Token × 当时牌价（估算口径，价格版本随明细固化）。</p>
+        </div>
+        <div class="obs-toolbar">
+          <button id="obs-refresh" class="btn-ghost" type="button">刷新</button>
+          <label class="obs-days">统计窗口
+            <select id="obs-days">
+              <option value="7">近 7 天</option>
+              <option value="30" selected>近 30 天</option>
+              <option value="90">近 90 天</option>
+            </select>
+          </label>
+          <span id="obs-status" class="diag-status"></span>
+        </div>
+        <div id="obs-cost" class="obs-cost"></div>
+        <div id="obs-tasks" class="obs-tasks"></div>
+        <div id="obs-trace" class="obs-trace"></div>
       </section>
 
       <!-- 设置 / 系统 + AI 对话 -->

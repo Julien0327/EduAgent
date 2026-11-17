@@ -1644,3 +1644,80 @@ body {
   }
   html { scroll-behavior: auto; }
 }
+
+/* ===== Phase 3 / S5：班级诊断 + 运行观测 ===== */
+.diag-panel { margin-bottom: 18px; }
+.diag-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.diag-select {
+  padding: 7px 10px; border: 1px solid rgba(0,0,0,.14); border-radius: 8px;
+  background: #fff; font-size: 13px; max-width: 340px; color: #1d1d1f;
+}
+.diag-status { font-size: 12.5px; color: var(--muted); }
+.diag-status.diag-err, .diag-err { color: #dc2626; }
+.diag-scope { font-size: 13px; color: #374151; margin-bottom: 10px; }
+.demo-badge {
+  display: inline-block; background: #fef3c7; color: #92400e;
+  border: 1px solid #fcd34d; border-radius: 6px; padding: 1px 6px; font-size: 11.5px;
+}
+.diag-state-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0 16px; }
+.state-card { border-radius: 10px; padding: 10px 12px; text-align: center; border: 1px solid rgba(0,0,0,.08); background: #fafafa; }
+.state-card b { display: block; font-size: 22px; }
+.state-card span { font-size: 12px; color: var(--muted); }
+.state-card.st-weak b { color: #dc2626; }
+.state-card.st-insuf b { color: #d97706; }
+.state-card.st-normal b { color: #16a34a; }
+.state-card.st-nocov b { color: #6b7280; }
+.state-chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 11.5px; border: 1px solid transparent; white-space: nowrap; }
+.st-weak { color: #dc2626; background: #fee2e2; border-color: #fca5a5; }
+.st-insuf { color: #d97706; background: #fef3c7; border-color: #fcd34d; }
+.st-normal { color: #16a34a; background: #dcfce7; border-color: #86efac; }
+.st-nocov { color: #6b7280; background: #f3f4f6; border-color: #d1d5db; }
+.conf-chip { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 11.5px; margin-left: 6px; white-space: nowrap; }
+.conf-high { color: #16a34a; background: #dcfce7; }
+.conf-mid { color: #2563eb; background: #dbeafe; }
+.conf-low { color: #dc2626; background: #fee2e2; }
+.diag-h { font-size: 15px; margin: 18px 0 8px; }
+.diag-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 12px; }
+.diag-table th, .diag-table td { border: 1px solid rgba(0,0,0,.09); padding: 5px 8px; text-align: left; vertical-align: top; }
+.diag-table th { background: #f3f4f6; font-weight: 600; }
+.diag-table td.stem { max-width: 420px; }
+.chain-card { border: 1px solid rgba(0,0,0,.08); border-left: 4px solid #2563eb; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; background: #fff; }
+.chain-head { font-size: 14px; margin-bottom: 4px; }
+.chain-path { font-size: 13px; color: #374151; margin-bottom: 4px; }
+.chain-meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.diag-warn { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.diag-blocked { font-size: 12px; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.diag-note { font-size: 12px; color: var(--muted); margin: 4px 0; }
+.chain-ev summary, .nocov summary { cursor: pointer; font-size: 12.5px; color: #2563eb; }
+.chain-ev ul { margin: 6px 0 0 18px; font-size: 12px; color: #374151; }
+.rec-group { border: 1px solid rgba(0,0,0,.08); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
+.rec-head { font-size: 13.5px; margin-bottom: 4px; }
+.diag-report-result { border: 1px solid rgba(0,0,0,.08); border-radius: 10px; padding: 10px 14px; background: #f9fafb; }
+.diag-arts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.usage-badge { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 11px; border: 1px solid transparent; white-space: nowrap; }
+.badge-ok { color: #16a34a; background: #dcfce7; border-color: #86efac; }
+.badge-warn { color: #d97706; background: #fef3c7; border-color: #fcd34d; }
+.badge-bad { color: #dc2626; background: #fee2e2; border-color: #fca5a5; }
+.badge-muted { color: #6b7280; background: #f3f4f6; border-color: #d1d5db; }
+/* 运行观测 */
+.obs-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.obs-days { font-size: 13px; color: #374151; }
+.obs-days select { padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(0,0,0,.14); }
+.obs-cost { margin-bottom: 16px; }
+.obs-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 8px 0; }
+.obs-card { border: 1px solid rgba(0,0,0,.08); border-radius: 10px; background: #fafafa; padding: 10px; text-align: center; }
+.obs-card b { display: block; font-size: 17px; color: #111827; }
+.obs-card span { font-size: 11.5px; color: var(--muted); }
+.obs-note { font-size: 12px; color: var(--muted); margin: 6px 0 10px; }
+.obs-task-row { cursor: pointer; }
+.obs-task-row:hover { background: #eff6ff; }
+.trace-head { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: #374151; margin-bottom: 10px; align-items: center; }
+.trace-step { border: 1px solid rgba(0,0,0,.08); border-radius: 8px; margin-bottom: 6px; background: #fff; }
+.trace-step summary { cursor: pointer; padding: 8px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.trace-body { padding: 4px 12px 10px; border-top: 1px dashed rgba(0,0,0,.1); }
+.trace-calls { font-size: 11.5px; }
+.step-status { border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+@media (max-width: 900px) {
+  .diag-state-cards { grid-template-columns: repeat(2, 1fr); }
+  .obs-cards { grid-template-columns: repeat(2, 1fr); }
+}

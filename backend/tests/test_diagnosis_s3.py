@@ -291,17 +291,24 @@ def test_workflow_class_diagnosis_e2e(monkeypatch):
     ctx = wf.run_class_diagnosis_task(conn_id)
     assert ctx.status == "completed", ctx.error
     assert ctx.workflow == "class_diagnosis"
-    assert [a.file_name for a in ctx.artifacts] == ["04_诊断结果.json"]
+    assert [a.file_name for a in ctx.artifacts] == [
+        "04_诊断结果.json", "05_学情诊断报告.pdf"]
     path = Path(ctx.artifacts[0].path)
     assert path.exists()
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["diagnosis"]["chains"]
     assert payload["diagnosis"]["recommendations"]
     assert payload["narration"]["narration_source"] == "template"  # 无 Key → 兜底
-    # 引用账本：KP + 推荐题均已登记
+    # S5：PDF 产物存在且非空（内容级验证见 test_diagnosis_pdf.py）
+    pdf_path = Path(ctx.artifacts[1].path)
+    assert pdf_path.exists() and pdf_path.stat().st_size > 1000
+    # 引用账本：KP + 推荐题均已登记，且 used_in 装配到 JSON 与 PDF
     refs = ctx.citations
     assert refs.refs("kp")
     assert refs.refs("question")
+    dumped = json.dumps(refs.to_dict(), ensure_ascii=False)
+    assert "05_学情诊断报告.pdf#归因链" in dumped
+    assert "05_学情诊断报告.pdf#推荐练习" in dumped
 
 
 # ---------- API 集成（复用统一服务层） ----------

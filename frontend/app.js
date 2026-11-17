@@ -934,3 +934,403 @@ document.addEventListener("DOMContentLoaded", () => {
   if (bs) bs.addEventListener("click", showSessions);
   if (bc) bc.addEventListener("click", () => currentTaskId && showCitations(currentTaskId));
 });
+
+// ===== Phase 3 / S5：班级诊断（学情分析页） =====
+// 全部数据来自统一诊断服务 API（/api/classes、/api/diagnosis/class/{id}、
+// /api/diagnosis/class/{id}/report）；前端只做展示，不重复计算掌握度/归因/推荐。
+
+const STATE_META = {
+  normal: { label: "正常", cls: "st-normal" },
+  weak: { label: "薄弱", cls: "st-weak" },
+  insufficient: { label: "样本不足", cls: "st-insuf" },
+  no_coverage: { label: "无覆盖", cls: "st-nocov" },
+};
+const CONF_META = {
+  high: { label: "高", cls: "conf-high" },
+  mid: { label: "中", cls: "conf-mid" },
+  low: { label: "低", cls: "conf-low" },
+};
+const USAGE_META = {
+  provider: { label: "真实用量", cls: "badge-ok" },
+  partial: { label: "部分用量", cls: "badge-warn" },
+  unavailable: { label: "用量不可用", cls: "badge-bad" },
+  none: { label: "无模型调用", cls: "badge-muted" },
+  "n/a": { label: "—", cls: "badge-muted" },
+};
+const WORKFLOW_LABELS = {
+  exam_loop: "章节小测一条龙",
+  question_gen: "智能组卷",
+  lesson_plan: "教案生成",
+  class_diagnosis: "班级诊断",
+};
+const TASK_STATUS_LABELS = {
+  completed: "已完成", failed: "失败", running: "执行中", pending: "等待中",
+};
+
+async function fetchJSON(url, options) {
+  const resp = await fetch(url, Object.assign({ headers: apiHeaders() }, options || {}));
+  let data = {};
+  try { data = await resp.json(); } catch { data = {}; }
+  if (!resp.ok) {
+    const err = new Error(authErrorHint(resp.status, data.detail));
+    err.status = resp.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// NULL 不伪装为 0：用量不可用时 tokens/cost 为 null → 显示「—」
+function fmtNum(v) {
+  return v === null || v === undefined ? "—" : String(v);
+}
+function fmtCost(v) {
+  return v === null || v === undefined ? "—" : "¥" + Number(v).toFixed(6);
+}
+function fmtTok(v, source) {
+  if (v === null || v === undefined) {
+    return source === "unavailable" ? "—(未返回)" : "—";
+  }
+  return String(v);
+}
+function stateChip(st) {
+  const m = STATE_META[st] || { label: st || "—", cls: "st-nocov" };
+  return `<span class="state-chip ${m.cls}">${escapeHtml(m.label)}</span>`;
+}
+function confChip(c) {
+  const m = CONF_META[c] || { label: c || "—", cls: "conf-mid" };
+  return `<span class="conf-chip ${m.cls}">置信度：${escapeHtml(m.label)}</span>`;
+}
+function usageChip(u) {
+  const m = USAGE_META[u] || { label: u || "—", cls: "badge-muted" };
+  return `<span class="usage-badge ${m.cls}">${escapeHtml(m.label)}</span>`;
+}
+
+function setDiagStatus(msg, isErr) {
+  const el = $("diag-status");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "diag-status" + (isErr ? " diag-err" : "");
+}
+
+async function initDiagClasses() {
+  const sel = $("diag-class");
+  if (!sel) return;
+  try {
+    const classes = await fetchJSON("/api/classes");
+    sel.innerHTML = "";
+    if (!classes.length) {
+      sel.innerHTML = '<option value="">（暂无导入班级）</option>';
+      setDiagStatus("暂无导入班级数据：请先通过 F16 导入班级/考试/答题数据", true);
+      return;
+    }
+    for (const c of classes) {
+      const opt = document.createElement("option");
+      opt.value = c.class_id;
+      opt.textContent = `${c.name}（${c.grade}年级 · ${c.students}学生 · ${c.exams}考试 · ${c.questions}题）`;
+      sel.appendChild(opt);
+    }
+    setDiagStatus("");
+  } catch (err) {
+    setDiagStatus(err.message, true);
+  }
+}
+
+async function loadDiagnosis() {
+  const classId = $("diag-class").value;
+  const box = $("diag-content");
+  if (!classId) { setDiagStatus("请先选择班级", true); return; }
+  box.innerHTML = '<p class="muted">诊断计算中…（确定性规则，不调用 LLM）</p>';
+  setDiagStatus("加载中…");
+  try {
+    const d = await fetchJSON(`/api/diagnosis/class/${encodeURIComponent(classId)}`);
+    renderDiagnosis(d, box);
+    setDiagStatus("诊断完成（数据来自统一诊断服务）");
+  } catch (err) {
+    box.innerHTML = `<p class="diag-err">${escapeHtml(err.message)}</p>`;
+    setDiagStatus(err.message, true);
+  }
+}
+
+function renderDiagnosis(d, box) {
+  const mastery = d.mastery || {};
+  const kps = Object.values(mastery);
+  const counts = { normal: 0, weak: 0, insufficient: 0, no_coverage: 0 };
+  for (const m of kps) counts[m.state] = (counts[m.state] || 0) + 1;
+  const scope = d.data_scope || {};
+  const cls = d.class || {};
+  const isDemo = String(cls.school || "").includes("演示") || String(cls.name || "").includes("演示");
+  const kpName = (id) => (d.kp_names || {})[id] || id;
+
+  let html = "";
+  html += `<div class="diag-scope">数据范围：${fmtNum(scope.exam_count)} 场考试 · ${fmtNum(scope.question_count)} 道题 · ${fmtNum(scope.student_count)} 名学生 · ${fmtNum(scope.answer_count)} 条答题 · 覆盖 ${fmtNum(scope.kp_covered_count)} 个知识点${isDemo ? ' <span class="demo-badge">合成演示数据（非真实学生）</span>' : ""}</div>`;
+
+  html += `<div class="diag-state-cards">
+    <div class="state-card st-weak"><b>${counts.weak}</b><span>薄弱</span></div>
+    <div class="state-card st-insuf"><b>${counts.insufficient}</b><span>样本不足</span></div>
+    <div class="state-card st-normal"><b>${counts.normal}</b><span>正常</span></div>
+    <div class="state-card st-nocov"><b>${counts.no_coverage}</b><span>无覆盖</span></div>
+  </div>`;
+
+  // 归因链
+  html += `<h3 class="diag-h">根因归因链（${(d.chains || []).length}）</h3>`;
+  if (!(d.chains || []).length) {
+    html += `<p class="muted">无——本班未发现样本充足的薄弱知识点。</p>`;
+  }
+  for (const c of d.chains || []) {
+    const auxWarn = c.target_aux_share !== null && c.target_aux_share !== undefined && c.target_aux_share > 0.5
+      ? `<div class="diag-warn">辅助证据占比 ${Number(c.target_aux_share).toFixed(3)} &gt; 0.5——薄弱判定主要由辅助证据驱动，建议补充主知识点测评后再下结论。</div>` : "";
+    const lowNote = c.confidence === "low"
+      ? `<div class="diag-warn">低置信度结论：存在阻断前置 / 分支冲突 / 辅助证据主导 / 样本临界，请结合课堂观察使用，不作为确定性结论。</div>` : "";
+    const blocked = (c.blocked_prereq_names || []).length
+      ? `<div class="diag-blocked">阻断前置（证据不足，未猜测根因）：${escapeHtml(c.blocked_prereq_names.join("、"))}</div>` : "";
+    const evRows = (c.evidence || []).map((e) =>
+      `<li><code>${escapeHtml(e.q_id)}</code>［${e.role === "primary" ? "主" : "辅"}］考试${escapeHtml(e.exam_label)}#${fmtNum(e.q_no)}</li>`).join("");
+    html += `<div class="chain-card">
+      <div class="chain-head"><b>${escapeHtml(c.target_name || c.target_kp)}</b> ← 根因：<b>${escapeHtml(c.root_name || c.root_kp)}</b> ${confChip(c.confidence)} ${c.conflict ? '<span class="conf-chip conf-low">多根因并存</span>' : ""}</div>
+      <div class="chain-path">前置路径：${(c.path_names || []).map(escapeHtml).join(" → ")}</div>
+      <div class="chain-meta">目标掌握度 ${fmtNum(c.target_mastery)} · 路径最小样本 ${fmtNum(c.min_samples)}</div>
+      ${auxWarn}${lowNote}${blocked}
+      <details class="chain-ev"><summary>证据追溯（${(c.evidence || []).length} 条：题目 ↔ 主/辅角色 ↔ 考试）</summary><ul>${evRows}</ul></details>
+    </div>`;
+  }
+
+  // 掌握度明细（展示排序：薄弱 → 样本不足 → 正常；组内按掌握度升序）
+  html += `<h3 class="diag-h">知识点掌握度明细（覆盖 ${kps.filter((m) => m.state !== "no_coverage").length} 个）</h3>`;
+  const order = { weak: 0, insufficient: 1, normal: 2, no_coverage: 3 };
+  const covered = kps.filter((m) => m.state !== "no_coverage")
+    .sort((a, b) => (order[a.state] - order[b.state]) || ((a.mastery ?? 9) - (b.mastery ?? 9)));
+  html += `<table class="diag-table"><thead><tr><th>知识点</th><th>状态</th><th>掌握度</th><th>样本数</th><th>主/辅样本</th><th>辅助证据占比</th></tr></thead><tbody>`;
+  for (const m of covered) {
+    html += `<tr><td>${escapeHtml(kpName(m.kp_id))}</td><td>${stateChip(m.state)}</td><td>${fmtNum(m.mastery)}</td><td>${fmtNum(m.sample_count)}</td><td>${fmtNum(m.primary_sample_count)}/${fmtNum(m.aux_sample_count)}</td><td>${fmtNum(m.aux_share)}</td></tr>`;
+  }
+  html += `</tbody></table>`;
+  if (counts.no_coverage) {
+    const nocov = kps.filter((m) => m.state === "no_coverage").map((m) => kpName(m.kp_id));
+    html += `<details class="nocov"><summary>无覆盖知识点 ${counts.no_coverage} 个（本班考试未涉及，不输出任何结论）</summary><p class="muted">${escapeHtml(nocov.join("、"))}</p></details>`;
+  }
+
+  // 推荐练习
+  html += `<h3 class="diag-h">推荐练习（真实题库）</h3>`;
+  const recs = d.recommendations || [];
+  if (!recs.length) html += `<p class="muted">无推荐（未发现可归因的薄弱知识点）。</p>`;
+  for (const g of recs) {
+    const roleLabel = g.role === "root" ? "根因巩固" : "目标针对性";
+    const relax = g.relaxation
+      ? `<div class="diag-note">放宽策略：${escapeHtml(g.relaxation.reason || "")}（采用：${escapeHtml(g.relaxation.final_strategy || "")}）</div>` : "";
+    const qRows = (g.questions || []).map((q) =>
+      `<tr><td><code>${escapeHtml(q.q_id)}</code>${q.completed ? ' <span class="demo-badge">已完成</span>' : ""}</td><td>${fmtNum(q.difficulty)}</td><td>${escapeHtml(q.source || "unknown")}</td><td class="stem">${escapeHtml((q.stem || "").slice(0, 60))}</td></tr>`).join("");
+    html += `<div class="rec-group">
+      <div class="rec-head">【${roleLabel}】${escapeHtml(g.kp_name || g.kp_id)}
+        <span class="muted">掌握度 ${fmtNum(g.mastery)} · 难度带 ${g.difficulty_range ? g.difficulty_range[0] + "-" + g.difficulty_range[1] : "—"} · 候选 ${fmtNum(g.candidate_count)} · ${confChip(g.confidence)}</span></div>
+      ${relax}
+      ${qRows ? `<table class="diag-table"><thead><tr><th>题目 ID</th><th>难度</th><th>来源</th><th>题干</th></tr></thead><tbody>${qRows}</tbody></table>` : '<p class="muted">题库候选不足，未推荐题目（如实报告，不以编题补齐）。</p>'}
+    </div>`;
+  }
+
+  // 叙述区（报告任务完成后填充）
+  html += `<h3 class="diag-h">诊断叙述</h3><div id="diag-narration"><p class="muted">叙述在「生成诊断报告」任务中产出（LLM 仅解释确定性结果；失败时模板兜底，来源将明确标注）。</p></div>`;
+
+  box.innerHTML = html;
+}
+
+async function generateDiagReport() {
+  const classId = $("diag-class").value;
+  if (!classId) { setDiagStatus("请先选择班级", true); return; }
+  setDiagStatus("报告任务已提交，执行中…");
+  try {
+    const resp = await fetch(`/api/diagnosis/class/${encodeURIComponent(classId)}/report`, {
+      method: "POST", headers: apiHeaders(),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(authErrorHint(resp.status, data.detail));
+    if (data.scope_notice) { setDiagStatus(data.scope_notice, true); return; }
+    pollDiagTask(data.task_id);
+  } catch (err) {
+    setDiagStatus("提交失败：" + err.message, true);
+  }
+}
+
+function pollDiagTask(taskId, tries) {
+  tries = tries || 0;
+  if (!taskId) return;
+  fetchJSON(`/api/tasks/${encodeURIComponent(taskId)}`).then((snap) => {
+    if (snap.status === "completed") {
+      setDiagStatus("报告已生成");
+      renderDiagReportResult(taskId, snap);
+      loadObserve();  // 观测页同步刷新（新任务含真实 Trace）
+    } else if (snap.status === "failed") {
+      setDiagStatus("报告任务失败：" + (snap.error || "未知错误"), true);
+    } else if (tries < 60) {
+      setTimeout(() => pollDiagTask(taskId, tries + 1), 2000);
+    } else {
+      setDiagStatus("报告任务超时，请稍后在「运行观测」页查看", true);
+    }
+  }).catch((err) => setDiagStatus("查询任务失败：" + err.message, true));
+}
+
+async function renderDiagReportResult(taskId, snap) {
+  const box = $("diag-narration");
+  if (!box) return;
+  const arts = (snap.artifacts || []).map((a) =>
+    `<a class="artifact-btn" href="${escapeHtml(sseUrl(`/api/tasks/${taskId}/files/${encodeURIComponent(a.file_name)}`))}">下载 ${escapeHtml(a.name)}（${escapeHtml(a.file_name)}）</a>`).join(" ");
+  let html = `<div class="diag-report-result"><div class="diag-arts">${arts}</div>`;
+  try {
+    const payload = await fetchJSON(`/api/tasks/${taskId}/files/${encodeURIComponent("04_诊断结果.json")}?inline=true`);
+    const n = payload.narration || {};
+    const srcBadge = n.narration_source === "llm"
+      ? '<span class="usage-badge badge-ok">AI 叙述（LLM 生成，仅解释性文字）</span>'
+      : '<span class="usage-badge badge-muted">模板兜底（未调用 LLM 或调用失败）</span>';
+    html += `<h4 class="diag-h">叙述 ${srcBadge}</h4>` +
+      `<p>${escapeHtml(n.summary || "")}</p>` +
+      `<p>${escapeHtml(n.diagnosis || "").replace(/\n/g, "<br>")}</p><ul>` +
+      (n.suggestions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("") + "</ul>" +
+      `<p class="muted">事实数值（掌握度/根因/推荐）均以确定性计算为准，见上方各节。</p>`;
+  } catch (err) {
+    html += `<p class="diag-err">读取叙述失败：${escapeHtml(err.message)}</p>`;
+  }
+  html += "</div>";
+  box.innerHTML = html;
+}
+
+// ===== Phase 3 / S5：运行观测页（数据来自 S4 真实 API） =====
+
+function setObsStatus(msg, isErr) {
+  const el = $("obs-status");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "diag-status" + (isErr ? " diag-err" : "");
+}
+
+async function loadObserve() {
+  if (!$("obs-cost")) return;
+  const days = $("obs-days") ? $("obs-days").value : 30;
+  setObsStatus("加载中…");
+  try {
+    const [cost, tasks] = await Promise.all([
+      fetchJSON(`/api/stats/cost?days=${days}`),
+      fetchJSON(`/api/tasks?limit=50`),
+    ]);
+    renderCostPanel(cost);
+    renderTaskList(tasks);
+    setObsStatus(`已加载（${new Date().toLocaleTimeString()}）`);
+  } catch (err) {
+    setObsStatus(err.message, true);
+    renderCostPanel(null);
+    renderTaskList(null);
+  }
+}
+
+function renderCostPanel(c) {
+  const box = $("obs-cost");
+  if (!c) { box.innerHTML = '<p class="diag-err">成本数据加载失败（检查 Token / 服务状态）</p>'; return; }
+  const t = c.totals || {};
+  const rows = (c.by_day || []).map((r) =>
+    `<tr><td>${escapeHtml(r.day || "—")}</td><td>${fmtNum(r.tasks)}</td><td>${fmtNum(r.steps)}</td><td>${fmtTok(r.tokens_in)} / ${fmtTok(r.tokens_out)}</td><td>${fmtCost(r.cost_cny)}</td></tr>`).join("");
+  box.innerHTML = `
+    <div class="obs-cards">
+      <div class="obs-card"><b>${fmtNum(t.steps)}</b><span>步骤数（窗口内）</span></div>
+      <div class="obs-card"><b>${fmtTok(t.tokens_in)}</b><span>输入 Tokens</span></div>
+      <div class="obs-card"><b>${fmtTok(t.tokens_out)}</b><span>输出 Tokens</span></div>
+      <div class="obs-card"><b>${fmtCost(t.cost_cny)}</b><span>成本（牌价估算）</span></div>
+      <div class="obs-card"><b>${fmtNum(t.steps_usage_unavailable)}</b><span>用量不可用步骤</span></div>
+    </div>
+    <div class="obs-note">口径：仅业务任务节点（steps 表）；标注批次费用在独立台账、不混入；cost=NULL（供应商未返回 usage）不计入汇总、不以 0 冒充。窗口起点 ${escapeHtml(c.cutoff || "—")}。</div>
+    ${rows ? `<table class="diag-table"><thead><tr><th>日期</th><th>任务数</th><th>步骤</th><th>Tokens in/out</th><th>成本</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="muted">窗口内无执行记录。</p>'}`;
+}
+
+function renderTaskList(t) {
+  const box = $("obs-tasks");
+  if (!t) { box.innerHTML = '<p class="diag-err">任务列表加载失败（检查 Token / 服务状态）</p>'; return; }
+  const tasks = t.tasks || [];
+  if (!tasks.length) { box.innerHTML = '<p class="muted">暂无任务。</p>'; return; }
+  box.innerHTML = `<h3 class="diag-h">任务列表（共 ${fmtNum(t.total)}，库直读，重启后可查）</h3>
+  <table class="diag-table obs-task-table"><thead><tr><th>任务</th><th>类型</th><th>状态</th><th>创建时间</th><th>步骤</th><th>模型调用</th><th>Tokens in/out</th><th>成本</th></tr></thead><tbody>
+  ${tasks.map((x) => `<tr data-tid="${escapeHtml(x.task_id)}" class="obs-task-row">
+      <td class="stem" title="${escapeHtml(x.prompt || "")}">${escapeHtml((x.prompt || "").slice(0, 24))}</td>
+      <td>${escapeHtml(WORKFLOW_LABELS[x.workflow] || x.workflow || "—")}</td>
+      <td>${escapeHtml(TASK_STATUS_LABELS[x.status] || x.status || "—")}</td>
+      <td>${escapeHtml(x.created_at || "—")}</td>
+      <td>${fmtNum(x.step_count)}</td>
+      <td>${fmtNum(x.llm_call_count)}</td>
+      <td>${fmtTok(x.tokens_in)} / ${fmtTok(x.tokens_out)}</td>
+      <td>${fmtCost(x.cost)}</td>
+    </tr>`).join("")}
+  </tbody></table>`;
+  box.querySelectorAll(".obs-task-row").forEach((tr) =>
+    tr.addEventListener("click", () => loadTrace(tr.dataset.tid)));
+}
+
+async function loadTrace(taskId) {
+  const box = $("obs-trace");
+  if (!box) return;
+  box.innerHTML = '<p class="muted">加载 Trace…</p>';
+  try {
+    const d = await fetchJSON(`/api/tasks/${encodeURIComponent(taskId)}/trace`);
+    renderTrace(d, box);
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    box.innerHTML = `<p class="diag-err">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderTrace(d, box) {
+  const tr = d.trace || {};
+  const tot = tr.totals || {};
+  const steps = tr.steps || [];
+  let html = `<h3 class="diag-h">任务 Trace：${escapeHtml(d.task_id || "")}</h3>
+  <div class="trace-head">
+    <span>类型：${escapeHtml(WORKFLOW_LABELS[d.workflow] || d.workflow || "—")}</span>
+    <span>状态：${escapeHtml(TASK_STATUS_LABELS[d.status] || d.status || "—")}</span>
+    <span>创建：${escapeHtml(d.created_at || "—")}</span>
+    <span>步骤 ${fmtNum(tot.step_count)} · LLM 调用 ${fmtNum(tot.llm_call_count)} · 工具调用 ${fmtNum(tot.tool_call_count)}</span>
+    <span>Tokens ${fmtTok(tot.tokens_in)} / ${fmtTok(tot.tokens_out)}</span>
+    <span>成本 ${fmtCost(tot.cost_cny)}</span>
+    <span class="usage-badge ${tr.cost_recompute_ok ? "badge-ok" : "badge-bad"}">${tr.cost_recompute_ok ? "成本可复算 ✓（Σ明细=Σ步骤）" : "复算不一致 ⚠"}</span>
+  </div>`;
+  if (d.error) html += `<div class="diag-blocked">任务错误：${escapeHtml(d.error)}</div>`;
+  for (const s of steps) {
+    const calls = s.llm_calls || [];
+    const callRows = calls.map((c) => {
+      if (c.kind === "tool") {
+        return `<tr><td>tool</td><td>—</td><td>${escapeHtml(c.tool || "")}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>${fmtNum(c.latency_ms)}ms</td><td class="diag-err">${escapeHtml(c.error || "")}</td></tr>`;
+      }
+      return `<tr><td>llm</td><td>${fmtNum(c.attempt)}</td><td>${escapeHtml(c.tool || "—")}</td><td>${escapeHtml(c.model || "—")}</td><td>${fmtTok(c.tokens_in, c.usage_source)} / ${fmtTok(c.tokens_out, c.usage_source)}</td><td>${usageChip(c.usage_source)}</td><td>${escapeHtml(c.price_version || "—")}</td><td>${escapeHtml(c.price_period || "—")}${c.unit_price ? " · " + escapeHtml(JSON.stringify(c.unit_price)) : ""}</td><td>${fmtCost(c.cost_cny)} / ${fmtNum(c.latency_ms)}ms</td><td class="diag-err">${escapeHtml(c.error || "")}</td></tr>`;
+    }).join("");
+    const stCls = s.status === "done" ? "st-normal" : (s.status === "failed" ? "st-weak" : "st-insuf");
+    html += `<details class="trace-step"${s.status === "failed" ? " open" : ""}>
+      <summary>
+        <b>#${fmtNum(s.step_no)} ${escapeHtml(s.node)}</b>
+        <span class="state-chip ${stCls}">${escapeHtml(s.status)}</span>
+        <span class="muted">${fmtNum(s.latency_ms)}ms</span>
+        ${s.llm_model ? `<span class="muted">${escapeHtml(s.llm_model)}</span>` : ""}
+        ${usageChip(s.usage_source)}
+        <span class="muted">tokens ${fmtTok(s.tokens_in, s.usage_source)}/${fmtTok(s.tokens_out, s.usage_source)} · cost ${fmtCost(s.cost)}</span>
+      </summary>
+      <div class="trace-body">
+        ${s.output_summary ? `<div class="muted">输出：${escapeHtml(s.output_summary)}</div>` : ""}
+        ${s.error ? `<div class="diag-err">错误：${escapeHtml(s.error)}</div>` : ""}
+        <div class="muted">开始 ${escapeHtml(s.started_at || "—")} · 结束 ${escapeHtml(s.ended_at || "—")}</div>
+        ${callRows ? `<table class="diag-table trace-calls"><thead><tr><th>类型</th><th>次</th><th>工具</th><th>模型</th><th>tokens in/out</th><th>用量来源</th><th>价格版本</th><th>时段·单价(元/1M)</th><th>成本/延迟</th><th>错误</th></tr></thead><tbody>${callRows}</tbody></table>` : '<p class="muted">本节点无模型/工具调用记录。</p>'}
+      </div>
+    </details>`;
+  }
+  box.innerHTML = html;
+}
+
+function initDiagnosis() {
+  const load = $("diag-load"), rep = $("diag-report");
+  if (load) load.addEventListener("click", loadDiagnosis);
+  if (rep) rep.addEventListener("click", generateDiagReport);
+  initDiagClasses();
+}
+
+function initObserve() {
+  const btn = $("obs-refresh"), sel = $("obs-days");
+  if (btn) btn.addEventListener("click", loadObserve);
+  if (sel) sel.addEventListener("change", loadObserve);
+  loadObserve();
+}
+
+initDiagnosis();
+initObserve();
