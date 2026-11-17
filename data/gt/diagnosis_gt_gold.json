@@ -1,0 +1,296 @@
+{
+  "meta": {
+    "title": "Phase 3 S6 归因一致性 Gold（10 例）",
+    "lam": 0.5,
+    "weak_threshold": 0.6,
+    "prereq_fail_threshold": 0.7,
+    "insufficient_samples": 3,
+    "recency": "最近一场考试=2，其余=1",
+    "metric": "单例全部断言通过=一致；根因一致率 = 一致例数/10，目标 ≥ 80%（=10 例中 ≥8）",
+    "frozen_by": "用户 2026-11-17 冻结（6 条修订已纳入，不再修改）",
+    "independence": "每例独立内存 SQLite（合成角色映射 fixture，不读生产映射文件 primary_demo_mapping.jsonl）；合成数据与运行产物仅在 data/staging/",
+    "gold_location": "本文件入 Git（data/gt/），评估器 backend/scripts/eval_diagnosis.py 入 Git"
+  },
+  "cases": [
+    {
+      "case_id": "GT-01",
+      "scenario": "直接前置失败 → 根因前置",
+      "note": "A(0.55<0.7) 为 B(0.50) 前置且失败，根因=A；路径全节点样本≥5、无阻断/冲突/aux 超过 0.5 → high",
+      "kps": { "A": "前置A", "B": "目标B" },
+      "edges": [["A", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 8, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 9, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 10, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "B", "root": "A" },
+          { "type": "path", "target": "B", "path": ["A", "B"] },
+          { "type": "confidence", "target": "B", "value": "high" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-02",
+      "scenario": "两跳链 → 最深失败节点为根因",
+      "note": "A→C→B；A(0.45)<C(0.50)<B(0.40) 全弱，最深失败 A 为根因；样本≥5 → high",
+      "kps": { "A": "前置A", "C": "中级C", "B": "目标B" },
+      "edges": [["A", "C"], ["C", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.45, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.45, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.45, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "A", "score": 100, "rate": 0.45, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "A", "score": 100, "rate": 0.45, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "C", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "C", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 8, "kp": "C", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 9, "kp": "C", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 10, "kp": "C", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 11, "kp": "B", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex1", "q_no": 12, "kp": "B", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex1", "q_no": 13, "kp": "B", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex1", "q_no": 14, "kp": "B", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex1", "q_no": 15, "kp": "B", "score": 100, "rate": 0.40, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "B", "root": "A" },
+          { "type": "path", "target": "B", "path": ["A", "C", "B"] },
+          { "type": "confidence", "target": "B", "value": "high" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-03",
+      "scenario": "多分支并列失败 → 冲突保留、根因取低掌握度",
+      "note": "A1(0.60)、A2(0.55) 同为 B 前置且同深失败 → root_candidates={A1,A2}、conflict=true、主 root 按既有排序 =A2（低掌握度）→ low",
+      "kps": { "A1": "前置分支一", "A2": "前置分支二", "B": "目标B" },
+      "edges": [["A1", "B"], ["A2", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A1", "score": 100, "rate": 0.60, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A1", "score": 100, "rate": 0.60, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A1", "score": 100, "rate": 0.60, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "A1", "score": 100, "rate": 0.60, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "A1", "score": 100, "rate": 0.60, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "A2", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "A2", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 8, "kp": "A2", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 9, "kp": "A2", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 10, "kp": "A2", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 11, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 12, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 13, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 14, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 15, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "candidates", "target": "B", "set": ["A1", "A2"], "conflict": true, "root": "A2" },
+          { "type": "confidence", "target": "B", "value": "low" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-04",
+      "scenario": "前置全好 → 目标自身为根因",
+      "note": "A(0.85≥0.7) 健康不失败，B(0.50) 弱 → 根因=B 自身；样本≥5 无降级 → high",
+      "kps": { "A": "前置A", "B": "目标B" },
+      "edges": [["A", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.85, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.85, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.85, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "A", "score": 100, "rate": 0.85, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "A", "score": 100, "rate": 0.85, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 8, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 9, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 10, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "B", "root": "B" },
+          { "type": "path", "target": "B", "path": ["B"] },
+          { "type": "confidence", "target": "B", "value": "high" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-05",
+      "scenario": "前置证据不足 → 阻断 + low",
+      "note": "A 样本2（insufficient）→ 阻断不猜测；B(0.50) 弱 → root=B，blocked=[A]，low",
+      "kps": { "A": "前置A", "B": "目标B" },
+      "edges": [["A", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.30, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.30, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "B", "root": "B" },
+          { "type": "blocked", "target": "B", "set": ["A"] },
+          { "type": "confidence", "target": "B", "value": "low" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-06",
+      "scenario": "目标证据不足 → 不出链",
+      "note": "B 样本2（insufficient）非 weak → 目标不出链；A(0.55 样本3) 弱但无前置 → 自身根因链",
+      "kps": { "A": "前置A", "B": "目标B" },
+      "edges": [["A", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "no_chain", "target": "B" },
+          { "type": "root", "target": "A", "root": "A" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-07",
+      "scenario": "无覆盖目标不出链；孤立弱节点自身根因",
+      "note": "B 无任何题目映射（no_coverage）→ 不出链；已有 A(0.55)→A 自身链；W=0.50 样本数5 孤立 → 自身根因 high（用户修订）",
+      "kps": { "A": "前置A", "B": "无覆盖B", "W": "孤立弱W" },
+      "edges": [["A", "B"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "W", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "W", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "W", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 7, "kp": "W", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 8, "kp": "W", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "no_chain", "target": "B" },
+          { "type": "root", "target": "W", "root": "W" },
+          { "type": "confidence", "target": "W", "value": "high" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-08",
+      "scenario": "近期权重翻转根因",
+      "note": "P1：旧卷0.90×2题 + 近期0.58×2题 → 2:1 下 P1=0.6867(<0.7) 失败；取消近期权重(1:1) P1=0.74(≥0.7) 健康。P2=0.65、T=0.40（用户修订）。当前算法（近期2:1）rooot=P1；若 P1 健康则根因 P2 —— 近期权重使根因从 P2 翻转到 P1。P1 样本4/P2 3/T 3 → min样品3 → low",
+      "kps": { "P1": "近期翻转前置一", "P2": "前置二", "T": "目标T" },
+      "edges": [["P1", "P2"], ["P2", "T"]],
+      "exams": [
+        { "id": "ex1", "date": "2026-09-01" },
+        { "id": "ex2", "date": "2026-11-10" }
+      ],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "P1", "score": 100, "rate": 0.90, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "P1", "score": 100, "rate": 0.90, "role": "primary" },
+        { "exam": "ex2", "q_no": 1, "kp": "P1", "score": 100, "rate": 0.58, "role": "primary" },
+        { "exam": "ex2", "q_no": 2, "kp": "P1", "score": 100, "rate": 0.58, "role": "primary" },
+        { "exam": "ex2", "q_no": 3, "kp": "P2", "score": 100, "rate": 0.65, "role": "primary" },
+        { "exam": "ex2", "q_no": 4, "kp": "P2", "score": 100, "rate": 0.65, "role": "primary" },
+        { "exam": "ex2", "q_no": 5, "kp": "P2", "score": 100, "rate": 0.65, "role": "primary" },
+        { "exam": "ex2", "q_no": 6, "kp": "T", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex2", "q_no": 7, "kp": "T", "score": 100, "rate": 0.40, "role": "primary" },
+        { "exam": "ex2", "q_no": 8, "kp": "T", "score": 100, "rate": 0.40, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "T", "root": "P1" },
+          { "type": "path", "target": "T", "path": ["P1", "P2", "T"] },
+          { "type": "confidence", "target": "T", "value": "low" },
+          { "type": "mastery", "kp": "P1", "expected": 0.6867, "tol": 0.0001 },
+          { "type": "mastery_unweighted", "kp": "P1", "expected": 0.74, "tol": 0.0001 },
+          { "type": "root_unweighted", "target": "T", "root": "P2" }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-09",
+      "scenario": "辅助权重改变薄弱判定",
+      "note": "T 孤立：2 道主证据(0.80) + 4 道辅证据(0.00)，λ=0.5 → mastery=(2×0.80)/(2+4×0.5)=1.6/4=0.40 weak；primary_only=0.80(≥0.6)；λ=0 则 normal、λ=0.5 变 weak（辅助证据把其拖弱）；aux_share=2/4=0.50；样本6、无降级 → high",
+      "kps": { "T": "弱目标T" },
+      "edges": [],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "T", "score": 100, "rate": 0.80, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "T", "score": 100, "rate": 0.80, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "T", "score": 100, "rate": 0.00, "role": "aux" },
+        { "exam": "ex1", "q_no": 4, "kp": "T", "score": 100, "rate": 0.00, "role": "aux" },
+        { "exam": "ex1", "q_no": 5, "kp": "T", "score": 100, "rate": 0.00, "role": "aux" },
+        { "exam": "ex1", "q_no": 6, "kp": "T", "score": 100, "rate": 0.00, "role": "aux" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "root", "target": "T", "root": "T" },
+          { "type": "confidence", "target": "T", "value": "high" },
+          { "type": "mastery", "kp": "T", "expected": 0.40, "tol": 0.0001 },
+          { "type": "primary_mastery_min", "kp": "T", "min": 0.6 },
+          { "type": "aux_share", "kp": "T", "expected": 0.5, "tol": 0.0001 }
+        ]
+      }
+    },
+    {
+      "case_id": "GT-10",
+      "scenario": "环保护（A↔B）",
+      "note": "A→B、B→A 成环；detect_cycles 非空；visited 保护不无限递归：目标 A → 根因 B（深度1），目标 B → 根因 A；每条链 min样品3 → low",
+      "kps": { "A": "环节点A", "B": "环节点B" },
+      "edges": [["A", "B"], ["B", "A"]],
+      "exams": [{ "id": "ex1", "date": "2026-09-01" }],
+      "students": 20,
+      "questions": [
+        { "exam": "ex1", "q_no": 1, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 2, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 3, "kp": "A", "score": 100, "rate": 0.55, "role": "primary" },
+        { "exam": "ex1", "q_no": 4, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 5, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" },
+        { "exam": "ex1", "q_no": 6, "kp": "B", "score": 100, "rate": 0.50, "role": "primary" }
+      ],
+      "gold": {
+        "cases": [
+          { "type": "cycles" },
+          { "type": "root", "target": "A", "root": "B" },
+          { "type": "root", "target": "B", "root": "A" },
+          { "type": "confidence", "target": "A", "value": "low" },
+          { "type": "confidence", "target": "B", "value": "low" }
+        ]
+      }
+    }
+  ]
+}
