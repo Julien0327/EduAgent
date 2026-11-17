@@ -397,19 +397,49 @@ def _run_node(ctx: TaskContext, name: str, fn) -> None:
     step = ctx.add_step(name)
     log.info("节点开始：%s", name)
     ctx.push_event({"type": "step", "node": name, "status": STEP_RUNNING, "message": ""})
+    # §6.1 Trace 采集：节点前后包裹；采集失败只告警不阻断任务
+    from backend.app.tracing import collector as tracing
+    from datetime import datetime, timezone
+
+    col = None
+    t0 = time.perf_counter()
+    step.started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        col = tracing.begin_node(ctx.task_id, name)
+    except Exception:
+        log.exception("Trace begin_node 失败（不影响执行）")
     try:
         message = fn(ctx)
         step.status = STEP_DONE
         step.message = message or "完成"
         log.info("节点完成：%s → %s", name, step.message)
-        ctx.push_event({"type": "step", "node": name, "status": STEP_DONE, "message": step.message})
     except Exception as exc:
         step.status = STEP_FAILED
         step.message = str(exc)
         log.error("节点失败：%s → %s", name, exc, exc_info=True)
-        ctx.push_event({"type": "step", "node": name, "status": STEP_FAILED, "message": step.message})
         raise
     finally:
+        # 聚合本节点的 LLM 调用明细 → StepRecord（tokens/cost 缺失保留 NULL）
+        step.ended_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        step.latency_ms = int((time.perf_counter() - t0) * 1000)
+        try:
+            ended = tracing.end_node()
+            agg = tracing.aggregate(ended if ended is not None else col)
+            step.tokens_in = agg["tokens_in"]
+            step.tokens_out = agg["tokens_out"]
+            step.cost = agg["cost"]
+            step.llm_model = agg["llm_model"]
+            step.usage_source = agg["usage_source"]
+            step.llm_calls = agg["llm_calls"]
+        except Exception:
+            log.exception("Trace 聚合失败（不影响执行）")
+        event = {"type": "step", "node": name, "status": step.status,
+                 "message": step.message,
+                 # §10.3 SSE step 事件扩展（旧字段全部保留）
+                 "tokens_in": step.tokens_in, "tokens_out": step.tokens_out,
+                 "cost": step.cost, "latency_ms": step.latency_ms,
+                 "model": step.llm_model, "usage_source": step.usage_source}
+        ctx.push_event(event)
         # §7.3 持久化：每节点终态写穿透（重启后步骤可查；写失败不影响执行）
         try:
             task_store.update(ctx)

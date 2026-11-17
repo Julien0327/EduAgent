@@ -97,12 +97,149 @@ def create_task(req: TaskRequest) -> dict:
     return response
 
 
+@router.get("/tasks")
+def list_tasks(limit: int = 50, offset: int = 0) -> dict:
+    """任务列表（Phase 3 / S4，§10.2）：从库直读，重启后历史任务仍可查。"""
+    from backend.app.storage import db as _db
+
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    conn = _db.connect(None)
+    try:
+        rows = conn.execute(
+            "SELECT task_id, session_id, prompt, status, workflow, error, "
+            "created_at, started_at, ended_at FROM tasks "
+            "ORDER BY COALESCE(created_at, '') DESC, task_id DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+        total = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+        agg = {
+            r["task_id"]: dict(r) for r in conn.execute(
+                "SELECT task_id, COUNT(*) AS step_count, SUM(tokens_in) AS tokens_in, "
+                "SUM(tokens_out) AS tokens_out, SUM(cost) AS cost, "
+                "SUM(latency_ms) AS latency_ms FROM steps GROUP BY task_id")
+        }
+    finally:
+        conn.close()
+    tasks = []
+    for r in rows:
+        d = dict(r)
+        d.update(agg.get(d["task_id"], {}))
+        tasks.append(d)
+    return {"total": total, "limit": limit, "offset": offset, "tasks": tasks}
+
+
 @router.get("/tasks/{task_id}")
 def get_task(task_id: str) -> dict:
     ctx = task_store.get(task_id)
     if ctx is None:
         raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
     return ctx.to_dict()
+
+
+@router.get("/stats/cost")
+def stats_cost(days: int = 30) -> dict:
+    """成本报表（§6.2/§10.2）：按天/任务聚合 steps 表，SQL 可复算。
+
+    - 只统计业务任务节点（steps 表）；标注批次费用在 annotation_batches
+      独立台账，不混入。
+    - cost=NULL（usage 不可用）的行不参与费用汇总，单独计数如实呈现。
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from backend.app.storage import db as _db
+
+    days = max(1, min(days, 365))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+    conn = _db.connect(None)
+    try:
+        by_day = [
+            dict(r) for r in conn.execute(
+                "SELECT substr(started_at, 1, 10) AS day, "
+                "COUNT(DISTINCT task_id) AS tasks, COUNT(*) AS steps, "
+                "SUM(tokens_in) AS tokens_in, SUM(tokens_out) AS tokens_out, "
+                "ROUND(SUM(cost), 6) AS cost_cny "
+                "FROM steps WHERE started_at IS NOT NULL AND started_at >= ? "
+                "GROUP BY day ORDER BY day", (cutoff,))
+        ]
+        by_task = [
+            dict(r) for r in conn.execute(
+                "SELECT task_id, COUNT(*) AS steps, SUM(tokens_in) AS tokens_in, "
+                "SUM(tokens_out) AS tokens_out, ROUND(SUM(cost), 6) AS cost_cny "
+                "FROM steps WHERE started_at IS NOT NULL AND started_at >= ? "
+                "GROUP BY task_id ORDER BY SUM(cost) DESC", (cutoff,))
+        ]
+        totals = dict(conn.execute(
+            "SELECT COUNT(*) AS steps, SUM(tokens_in) AS tokens_in, "
+            "SUM(tokens_out) AS tokens_out, ROUND(SUM(cost), 6) AS cost_cny, "
+            "SUM(CASE WHEN usage_source='unavailable' THEN 1 ELSE 0 END) "
+            "AS steps_usage_unavailable "
+            "FROM steps WHERE started_at IS NOT NULL AND started_at >= ?",
+            (cutoff,)).fetchone())
+    finally:
+        conn.close()
+    return {
+        "days": days,
+        "cutoff": cutoff,
+        "totals": totals,
+        "by_day": by_day,
+        "by_task": by_task[:50],
+        "note": ("仅业务任务节点（steps）；标注批次费用独立台账不混入；"
+                 "cost=NULL 表示供应商未返回 usage，不以 0 冒充"),
+    }
+
+
+@router.get("/tasks/{task_id}/trace")
+def get_task_trace(task_id: str) -> dict:
+    """步骤级 Trace（§10.2/§6.4）：从库直读——重启后历史任务可回放。
+
+    totals 由 llm_calls 明细重新汇总（成本可复算）；usage_source=unavailable
+    的调用 tokens/cost 为 NULL，不参与汇总、不以 0 冒充。
+    标注批次费用在 annotation_batches 独立台账，不在本端点统计。
+    """
+    d = task_store.get_from_db(task_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"任务不存在：{task_id}")
+
+    steps = d.pop("steps", [])
+    llm_call_count = 0
+    tool_call_count = 0
+    detail_tokens_in = detail_tokens_out = 0
+    detail_cost = 0.0
+    detail_cost_known = False
+    for s in steps:
+        for c in s.get("llm_calls") or []:
+            if c.get("kind") == "tool":
+                tool_call_count += 1
+                continue
+            llm_call_count += 1
+            if c.get("tokens_in") is not None:
+                detail_tokens_in += c["tokens_in"]
+                detail_tokens_out += c.get("tokens_out") or 0
+            if c.get("cost_cny") is not None:
+                detail_cost += c["cost_cny"]
+                detail_cost_known = True
+    step_cost_sum = sum(s["cost"] for s in steps if s.get("cost") is not None)
+    detail_cost = round(detail_cost, 6)
+
+    d["trace"] = {
+        "steps": steps,
+        "totals": {
+            "step_count": len(steps),
+            "llm_call_count": llm_call_count,
+            "tool_call_count": tool_call_count,
+            "tokens_in": detail_tokens_in if llm_call_count else 0,
+            "tokens_out": detail_tokens_out if llm_call_count else 0,
+            "cost_cny": detail_cost if detail_cost_known else None,
+            "latency_ms": sum(s.get("latency_ms") or 0 for s in steps),
+        },
+        # 可复算校验：Σ(steps.cost) == Σ(明细 cost)
+        "cost_recompute_ok": abs(step_cost_sum - detail_cost) < 1e-6,
+        "usage_note": ("tokens/cost 为供应商真实 usage 的汇总；"
+                       "usage_source=unavailable 的调用记 NULL，不以 0 冒充"),
+    }
+    return d
 
 
 def _sse(data: dict) -> str:

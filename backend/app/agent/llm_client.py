@@ -41,11 +41,15 @@ class LLMResponse:
     content：模型文本回复（纯工具调用时可能为空字符串）。
     tool_calls：模型请求的工具调用列表，每项为 {"id", "name", "arguments"}，
                 arguments 已解析为 dict。
+    usage（Phase 3 / S4）：供应商返回的真实 token 用量
+    {"prompt_tokens", "completion_tokens", "cache_hit_tokens"}；
+    供应商未返回时为 None（调用方不得以 0 冒充）。
     """
 
     content: str = ""
     tool_calls: list = field(default_factory=list)
     model: str = ""
+    usage: dict | None = None
 
 
 class LLMProvider:
@@ -78,28 +82,59 @@ class DeepSeekProvider(LLMProvider):
         self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
 
     def _request(self, messages: list, tools: list | None = None, tool_choice="auto"):
-        """统一发起请求，并把可预期异常转成 LLMError。"""
+        """统一发起请求，并把可预期异常转成 LLMError。
+
+        Phase 3 / S4：每次请求（含重试与纠错轮）向 tracing.collector 逐次记录
+        真实 usage / 耗时 / 错误；采集失败不阻断调用（try/except 隔离）。
+        """
+        from backend.app.tracing import collector as tracing
+
         kwargs: dict = {"model": self._model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice
+        tool_name = None
+        if tools:
+            try:
+                tool_name = tools[0]["function"]["name"]
+            except (KeyError, IndexError, TypeError):
+                tool_name = None
         start = time.perf_counter()
         try:
             resp = self._client.chat.completions.create(**kwargs)
         except AuthenticationError as exc:
+            self._record_failure(tracing, tool_name, start, "auth_error")
             raise LLMError("API Key 无效或鉴权失败，请检查 DEEPSEEK_API_KEY") from exc
         except APITimeoutError as exc:
+            self._record_failure(tracing, tool_name, start, "timeout")
             raise LLMError("模型请求超时，请稍后重试") from exc
         except APIConnectionError as exc:
+            self._record_failure(tracing, tool_name, start, "connection_error")
             raise LLMError("无法连接模型服务，请检查网络") from exc
         except RateLimitError as exc:
+            self._record_failure(tracing, tool_name, start, "rate_limited")
             raise LLMError("请求过于频繁，请稍后重试") from exc
         except APIError as exc:
             status = getattr(exc, "status_code", None)
+            self._record_failure(tracing, tool_name, start, f"api_error_{status}")
             raise LLMError(f"模型服务返回错误（{status}）") from exc
 
         elapsed = time.perf_counter() - start
         usage = getattr(resp, "usage", None)
+        usage_dict = None
+        if usage is not None:
+            usage_dict = {
+                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                "completion_tokens": getattr(usage, "completion_tokens", None),
+                "cache_hit_tokens": getattr(usage, "prompt_cache_hit_tokens", 0) or 0,
+            }
+        try:
+            tracing.record_llm_call(
+                model=getattr(resp, "model", None) or self._model,
+                tool=tool_name, usage=usage_dict,
+                latency_ms=int(elapsed * 1000))
+        except Exception:
+            _log.exception("Trace 采集失败（不影响调用）")
         _log.info(
             "LLM 调用成功 model=%s 耗时=%.2fs 输入token=%s 输出token=%s",
             self._model,
@@ -107,7 +142,19 @@ class DeepSeekProvider(LLMProvider):
             getattr(usage, "prompt_tokens", None) if usage else None,
             getattr(usage, "completion_tokens", None) if usage else None,
         )
+        resp._edumate_usage = usage_dict  # 供 chat_with_tools 透传
         return resp
+
+    def _record_failure(self, tracing, tool_name: str | None, start: float,
+                        reason: str) -> None:
+        """失败调用也逐次记录（tokens NULL，不冒充）。采集失败不阻断。"""
+        try:
+            tracing.record_llm_call(
+                model=self._model, tool=tool_name, usage=None,
+                latency_ms=int((time.perf_counter() - start) * 1000),
+                error=reason)
+        except Exception:
+            _log.exception("Trace 采集失败（不影响调用）")
 
     def chat(self, message: str, history: list[dict] | None = None) -> dict:
         messages = list(history or [])
@@ -131,7 +178,8 @@ class DeepSeekProvider(LLMProvider):
             tool_calls.append(
                 {"id": tc.id, "name": tc.function.name, "arguments": arguments}
             )
-        return LLMResponse(content=content, tool_calls=tool_calls, model=self._model)
+        return LLMResponse(content=content, tool_calls=tool_calls, model=self._model,
+                           usage=getattr(resp, "_edumate_usage", None))
 
 
 class LLMService:

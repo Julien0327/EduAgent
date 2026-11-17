@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-17（**Phase 3 S3 完成**：真实题库推荐 + LLM 叙述 + 服务/API/工作流，379 passed；λ=0.5）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-17（**Phase 3 S4 完成**：Trace + 成本真实采集（V5 迁移、逐次 usage、价格版本固化、重启回放、真实 Provider 验证四方对账一致），394 passed）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -130,9 +130,28 @@
 
 - S3 只到推荐+叙述+服务/API/工作流；S4（Trace + 成本）未开始。
 
+### Phase 3 S4 Trace + 成本（2026-11-17，已完成，待验收）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| V5 迁移 | ✅ steps 增列 `llm_model/usage_source/llm_calls`；幂等；历史行保留（新列 NULL）；schema_migrations=[1..5] | `migrations_v5.sql` + 迁移测试 |
+| 采集器 | ✅ `tracing/collector.py`：contextvars 节点级；**逐次记录**（含重试/纠错/失败调用，attempt 自动编号）；无采集器安全空转；采集失败不阻断 | 10 项单元测试 |
+| 真实 usage | ✅ `llm_client._request` 成功/失败都记录；供应商未返回 usage → `unavailable`，tokens/cost **NULL 不以 0 冒充**；`LLMResponse.usage` 透传 | 单元 + 集成测试 |
+| 成本口径 | ✅ 每条明细固化 model/tokens/cache_hit/单价快照/**价格表版本**（`deepseek-cny-2026-11-13-v1`）/peak-idle 时段/cost/latency；历史成本不因调价改写（版本固化测试）；`usage_source ∈ provider/partial/unavailable/none` | 手工复算测试 |
+| Trace 持久化 | ✅ TaskStore 落库新列 + get_from_db 回读（llm_calls JSON 解析）；SSE step 事件扩展 tokens/cost/latency/model/usage_source（旧字段保留） | 集成测试 |
+| API | ✅ `GET /api/tasks`（列表，库直读）、`GET /api/tasks/{id}/trace`（**重启后回放** + totals 明细复算 + cost_recompute_ok）、`GET /api/stats/cost?days`（SQL 按天/任务聚合；只统计 steps，标注批次独立台账不混入；NULL 不计入） | API 测试 |
+| 工具记录 | ✅ executor.run_tool 挂钩（kind='tool'，工具名+耗时，不进 token 汇总） | 集成断言 |
+| **真实 Provider 验证** | ✅ 演示班 class_diagnosis 一次完整执行（**仅 1 次真实 LLM 调用**，成本控制）：narrate 节点 deepseek-flash，真实 usage tokens_in=712/out=1346/cache_hit=512，usage_source=provider；手工复算=落库=Σsteps=SQL 聚合 **0.011188 元四方一致**；task_store.reset() 模拟重启后库直读回放成功；确定性节点 usage_source=none（tokens/cost=0 为事实值） | `data/staging/trace_real_check_report.md/.json`（任务 9213b5b1f55f） |
+| 兼容性 | ✅ Planner/Workflow/Executor 契约不变；现有工作流测试全过；FakeLLM 路径（不经 provider）→ usage_source=none 不报错 | 全量回归 |
+| 测试 | ✅ **394 passed / 0 failed**（379 + 15 tracing；test_storage_db 版本断言 4→5 随迁移演进） | 全量 pytest（2026-11-17） |
+| 文档 | ✅ 技术方案 §10.2 端点表回填实现状态 + Trace 口径说明；§10.3 SSE 扩展标注已实现 | 技术方案 |
+
+- 真实验证任务 `9213b5b1f55f` 留在库中作为可回放样例（产物 `04_诊断结果.json`）。
+- S4 完成；S5（报告 PDF 升级 + 前端观测页）未开始。
 
 
-- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 342）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
+
+- **Phase 1 交付**：初中 303 KP 图谱 + 374 边 ✅；21 万行题库 ETL（processed 207,858，方案 A 修复+全库核验 0 差异）✅；FTS5 ✅；小学 82 KP 规则标签（98.2% 覆盖）✅；F16 导入服务（17 项端到端）✅；LLM 打标管线 + 500 题双臂试跑 + Gold v2 人工核验终版 ✅（管线冻结，见"Phase 1 关账与 Step 5 冻结"节）；**Phase 1 关账时 227 passed（当前 394）**；简历素材清单 `RESUME-AMMO.md`（缺口检查：RAG 未做=Phase 1 时最大缺口；Phase 2 已完成检索层）。
 - **Step 5 冻结（决策㉚）**：prompt v2 重跑/全量标注/1070129 治理/079 定义修改/B 臂投入——均不执行；LLM 标签=可加性数据（新批次随时补跑、消费视图自动生效），Phase 2 零依赖零返工；解冻需用户批准。
 - **Phase 2 开工纪律（决策㉚⑥）**：中文 FTS5 分词 day-1 → 引用注入 day-1 → 认证限流中段；时间盒 1–1.5 周；BGE 模型已就绪（data/models，Phase 1 遗产直接复用）。
 
@@ -602,7 +621,7 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 待办 / 阻塞
 
-1. **Phase 3 S3 完成，待验收**：真实题库推荐 + LLM 叙述（模板兜底）+ 统一服务层 + class_diagnosis 工作流 + API（379 passed）。用户验收 S3 后进入 S4（Trace + 成本）。
+1. **Phase 3 S4 完成，待验收**：Trace + 成本真实采集（V5 迁移、逐次 usage 记录、NULL 语义、价格版本固化、`/api/tasks`+`/trace`+`/stats/cost`、重启回放、真实 Provider 1 次调用四方对账一致），394 passed。用户验收 S4 后进入 S5（报告 PDF 升级 + 前端观测页）。
 2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
 3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
 4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
@@ -610,6 +629,6 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **342 用例**（Phase 3 S0：311 + 前置图 8 + 清理 2 + 演示工作簿 4 + 学段守卫 17），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **394 用例**（Phase 2 收尾 311 + S0：前置图 8/清理 2/演示工作簿 4/学段守卫 17 + S1 掌握度 13 + S2 归因 12 + S3 推荐叙述 12 + S4 Trace 15），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
 - 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。

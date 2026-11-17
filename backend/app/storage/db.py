@@ -27,11 +27,14 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent
 # 见 migrations_v3.sql 头注
 # V4（Phase 2 / S3）：q_kp(kp_id) 反向索引——"按知识点找题"主路免全表扫
 # （实测 1.5s→ms 级），见 migrations_v4.sql 头注
+# V5（Phase 3 / S4，§6）：steps 观测列（llm_model/usage_source/llm_calls），
+# 只增列不动历史数据，见 migrations_v5.sql 头注
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "migrations.sql"),
     (2, "migrations_v2.sql"),
     (3, "migrations_v3.sql"),
     (4, "migrations_v4.sql"),
+    (5, "migrations_v5.sql"),
 ]
 
 # 建库后必须存在的全部表（§2.3 全部表 + schema_migrations；缺任一即 fail-fast）

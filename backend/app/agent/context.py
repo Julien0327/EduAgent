@@ -31,6 +31,18 @@ class StepRecord:
     status: str        # running / done / failed
     message: str = ""  # 节点说明或错误信息
 
+    # Phase 3 / S4（§6）：Trace 观测字段。tokens/cost 为 None 表示供应商未
+    # 返回真实 usage（不得以 0 冒充）；usage_source 见 tracing.collector。
+    started_at: str | None = None
+    ended_at: str | None = None
+    latency_ms: int | None = None
+    tokens_in: int | None = None
+    tokens_out: int | None = None
+    cost: float | None = None
+    llm_model: str | None = None
+    usage_source: str | None = None   # provider / partial / unavailable / none
+    llm_calls: list | None = None     # 逐次调用明细（JSON 落库）
+
 
 @dataclass
 class ArtifactRecord:
@@ -85,7 +97,15 @@ class TaskContext:
             "workflow": self.workflow,
             "params": self.params,
             "steps": [
-                {"node": s.node, "status": s.status, "message": s.message}
+                {
+                    "node": s.node, "status": s.status, "message": s.message,
+                    # §6 / S4：Trace 观测字段（SSE 与 API 快照共用；旧字段保留）
+                    "started_at": s.started_at, "ended_at": s.ended_at,
+                    "latency_ms": s.latency_ms,
+                    "tokens_in": s.tokens_in, "tokens_out": s.tokens_out,
+                    "cost": s.cost, "model": s.llm_model,
+                    "usage_source": s.usage_source,
+                }
                 for s in self.steps
             ],
             "artifacts": [
@@ -166,11 +186,20 @@ class TaskStore:
                 d["params"] = json.loads(d["params"])
             except (ValueError, TypeError):
                 pass
-        d["steps"] = [
-            dict(r) for r in conn.execute(
-                "SELECT step_no, node, status, output_summary FROM steps "
-                "WHERE task_id=? ORDER BY step_no", (task_id,))
-        ]
+        steps = []
+        for r in conn.execute(
+                "SELECT step_no, node, status, output_summary, error, "
+                "tokens_in, tokens_out, cost, latency_ms, started_at, ended_at, "
+                "llm_model, usage_source, llm_calls FROM steps "
+                "WHERE task_id=? ORDER BY step_no", (task_id,)):
+            d_step = dict(r)
+            if d_step.get("llm_calls"):
+                try:
+                    d_step["llm_calls"] = json.loads(d_step["llm_calls"])
+                except (ValueError, TypeError):
+                    pass
+            steps.append(d_step)
+        d["steps"] = steps
         return d
 
     def update(self, ctx: TaskContext) -> None:
@@ -196,9 +225,16 @@ class TaskStore:
             conn.execute("DELETE FROM steps WHERE task_id=?", (ctx.task_id,))
             conn.executemany(
                 """INSERT INTO steps
-                     (task_id, step_no, node, status, output_summary)
-                   VALUES (?, ?, ?, ?, ?)""",
-                [(ctx.task_id, i, s.node, s.status, (s.message or "")[:500])
+                     (task_id, step_no, node, status, output_summary,
+                      tokens_in, tokens_out, cost, latency_ms,
+                      started_at, ended_at,
+                      llm_model, usage_source, llm_calls)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [(ctx.task_id, i, s.node, s.status, (s.message or "")[:500],
+                  s.tokens_in, s.tokens_out, s.cost, s.latency_ms,
+                  s.started_at, s.ended_at,
+                  s.llm_model, s.usage_source,
+                  json.dumps(s.llm_calls, ensure_ascii=False) if s.llm_calls else None)
                  for i, s in enumerate(ctx.steps, 1)],
             )
             conn.commit()

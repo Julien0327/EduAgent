@@ -27,6 +27,11 @@ PRICE_TABLE: dict[str, dict[str, dict[str, float]]] = {
     },
 }
 
+# 价格表版本（Phase 3 / S4，D5）：每次调整 PRICE_TABLE 数字必须递增版本号。
+# 每条 LLM 调用明细在落库时固化当时的版本号与单价快照——历史任务成本
+# 不因后续调价被改写（成本可复算依据）。
+PRICE_TABLE_VERSION = "deepseek-cny-2026-11-13-v1"
+
 _BJ = timezone(timedelta(hours=8))
 VALID_PERIODS = ("peak", "idle")
 

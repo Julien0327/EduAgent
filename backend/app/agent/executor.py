@@ -5,6 +5,8 @@
 序列（避免自由 ReAct 的跑飞 / 死循环风险）。LLM 工具内部的传输重试与结构化
 校验重试已由 llm_utils.structured_completion 承担。
 """
+import time
+
 from backend.app.tools.registry import registry
 
 
@@ -13,8 +15,29 @@ class ToolError(Exception):
 
 
 def run_tool(name: str, params: dict) -> dict:
-    """调用注册表工具并校验结果；结果含 error 时抛 ToolError。"""
-    result = registry.execute(name, params)
-    if isinstance(result, dict) and "error" in result:
-        raise ToolError(result["error"])
-    return result
+    """调用注册表工具并校验结果；结果含 error 时抛 ToolError。
+
+    Phase 3 / S4：向 tracing.collector 记录工具名与耗时（kind='tool'）；
+    采集失败不阻断调用。
+    """
+    from backend.app.tracing import collector as tracing
+
+    t0 = time.perf_counter()
+    error = None
+    try:
+        result = registry.execute(name, params)
+        if isinstance(result, dict) and "error" in result:
+            error = result["error"]
+            raise ToolError(result["error"])
+        return result
+    except ToolError:
+        raise
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        raise
+    finally:
+        try:
+            tracing.record_tool_call(
+                name, int((time.perf_counter() - t0) * 1000), error=error)
+        except Exception:
+            pass
