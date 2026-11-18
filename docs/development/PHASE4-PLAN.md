@@ -93,16 +93,11 @@
 - **真实发现**：gc_e03 diagnose 节点真实 LLM 3 次未返回合法 schema → P2-8 降级兜底（PDF 含「暂不可用」）；评测如实记录（非评测 bug）；处置路线=S3 规则评分加 degraded 检测 → 全量 online 量化 → 业务修复待用户决策。
 - 全量 pytest **429 passed**。**S2 关账**。
 
-### S3 judge 五维 + 校准（LLM-as-judge，S3-A ✅ 完成 2026-11-18，决策㊷）
-1. **S3-A（零真实调用 ✅）**：
-   - `judge.py`：五维 1–5 分 + 理由（structured_completion 强制 schema）；失败兜底=**规则评分**（任务成功/参数命中/产物存在/**degraded 标记检测（「暂不可用」）**/引用覆盖）；`scoring_source ∈ llm_judge/rule_fallback`；
-   - `calibration_agreement`：judge vs 人工分档一致率，≥80% 采信 judge 全量；否则回退规则评分并记录；
-   - 校准集 50 条（exam_loop 20 / qg 16 / lp 10 / cd 4；全部有产物；含 gc_e03 真实降级样本）→ 提案 `data/staging/calibration_set_v1.json`，**待用户确认冻结**；
-   - `scoring_sheet.py` 人工评分表（Markdown+CSV 含产物摘录）+ 回读；CLI `run_judge_calibration`；
-   - MockLLM 支持 `submit_judge_scores`；链路演练（mock 50 条 → 评分表 → 规则评分 → 模拟人工 → 一致率 1.0）；测试 14 项；全量 443 passed。
-2. **S3-B（用户参与，待批准）**：真实 50 条执行（真制品）→ 生成评分表 → 用户人工评 50 条。
-3. **S3-C（需单独批准，有真实费用）**：真实 judge 跑同 50 条 → 一致率计算 → 采信或回退判定（预估合计 ≈¥0.6–0.9）。
-4. 测试：judge 解析/失败兜底/规则评分/校准统计/一致性计算（已完成）。
+### S3 judge 五维 + 校准（LLM-as-judge，✅ 完成 2026-11-18，决策㊷㊹）
+1. **S3-A（零真实调用 ✅）**：judge.py 五维+规则兜底+一致率；校准集 50 条冻结；评分表；测试 14 项。
+2. **S3-B（✅）**：真实 50 条执行（¥0.6614，6/20 exam_loop 降级=30%）；用户人工评分 250/250 有效（Excel，硬规则无违规）。
+3. **S3-C（✅ 三轮迭代，未达标回退）**：judge v1 46.4% → v2 61.6% → v3 64.0%（覆盖 78%/引用 42%）；**judge 未采信（<80%）→ 回退规则评分（44.8%）并记录**（决策㊲④⑤）；judge 成本合计 ¥1.338；口径边界如实记录。
+4. 测试：judge 解析/失败兜底/规则评分/校准统计/一致性计算（已完成）；全量 443 passed。
 
 ### S4 eval API + 前端评测页
 1. `backend/app/api/eval_api.py`：`GET /api/eval/report`（baseline→current、近 5 次 run 对比；聚合展示检索与归因既有数字；质检行标「待 Phase 5」）。

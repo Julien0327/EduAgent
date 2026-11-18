@@ -144,14 +144,36 @@ def rule_score(case: dict, rec: dict, artifact_text: str) -> dict:
 
 # ===================== LLM-as-judge =====================
 def llm_judge(case: dict, rec: dict, artifact_text: str) -> dict:
-    """LLM 五维评分；任何失败 → 规则评分兜底（记录 judge_error）。"""
+    """LLM 五维评分；任何失败 → 规则评分兜底（记录 judge_error）。
+
+    走 tracing 节点采集，返回真实 cost（供应商 usage 缺失时为 None，不造假 0）。
+    """
     from backend.app.agent.llm_utils import structured_completion
 
+    col = None
+    try:
+        from backend.app.tracing import collector as tracing
+        col = tracing.begin_node(f"judge:{case.get('case_id', '')}", "judge")
+    except Exception:
+        col = None
+    cost = None
     system = (
-        "你是资深小学数学教研评审专家，对 AI 生成的教学资料按五维打 1–5 分："
-        "内容正确性（知识/答案是否准确）、难度适切（是否符合小学学段与年级）、"
-        "覆盖完整（是否覆盖任务要求的知识点/题量/结构）、表述规范（语言是否规范清晰）、"
-        "引用规范（题目/知识点引用是否可追溯、无编造）。"
+        "你是资深小学数学教研评审专家，对 AI 生成的教学资料按五维打 1–5 分。"
+        "评分口径必须严格执行，勿把某一维度的问题算到另一维度：\n"
+        "1) 内容正确性：只看题目/答案/教学内容本身是否正确，有无知识错误或编造；"
+        "主题是否贴合任务不在此维度扣分。1=存在明显错误或编造；2=多处错误；"
+        "3=基本正确但有可指出的瑕疵；4=正确；5=完全正确严谨。"
+        "若存在可指出的答案/表述瑕疵，最高给 4 分。\n"
+        "2) 难度适切：只看题目本身难度是否适合小学年级；与主题是否匹配无关。"
+        "1=严重不符；2=偏难或偏易较多；3=基本符合；4=符合；5=完全贴合（难度分层合理）。\n"
+        "3) 覆盖完整：任务要求（主题/知识点/题量/结构/交付物）是否覆盖。"
+        "1=主题跑题（产物主题与任务要求不符）或遗漏关键交付物；2=主题基本相关但遗漏较多；"
+        "3=覆盖主要部分；4=基本覆盖；5=完全覆盖。\n"
+        "4) 表述规范：语言与格式是否规范清晰。1=混乱；2=多处不规范；3=基本通顺；"
+        "4=规范清晰；5=专业规范（无格式瑕疵）。\n"
+        "5) 引用规范：题目/知识点引用是否可追溯、无编造。1=编造或无任何来源；"
+        "2=基本无可见引用；3=部分可见但不可追溯；4=可见具体引用且基本可追溯；"
+        "5=全部可追溯且规范。仅当产物中能看见具体题目/知识点引用时，才可给 4 分及以上。\n"
         "若产物含「暂不可用」等降级标记，内容正确性与覆盖完整不得高于 2 分。"
         "务必调用 submit_judge_scores 工具提交评分。"
     )
@@ -163,13 +185,23 @@ def llm_judge(case: dict, rec: dict, artifact_text: str) -> dict:
     )
     try:
         scores = structured_completion(system, user, JUDGE_TOOL, JudgeScores)
-        return {"scores": scores.model_dump(exclude={"reason"}),
-                "reason": scores.reason,
-                "scoring_source": "llm_judge"}
+        out = {"scores": scores.model_dump(exclude={"reason"}),
+               "reason": scores.reason,
+               "scoring_source": "llm_judge"}
     except Exception as exc:
-        fallback = rule_score(case, rec, artifact_text)
-        fallback["judge_error"] = f"{type(exc).__name__}: {exc}"
-        return fallback
+        out = rule_score(case, rec, artifact_text)
+        out["judge_error"] = f"{type(exc).__name__}: {exc}"
+    finally:
+        if col is not None:
+            try:
+                from backend.app.tracing import collector as tracing
+                ended = tracing.end_node()
+                agg = tracing.aggregate(ended if ended is not None else col)
+                cost = agg.get("cost")
+            except Exception:
+                cost = None
+    out["cost"] = cost
+    return out
 
 
 def judge_case(case: dict, rec: dict, use_llm: bool = True) -> dict:
@@ -205,11 +237,15 @@ def judge_report(report_path: Path, calibration_path: Path | None = None,
         wanted = set(calib["case_ids"])
 
     if use_llm and llm_provider is not None:
+        import tempfile
         from backend.app.eval.provider import install_online_env
-        install_online_env(llm_provider, workdir or Path("."))
+        install_online_env(llm_provider,
+                           workdir or Path(tempfile.mkdtemp(prefix="judge_run_")))
 
     rows: dict[str, dict] = {}
     source_counts = {"llm_judge": 0, "rule_fallback": 0}
+    cost_total = 0.0
+    cost_known = 0
     for rec in report.get("records", []):
         cid = rec.get("case_id")
         if wanted is not None and cid not in wanted:
@@ -221,8 +257,13 @@ def judge_report(report_path: Path, calibration_path: Path | None = None,
         rows[cid] = result
         source_counts[result["scoring_source"]] = \
             source_counts.get(result["scoring_source"], 0) + 1
+        if result.get("cost") is not None:
+            cost_total += result["cost"]
+            cost_known += 1
     return {"rows": rows, "summary": {"judged_cases": len(rows),
-                                      "sources": source_counts}}
+                                      "sources": source_counts,
+                                      "cost_known_cases": cost_known,
+                                      "cost_total_cny": round(cost_total, 6)}}
 
 
 # ===================== 校准一致率 =====================
