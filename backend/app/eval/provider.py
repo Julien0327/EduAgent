@@ -106,6 +106,10 @@ class MockLLM:
                     "process": [{"step": "导入", "detail": "复习"},
                                 {"step": "新授", "detail": "推导"}],
                     "homework": "课后作业"}
+        if name == "submit_judge_scores":
+            return {"content_correctness": 4, "difficulty_fit": 4,
+                    "coverage_completeness": 4, "expression": 4,
+                    "citation_compliance": 4, "reason": "Mock 判分（确定性）"}
         return {"mock": True}
 
     @staticmethod

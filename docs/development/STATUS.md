@@ -1,10 +1,24 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中：S2 已关账（真实 20 条冒烟通过，¥0.211，用户批准执行），S3 judge 五维+校准开工中**；gc_e03 真实诊断降级已如实记录并定处置路线（S3 规则评分加 degraded 检测 → 全量量化 → 业务修复待用户决策））。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中：S2 已关账（真实 20 条冒烟通过，¥0.211，用户批准执行）；S3-A judge 五维+校准骨架完成（443 passed，零真实调用）**；S3-B/C 真实校准执行待用户批准；gc_e03 真实诊断降级已如实记录并定处置路线）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3 进行中，决策㊲㊳㊴㊵㊵b㊶）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3-A 完成，S3-B/C 待批准，决策㊲㊳㊴㊵㊵b㊶㊷）**
+
+### Phase 4 S3-A judge 五维 + 校准骨架（2026-11-18，零真实调用，决策㊷）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| judge 模块 | ✅ `backend/app/eval/judge.py`：五维（内容正确性/难度适切/覆盖完整/表述规范/引用规范）1–5 分 + 理由（structured_completion 强制 schema）；失败/异常 → **规则评分兜底**（任务状态/参数命中/产物有效/**degraded 标记检测（「暂不可用」）**/引用覆盖）；`scoring_source ∈ llm_judge/rule_fallback` | 代码 + 测试 |
+| 校准一致率 | ✅ `calibration_agreement`：judge vs 人工分档（四舍五入）逐维/总体一致率；**≥80% 采信 judge，否则回退规则评分**（阈值常量 `CALIBRATION_ADOPT_THRESHOLD`） | 测试（含 80% 边界） |
+| 校准集 50 条 | ✅ 确定性选取（exam_loop 20 / question_gen 16 / lesson_plan 10 / class_diagnosis 4），**全部有产物 execute/fallback**；**含 gc_e03（真实诊断降级样本）**；提案 `data/staging/calibration_set_v1.json`，**待用户确认后冻结** | 选取脚本输出 |
+| 人工评分表 | ✅ `scoring_sheet.py`：从 run report 生成 Markdown+CSV 评分表（含产物全文摘录、五维评分栏、备注）；`read_human_csv` 回读 | 链路演练（mock 50 条） |
+| 链路演练（零费用） | ✅ mock 50 条 → 评分表 50 条 → 规则评分 50/50 rule_fallback → 模拟人工回填 → 一致率 1.0/adopted=true（人工=judge 时符合预期） | `data/staging/calibration_*`、`judge_rule_*` |
+| CLI | ✅ `python -m backend.scripts.run_judge_calibration --sheet/--judge rule/--agreement` | 脚本 |
+| MockLLM judge 支持 | ✅ `submit_judge_scores` 工具返回确定性合法结构（零费用测试链路） | `provider.py` |
+| 测试 | ✅ `test_eval_judge.py` 14 项（规则评分/degraded/LLM judge/失败回退/文本提取/一致率阈值/评分表回读）；全量 **443 passed** | 全量 pytest |
+| 未做（待批准） | S3-B 真实 50 条执行（真制品供人工评分）+ S3-C 真实 judge 校准（需单独批准，预估合计 ≈¥0.6–0.9） | 待用户审批 |
 
 ### Phase 4 S2 关账（2026-11-18，真实冒烟通过，决策㊶）
 

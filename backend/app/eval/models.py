@@ -52,6 +52,7 @@ class ArtifactCheck:
     valid: bool = False
     content_assertions: dict = field(default_factory=dict)   # {断言名: 是否通过}
     error: str = ""
+    path: str = ""                                            # 制品路径（judge 读取文本用）
 
 
 @dataclass

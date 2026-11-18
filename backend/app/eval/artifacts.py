@@ -151,7 +151,7 @@ def check_artifacts(case_id: str, artifacts: dict[str, Path]) -> tuple[list[Arti
     """完整三层校验；返回 ArtifactCheck 列表 + 内容断言结果。"""
     checks: list[ArtifactCheck] = []
     for name, path in sorted(artifacts.items()):
-        a = ArtifactCheck(name=name)
+        a = ArtifactCheck(name=name, path=str(path))
         if check_exists(path, a):
             check_valid(path, a)
         checks.append(a)

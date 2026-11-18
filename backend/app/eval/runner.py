@@ -73,7 +73,8 @@ def install_fake_env(fake: FakeLLM, workdir: Path) -> None:
 
 def _artifact_to_dict(a) -> dict:
     return {"name": a.name, "exists": a.exists, "valid": a.valid,
-            "content_assertions": a.content_assertions, "error": a.error}
+            "content_assertions": a.content_assertions, "error": a.error,
+            "path": getattr(a, "path", "")}
 
 
 def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
