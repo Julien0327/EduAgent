@@ -82,14 +82,17 @@ def generate_sheet(report_path: Path, calibration_path: Path,
     out_md.write_text("\n".join(lines), encoding="utf-8")
 
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    header = (["case_id", "workflow", "prompt", "expected_behavior", "expected_note"]
+    header = (["case_id", "workflow", "prompt", "expected_behavior", "expected_note",
+               "artifact_excerpt"]
               + list(DIMENSIONS) + ["remarks"])
     with open(out_csv, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(header)
         for r in rows:
+            excerpt = r["excerpt"].replace("\r\n", "\n").replace("\n", " ｜ ")
             w.writerow([r["case_id"], r["workflow"], r["prompt"],
-                        r["expected_behavior"], r["expected_note"]]
+                        r["expected_behavior"], r["expected_note"],
+                        excerpt[:2000]]
                        + [""] * len(DIMENSIONS) + [""])
     return {"cases": len(rows), "md": str(out_md), "csv": str(out_csv)}
 
