@@ -8,6 +8,9 @@ import pytest
 from backend.app.annotation.recall import REPO_MODELS_DIR
 
 pytest.importorskip("fastembed", reason="B 臂依赖未安装时跳过（设计文档 §13）")
+pytestmark = pytest.mark.skipif(
+    not REPO_MODELS_DIR.exists(),
+    reason="本地 BGE 模型缓存缺失（CI/无模型环境）")
 
 KP_ROWS = [
     {"kp_id": "kp_p_005", "name": "鸡兔同笼",

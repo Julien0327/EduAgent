@@ -15,6 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytest.importorskip("acps_sdk", reason="官方 acps-sdk 未安装（非 PyPI，CI 跳过）")
+
 import backend.interop.serve_mtls as serve_mtls
 from acps_sdk.aip.aip_peer_cert import (
     AipPeerCertH11Protocol,

@@ -8,6 +8,8 @@ import asyncio
 
 import httpx
 import pytest
+
+pytest.importorskip("acps_sdk", reason="官方 acps-sdk 未安装（非 PyPI，CI 跳过）")
 from fastapi import FastAPI
 
 import backend.app.agent.llm_utils as llm_utils

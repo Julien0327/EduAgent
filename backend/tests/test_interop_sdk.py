@@ -1,3 +1,6 @@
+import pytest
+
+pytest.importorskip("acps_sdk", reason="官方 acps-sdk 未安装（非 PyPI，CI 跳过）")
 """官方 acps_sdk 接入核验测试（真实 SDK 代码路径，非 Mock）。
 
 三项「真实」核验（区别于 FakeLLM 离线单测）：

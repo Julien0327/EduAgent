@@ -6,6 +6,16 @@
 
 **Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3-A 完成，S3-B/C 待批准，决策㊲㊳㊴㊵㊵b㊶㊷）**
 
+### Phase 4 S5 CI 流水线（2026-11-18，进行中，决策㊼）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| CI 配置 | ✅ `.github/workflows/ci.yml`：push/PR 触发 → Ubuntu + Python 3.13 → 安装 `requirements-ci.txt`（排除非 PyPI 的 acps-sdk）→ pytest 全量 → fake smoke eval 20 条（零 API 成本） | 文件 |
+| 依赖 | ✅ `requirements-ci.txt`（含 pypdf 补齐；fastembed/onnxruntime 供 embedding 导入与本地推理）；`requirements.txt` 补 pypdf | 文件 |
+| 跳过守卫 | ✅ interop 测试 `importorskip("acps_sdk")`（CI 无 SDK）；annotation recall 在 BGE 模型缓存缺失时 skipif（CI 无模型） | 测试 |
+| 本地验证 | ✅ 全量 **447 passed**；CI smoke 命令本地实跑 20 条 100%/5.2s | 实测 |
+| 线上结果 | ⏳ push 后 GitHub Actions 运行中，结果回填 | `gh run list` |
+
 ### Phase 4 S4 eval API + 前端评测页（2026-11-18，进行中 → 待验收，决策㊻）
 
 | 项 | 结果 | 证据 |

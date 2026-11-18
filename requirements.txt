@@ -8,6 +8,7 @@ python-docx
 openpyxl
 pandas
 reportlab
+pypdf
 jinja2
 
 # ================= 测试（D3 开发期） =================
