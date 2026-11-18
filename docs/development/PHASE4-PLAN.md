@@ -62,14 +62,19 @@
 - 设计规范：`docs/development/PHASE4-GOLDEN-DESIGN.md`（§8 测评口径已写）。
 - **限制写入规范**：exam_loop 的 count/difficulty 只验证 Planner 参数抽取，不代表实际试卷生成受其控制。
 
-### S2 执行层 `backend/app/eval/`
-1. `runner.py`：加载 golden → 逐条执行 → 判定 → 落 `eval_runs`（UPSERT on (run_id, case_id)，幂等）。
-   - 任务成功率：`status=done` 且 `ctx.artifacts` ⊇ `artifacts_min`；
-   - 参数字段准确率：实际 `TaskPlan.params` vs `expect.params` 逐字段一致率（chapter 走同义白名单）；
-   - p95 延迟：tasks/steps 时间戳，按工作流统计；
-   - 单任务成本：Σ steps.cost；`usage_source` 为空如实标注、不以 0 冒充。
-2. 两档：`fake`（FakeLLM，零成本，CI 用）/ `online`（真实 DeepSeek，预算三线 + 批次台账 + 20 条冒烟 → 全量需批准）。
-3. 测试：runner 离线单测（幂等/失败判定/超时兜底）+ L2 HTTP 集成。
+### S2-A Fake Runner（2026-11-18 ✅ 完成，决策㊴）
+- **交付**：`backend/app/eval/`（fake_llm / models / artifacts / golden / runner / aggregate / evaluate / db_fixture）+ `migrations_v6.sql`（eval_runs 复合主键 (run_id, case_id)）。
+- **全量 111 条跑通（11.5s，零 API 费用）**：任务成功率 **100%**（93/93 execute/fallback）、Planner 字段准确率 **95.87%**、Case 完全匹配率 94.62%、**行为正确率 90.09%**。
+- **如实暴露系统短板（核心价值）**：正确追问率 **0%**（0/9，系统缺 F1 追问能力）、正确拒绝率 **66.67%**（4/6，b16 reject 未实现 + b23 高中 known_defect 未拦截）、错误执行率 64.71%（本应 clarify/reject 却 execute）、HTTP 边界正确率 100%、预期 fail 率 100%（gc_b24 确定性失败）。
+- **独立性与可重复性（要求 1/5）**：FakeLLM 复刻当前实现（不读 golden，`contacted_golden=False`）；同 seed 两跑逐判定一致（排除 latency_ms）；单 case 畸形不中断（dispatch 兜底 infra）；固定 run-id 重跑 UPSERT 幂等（111 行/111 唯一）；gc_c01–c04 走独立 fixture（82 KP/87 边/4 题/2 学生/8 答题，不依赖开发者本机库）。
+- **产物三层校验**：存在性 + 有效性（docx/xlsx/pdf/json 可解析非空）+ 代表 case 内容断言。
+- **失败归因 7 类**：reports 每 case 含 error_type（ok/workflow_choice/api_behavior/workflow_failed/artifact_*/infra 等）+ 全字段记录。
+- 测试：`test_eval_fake_runner.py`（6 项）；全量 **407 passed**（基线 401 + V6 版本断言 + eval 6）。
+- detection 生效在 `python -m backend.app.eval.evaluate --mode fake [--db 独立库] [--run-id X]`。
+
+### S2-B Online Runner（接口/成本/安全已交付，**真实 LLM 未经批准不执行**）
+- 交付：成本统计与安全控制接口（见 S2-A aggregate `cost/cost_known` 字段 + 预算约定），**在线档执行在决策㊴ 批准后**：先 20 条冒烟 → 全量前逐次批准（决策㊲③预算三线）。
+- 状态：⬜ 未执行真实 LLM 评测（零费用）；接口已预留 `mode=online`。
 
 ### S3 judge 五维 + 校准（LLM-as-judge）
 1. `judge.py`：五维（内容正确性/难度适切/覆盖完整/表述规范/引用规范）1–5 分 + 理由；fake 档记 N/A（FakeLLM 判分无意义）。

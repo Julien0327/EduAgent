@@ -36,15 +36,15 @@ def test_connect_enforces_foreign_keys(conn):
 
 
 def test_apply_migrations_idempotent(db_path):
-    """重复应用迁移不报错、不重复记录版本（V5：Phase 3 / S4 Trace 观测列）。"""
+    """重复应用迁移不报错、不重复记录版本（V6：Phase 4 / S2 eval_runs 唯一索引）。"""
     version_again = db.apply_migrations(db_path)
-    assert version_again == 5
+    assert version_again == 6
     conn = db.connect(db_path)
     try:
         versions = [
             row["version"] for row in conn.execute("SELECT version FROM schema_migrations")
         ]
-        assert versions == [1, 2, 3, 4, 5]
+        assert versions == [1, 2, 3, 4, 5, 6]
     finally:
         conn.close()
 

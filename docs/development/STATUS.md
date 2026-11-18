@@ -1,10 +1,26 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0 + S1 完成**：golden set 111 条冻结入 Git（`data/gt/golden_set_v1.jsonl`）与真库 eval_cases（幂等核验通过）；S2 runner 待启动）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+ S2-A 完成**：golden 111 条冻结入库；Fake Runner 全量跑通且如实暴露系统短版；S2-B Online 接口预留但**真实 LLM 未批准不执行**）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1 完成，S2 待批准，决策㊲）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A 完成，S2-B 待批准真实 LLM 评测，决策㊲㊳㊴）**
+
+### Phase 4 S2-A Fake Runner（2026-11-18，已完成，决策㊴）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 执行层 | ✅ `backend/app/eval/`：fake_llm / models / artifacts / golden / runner / aggregate / evaluate / db_fixture | 代码 |
+| V6 迁移 | ✅ `eval_runs` 复合主键 (run_id, case_id)，UPSERT 幂等（测试断言版本更新 [1..6]） | `migrations_v6.sql` |
+| FakeLLM 独立 | ✅ **复刻当前实现**，不读取 golden（`contacted_golden=False`，模块无数据访问，ast 断言测试）；使命=验证链路非模型能力 | `test_eval_fake_runner.py` |
+| 全量 fake 运行 | ✅ **111 条 11.5s 零费用**：任务成功率 100%（93/93）/ Planner 字段准确率 95.87% / Case 完全匹配 94.62% / 行为正确率 90.09% | `data/staging/eval_runs/rerun_probe_1/report.json` |
+| 如实暴露短版 | ✅ 正确追问率 0%（0/9）/ 正确拒绝率 66.67%（4/6，b16+b23）/ 错误执行率 64.71% / HTTP 边界 100% / 预期 fail 100%（gc_b24） | 同上 |
+| 可重复性 | ✅ 同 seed 两跑逐判定一致（排除 latency_ms）；单 case 畸形不中断（dispatch 兜底 infra）；固定 run-id 重跑 UPSERT（111/111 唯一） | `test_eval_fake_runner.py`（6 项通过） |
+| 独立 fixture | ✅ gc_c01–c04 独立演示库（82 KP/87 边/4 题/2 生/8 答，`build_primary_kp`+`build_primary_graph`+F16 importer），不依赖开发者本机库 | `db_fixture.py` |
+| 产物三层 | ✅ 存在性+有效性（docx/xlsx/pdf/json 可解析非空）+ 代表 case 内容断言 | `artifacts.py` |
+| 失败归因 | ✅ 每 case 含 error_type（7 类：planner_params/workflow_choice/api_behavior/workflow_failed/artifact_*/infra）+ 全字段 | `models.py` + report |
+| 测试 | ✅ **407 passed / 0 failed**（401 基线 + V6 断言 + eval 6） | 全量 pytest（2026-11-18） |
+| S2-B | ⬜ Online 接口/成本/安全已预留（cost/cost_known/mode=online）；**真实 LLM 评测未批准不执行、零费用** | — |
 
 ### Phase 4 S1 Golden Set 冻结（2026-11-18，已完成并入库）
 

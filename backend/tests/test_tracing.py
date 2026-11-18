@@ -167,7 +167,7 @@ def test_v5_migration_idempotent_and_preserves_history(tmp_path):
         assert row["llm_calls"] is None
         versions = [r["version"] for r in conn.execute(
             "SELECT version FROM schema_migrations ORDER BY version")]
-        assert versions == [1, 2, 3, 4, 5]
+        assert versions == [1, 2, 3, 4, 5, 6]
     finally:
         conn.close()
 
