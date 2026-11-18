@@ -1,10 +1,23 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+S2-A+S2-B 完成**：golden 111 条冻结入库；Fake Runner 全量跑通；Online 适配/成本统计/预算保护实现完成（Mock 验证，**真实 LLM 未批准不执行、零费用**）；20 条冒烟计划待审批）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+S2-A+S2-B+S2-C 完成**：golden 111 条冻结入库；Fake Runner 全量跑通；Online 适配/成本统计/预算保护实现完成——**S2-C 真实冒烟前置安全加固：单次预算 ¥3 预警/¥5 硬停（BudgetStack 最严格）、预留覆盖重试、max_tokens 已核查待核实、424 passed**；**真实 LLM 未批准不执行、零费用**；20 条冒烟计划待审批）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A+S2-B 完成，S3 待批准进入，决策㊲㊳㊴㊵）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A+S2-B+S2-C 完成，S3 待批准进入，决策㊲㊳㊴㊵㊵b）**
+
+### Phase 4 S2-C 真实冒烟前置安全加固（2026-11-18，实现完成，Mock 验证，决策㊵b）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 单次运行预算落地 | ✅ `evaluate.py` `--budget-warn 3 --budget-cap 5`（默认 ¥3/¥5）；与全局 ¥10/¥15/¥20 经 **BudgetStack** 同时生效、取最严格；报告含 `most_restrictive` 预算矩阵 | `budget.py` BudgetStack + `evaluate.py` |
+| 预留覆盖重试 | ✅ case 级预留 `4 节点 × 9 重试 ≤36 调用 × 单次最坏`；commit 整额冲抵、异常路径 `release_reservation` 释放（防泄漏） | `runner.py` + `budget.py` `release_reservation` |
+| max_tokens 核查（要求 3） | ✅ **openai SDK 3.3.1 支持 `max_tokens`/`max_completion_tokens`；`llm_client._request` 未设置（业务共享代码，按约束不改）**；真实 DeepSeek flash 上限以供应商 API 为准，**标记待核实、不虚构** | `llm_client.py` 核查 + 计划文档 §4 |
+| 单 case 最大调用次数（要求 4） | ✅ 单节点结构化输出最多 9 次（max_attempts=3 × (retries=2+1)）；工作流 LLM 节点 exam/question/lesson=2、class_diag=1；**case 上界 36**；预算预留覆盖 | workflow.py + llm_utils.py |
+| 新增测试（要求 5） | ✅ **6 项**：单次 warn/cap、全局+单次最严格、未知成本双记、重试预留、并发不超支、release 防泄漏 → `test_eval_budget.py` 共 **17 项** | 测试 |
+| Mock 全量验证 | ✅ 111 条在单次预算下与 fake 指标完全一致（成功率 100%/行为 90.09%/预期 fail 100%）、预算矩阵正确、无误触发 | `data/staging/eval_runs/online_20261118165207_8d1711/report.json` |
+| 测试 | ✅ **424 passed / 0 failed**（418 + S2-C 6） | 全量 pytest（2026-11-18） |
+| 约束遵守 | ✅ 未发起任何真实 LLM/API 请求、未改冻结 Golden、**未改业务 Workflow / llm_client**、未进 S3 | — |
 
 ### Phase 4 S2-B Online 适配 + 成本 + 预算（2026-11-18，实现完成，Mock 验证，决策㊵）
 

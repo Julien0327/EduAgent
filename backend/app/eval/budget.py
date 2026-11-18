@@ -84,6 +84,16 @@ class EvalBudget:
         with self._lock:
             self._allow_resume = True
 
+    def release_reservation(self, worst_cny: float | None) -> None:
+        """case 结束后释放本 case 的预留额（无论成功/异常，防预留泄漏）。
+
+        commit 已按最坏额冲抵时调用方可不传；本方法幂等（下限 0）。
+        """
+        if not worst_cny:
+            return
+        with self._lock:
+            self.reserved = max(0.0, self.reserved - worst_cny)
+
     # ---- 预留：调用前必须通过（按最坏口径） ----
     def try_reserve(self, prompt_tokens: int, completion_tokens: int) -> float | None:
         worst = worst_case_cost_cny(self.worst_model,
@@ -185,6 +195,73 @@ class EvalBudget:
 
     def to_dict(self) -> dict:
         return self.status() | {"entries": [e.to_dict() for e in self.entries]}
+
+
+class BudgetStack:
+    """多重预算栈（S2-C，要求 1）：多个 EvalBudget 同时生效，取最严格。
+
+    单次运行预算（冒烟 ¥3 预警/¥5 硬停）与全局预算（¥10/¥15/¥20）同时存在时：
+    - try_reserve：任一子预算 pause/hard 触发 → 拒绝；
+    - commit/结算：写入全部子预算（各自累计真实成本）；
+    - status：返回各子预算状态 + 最小剩余（最严格）。
+    """
+
+    def __init__(self, budgets: list[EvalBudget]):
+        if not budgets:
+            raise ValueError("BudgetStack 至少需要一个 EvalBudget")
+        self.budgets = list(budgets)
+
+    def try_reserve(self, prompt_tokens: int, completion_tokens: int) -> float | None:
+        """对每个子预算预留；全部成功才放行，任一拒绝则整体拒绝。
+
+        返回预留的最坏额（取各子预算预留额中最大者，作为本 case 预留值）。
+        """
+        reserved: list[float] = []
+        for b in self.budgets:
+            r = b.try_reserve(prompt_tokens, completion_tokens)
+            if r is None:
+                # 回滚已成功预留（防状态不一致）
+                for prev, bprev in zip(reserved, self.budgets):
+                    bprev.reserved -= prev
+                return None
+            reserved.append(r)
+        return max(reserved) if reserved else 0.0
+
+    def commit(self, cost_cny: float | None, model: str = "deepseek-flash",
+               tokens_in: int | None = None, tokens_out: int | None = None,
+               period: str | None = None, price_version: str | None = None,
+               worst_cny: float | None = None) -> None:
+        """结算到每个子预算（各自按最坏额冲抵预留 + 记录成本）。"""
+        for b in self.budgets:
+            b.commit(cost_cny=cost_cny, model=model, tokens_in=tokens_in,
+                     tokens_out=tokens_out, period=period,
+                     price_version=price_version, worst_cny=worst_cny)
+        return None
+
+    def release_reservation(self, worst_cny: float | None) -> None:
+        """case 收尾释放预留（异常路径兜底，防止预留泄漏）。"""
+        for b in self.budgets:
+            b.release_reservation(worst_cny)
+
+    def status(self) -> dict:
+        return {
+            "budgets": [b.status() for b in self.budgets],
+            "most_restrictive": {
+                "cap_cny": min(b.cap for b in self.budgets),
+                "warn_at": min(b.warn_at for b in self.budgets),
+                "spent_total_cny": max(b.cost for b in self.budgets),
+                "remaining_cny": min(b.status()["budget_remaining_cny"]
+                                     for b in self.budgets),
+                "trip": ("cap" if any(b.hard_stopped for b in self.budgets)
+                         else "pause" if any(b.pause_requested for b in self.budgets)
+                         else "warn" if any(b.reminded for b in self.budgets)
+                         else "none"),
+            },
+        }
+
+    def to_dict(self) -> dict:
+        return {"budgets": [b.to_dict() for b in self.budgets],
+                "most_restrictive": self.status()["most_restrictive"]}
 
 
 def apply_entry_to_record(rec, entry: CostEntry, ledger: EvalBudget) -> None:

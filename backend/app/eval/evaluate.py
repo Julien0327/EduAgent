@@ -64,6 +64,10 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--report-out", default=None)
+    ap.add_argument("--budget-warn", type=float, default=3.0,
+                    help="单次运行预算预警线（¥，默认 3）")
+    ap.add_argument("--budget-cap", type=float, default=5.0,
+                    help="单次运行预算硬停线（¥，默认 5；冒烟更严，全局 ¥20 仍恒生效）")
     args = ap.parse_args()
 
     from backend.app.eval.golden import load_frozen
@@ -106,11 +110,18 @@ def main() -> int:
         print(f"[参数非法] --mode={mode}（fake/online）")
         return 2
 
-    # 预算保护（要求 3）：online 档启用 ¥10 提醒 / ¥15 暂停 / ¥20 硬停；fake 档不启用
+    # 预算保护（要求 3/要求 1）：online 档启用；单次运行预算（¥3 预警/¥5 硬停）
+    # 与全局预算（¥10 提醒/¥15 暂停/¥20 硬停）同时生效，取最严格（BudgetStack）。
     budget = None
     if mode == "online":
-        from backend.app.eval.budget import EvalBudget
-        budget = EvalBudget(cap_cny=20.0, warn_at_cny=10.0, pause_at_cny=15.0)
+        from backend.app.eval.budget import EvalBudget, BudgetStack
+        single = EvalBudget(cap_cny=args.budget_cap, warn_at_cny=args.budget_warn,
+                            pause_at_cny=args.budget_cap)   # pause=cap 等值，硬停即止
+        global_b = EvalBudget(cap_cny=20.0, warn_at_cny=10.0, pause_at_cny=15.0)
+        budget = BudgetStack([single, global_b])
+        # 打印预算矩阵（透明度）
+        print(f"[预算] 单次 warn={args.budget_warn} cap={args.budget_cap}；"
+              f"全局 warn=10 pause=15 cap=20（BudgetStack 最严格）")
 
     t0 = time.time()
     records = run_all(cases, seed=args.seed, workdir=workdir,
@@ -127,7 +138,7 @@ def main() -> int:
     metrics = build_metrics(cases, records)
     metrics["elapsed_sec"] = round(elapsed, 2)
     if budget is not None:
-        metrics["budget"] = budget.to_dict()   # 预算快照（含触发线/剩余/未知成本）
+        metrics["budget"] = budget.to_dict()   # 预算快照（含 BttBudgetStack 矩阵 + 触发线）
 
     run_id = args.run_id or f"{mode}_{time.strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}"
 

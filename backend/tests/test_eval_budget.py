@@ -179,3 +179,104 @@ def test_concurrent_commits_budget_locked():
     assert st["spent_total_cny"] == pytest.approx(N * 0.05, abs=1e-6)
     assert st["hard_stopped"] is False          # 2 << 20
     assert b.cost + b.reserved <= b.cap + 1e-9
+
+# ===================== S2-C：多重预算（BudgetStack） =====================
+from backend.app.eval.budget import BudgetStack
+
+
+def test_budget_stack_single_warn_cap():
+    """单次运行预算：¥3 预警、¥5 硬停（冒烟更严）。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    stack = BudgetStack([single])
+    # 到 ¥3.5 → 触发预警但不停止
+    assert stack.try_reserve(200, 100) is not None
+    stack.commit(cost_cny=3.5, tokens_in=200, tokens_out=100)
+    st = stack.status()
+    assert st["budgets"][0]["reminded"] is True          # 预警触发
+    assert st["budgets"][0]["pause_requested"] is False
+    assert stack.try_reserve(1, 1) is not None          # 预警不阻止
+    # 累计到 4.99，尝试 ¥0.6 预留 → 4.99+0.6 ≥ 5 → 硬停拒绝
+    stack.commit(cost_cny=1.49, tokens_in=1, tokens_out=1)  # 3.5 + 1.49 = 4.99
+    reserved = stack.try_reserve(300000, 0)             # worst≈0.6 → 压满 5
+    assert reserved is None                             # 硬停后拒绝
+    assert single.hard_stopped is True
+
+def test_budget_stack_global_and_single_most_restrictive():
+    """全局（¥10/¥15/¥20）与单次（¥3/¥5）同时生效，取最严格（单次先触发）。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    global_b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=15)
+    stack = BudgetStack([single, global_b])
+    best = stack.status()["most_restrictive"]
+    assert best["cap_cny"] == 5                          # 最严格 cap = 单次
+    assert best["warn_at"] == 3
+    # 累计到 ¥4（>单次cap5 未到，但接近；全局无影响）→ 单次硬停线 5
+    stack.try_reserve(200, 100)
+    stack.commit(cost_cny=4.0, tokens_in=200, tokens_out=100)
+    assert stack.try_reserve(800000, 0) is None         # 单次 cap5 拒绝，全局 cap20 不受影响
+    # 验证全局预算单独没被触发（语义正确）
+    assert global_b.status()["hard_stopped"] is False
+    assert global_b.status()["reminded"] is False
+
+def test_budget_stack_unknown_cost_double_counted():
+    """未知成本入账到每个子预算（不视 0），双重预算各自按最坏预留。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    global_b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=15)
+    stack = BudgetStack([single, global_b])
+    r = stack.try_reserve(200, 100)                     # 成功返回 max 预留
+    assert r is not None
+    stack.commit(cost_cny=None, tokens_in=200, tokens_out=100, worst_cny=r)
+    unknown_worst = worst_case_cost_cny("deepseek-flash", 200, 100)
+    assert single.status()["calls_unknown"] == 1          # 两个预算都记 unknown
+    assert global_b.status()["calls_unknown"] == 1
+    assert single.status()["spent_unknown_cny"] == pytest.approx(unknown_worst, abs=1e-9)
+    assert global_b.status()["spent_unknown_cny"] == pytest.approx(unknown_worst, abs=1e-9)
+
+def test_budget_stack_retry_reservation():
+    """重试预留：单 case 按多次最坏预留（max 覆盖），覆盖重试不额外超支。"""
+    # 模拟一次 case 有 3 次调用（传输重试 2 + 主调用），每次预留最坏额
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    stack = BudgetStack([single])
+    worst_each = []
+    for _ in range(3):
+        r = stack.try_reserve(200, 100)
+        assert r is not None
+        worst_each.append(r)
+        stack.commit(cost_cny=0.002, tokens_in=100, tokens_out=50, worst_cny=r)
+    st = stack.status()
+    # 3 次调用都成功计入；预留全部冲抵（无泄漏）
+    assert single.status()["calls_known"] == 3
+    assert single.reserved < 1e-6                        # 预留被冲抵
+    assert st["budgets"][0]["spent_known_cny"] == pytest.approx(0.006, abs=1e-6)
+
+def test_budget_stack_concurrent_reserve_no_overrun():
+    """并发预留多预算不超各自 cap、不泄漏。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    global_b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=15)
+    stack = BudgetStack([single, global_b])
+    N = 20
+    def worker():
+        r = stack.try_reserve(200, 100)
+        if r is not None:
+            stack.commit(cost_cny=0.01, tokens_in=100, tokens_out=50, worst_cny=r)
+    threads = [threading.Thread(target=worker) for _ in range(N)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    # 单次 cap=5：每个成功预留 0.01→ 20 个 = 0.2（不超）；预留冲抵无泄漏
+    assert single.cost + single.reserved <= 5 + 1e-9
+    assert global_b.cost + global_b.reserved <= 20 + 1e-9
+    assert stack.status()["most_restrictive"]["spent_total_cny"] <= 5 + 1e-9
+
+
+def test_budget_stack_release_prevents_leak():
+    """异常兜底：case 异常时 release_reservation 释放预留，不泄漏。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    stack = BudgetStack([single])
+    r = stack.try_reserve(5000, 2000)                 # 预留一次
+    assert r is not None
+    before = stack.status()["budgets"][0]["reserved_cny"]
+    assert before > 0
+    # 模拟 case 异常：未 commit，直接 release
+    stack.release_reservation(r)
+    after = stack.status()["budgets"][0]["reserved_cny"]
+    assert after == pytest.approx(0.0, abs=1e-9)      # 预留释放干净
+    assert stack.status()["budgets"][0]["spent_total_cny"] == 0.0  # 未记成本

@@ -100,9 +100,14 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
     if mode == "online":
         from backend.app.eval.provider import install_online_env
         install_online_env(llm_provider, workdir)
-        # 预算保护：执行前预留（要求 3）——预留失败 = 硬停/暂停，本 case 不执行
+        # 预算保护：执行前预留（要求 3/要求 4 覆盖重试）
+        #   case 级预留 = maxLLM节点(4) × 单节点重试上限(9) × 单次最坏 token
+        #   预留一次锁定；commit 时按 self_worst 全额冲抵（释放预留 + 计实际成本）
         if budget is not None:
-            worst_reserved = budget.try_reserve(800, 400)   # 按冒烟平均最坏口径预留
+            MAX_LLM_NODES = 4          # exam/question/lesson 均 ≤2，narrate(class) 额外 → 上界 4
+            RETRY_WORST = 9            # 单节点最坏调用数：3 校验尝试 × (2 传输重试+1)
+            worst_reserved = budget.try_reserve(MAX_LLM_NODES * RETRY_WORST * 200,
+                                                MAX_LLM_NODES * RETRY_WORST * 100)
             if worst_reserved is None:
                 rec.task_status = "budget_stopped"
                 rec.actual_behavior = "budget_stopped"
@@ -155,6 +160,12 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
         rec.task_status = "infra"
         rec.error_type = ERR_INFRA
         rec.error_message = f"{type(exc).__name__}: {exc}"
+        # 异常路径兜底：释放本 case 预留（成功路径已由 commit 冲抵，此处幂等防泄漏）
+        if budget is not None:
+            try:
+                budget.release_reservation(self_worst if self_worst else None)
+            except Exception:
+                pass
     finally:
         task_store.reset()
     return rec

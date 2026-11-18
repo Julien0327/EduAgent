@@ -100,14 +100,19 @@
 
 ## 5. 预算保护口径（评审：#6）
 
-**双级预算（采用更严格限制；单次预算实施见 §7 说明）**：
-- **单次冒烟（计划约束，待批准时实施）**：`EvalBudget(cap=5.0, warn=3.0, pause=5.0)`——预警 ¥3（记录不停止）、**硬停 ¥5**（cost+reserved ≥ 5 立即拒绝新 case；pause=cap 等值以免 pause 先于 cap 混淆，硬停即止）；
-  > 当前 `evaluate.py` 尚未支持此覆盖（仅硬编码全局预算）；经批准需给 `evaluate.py` 加 `--budget-cap/warn` CLI 或 env（见 §7）**后才生效**。文档定义=审批时实施项，非已实现。
-- **全局（当前生效）**：evaluate 默认 `EvalBudget(cap=20, warn=10, pause=15)`（`evaluate.py:113`，决策㊲③）；
-- **预算目标（评审 #7）**：真实冒烟只验证 usage 统计、预留、结算的数字正确性；**三线触发/暂停恢复/并发不绕过等阈值行为均以 Mock 测试（`test_eval_budget.py` 11 项）验证**，不在真实冒烟中触发验证。
-- 预留：每 case 执行前 `try_reserve(次数×最坏单次)`；未知成本按最坏入账（不视 0）；
+**双级预算（S2-C 已实现，BudgetStack 取最严格）**：
+- **单次冒烟**：`evaluate.py` 支持 `--budget-warn 3 --budget-cap 5`（默认即 ¥3 预警 / ¥5 硬停）→ `EvalBudget(cap=5, warn=3, pause=5)`（pause=cap 等值，硬停即止）；
+- **全局**：evaluate 同时构造 `EvalBudget(cap=20, warn=10, pause=15)`，与单次预算经 `BudgetStack` 成组，**严格时取先触发者**（单次硬停 ¥5 先于全局 ¥20 生效）；
+- **预算目标（评审 #7）**：真实冒烟只验证 usage 统计、预留、结算的数字正确性；**三线触发/暂停恢复/并发不绕过/未知成本等阈值行为均以 Mock 测试（`test_eval_budget.py` 17 项）验证**，不在真实冒烟中触发验证。
+- 预留：每 case 执行前 `try_reserve(case级最坏)`（覆盖 max LLM 节点 × 重试上限，详见 §4bis）；未知成本按最坏入账（不视 0）；
 - 结算：实际 usage 回填 cost；cost_known=False 的记录为 unknown；
-- 触发即停：pause/硬停任一 → 该 case `budget_stopped`，后续 case 不再执行，报告明示。
+- 触发即停：任一预算 pause/硬停 → 该 case `budget_stopped`，后续 case 不再执行，报告明示（含 `most_restrictive`）。
+
+### 4bis 单 case 最大 LLM 调用次数与预留覆盖（S2-C 核实，要求 4）
+- 单节点结构化输出最多 LLM 调用：`max_attempts=3`（校验重试）× `(retries=2 + 1 主调用)` = **9 次**（失败路径；成功路径恒 1 次）；
+- 各工作流 LLM 节点数：exam_loop/question_gen/lesson_plan 均 **2**（planner = understand_task + 主节点），class_diagnosis **1**（narrate）；
+- **单 case 最大调用次数上界 = 4 节点 × 9 = 36**（保守取 4 覆盖三主工作流 + 预留重试递增）；
+- 预算预留 = `case 级最坏 = 4 节点 × 9 重试 × 单次最坏 token`，`commit` 后整体冲抵（预留覆盖重试不泄漏），异常路径 `release_reservation` 兜底。
 
 ## 6. 风险与缓解（评审修订后）
 
@@ -124,9 +129,9 @@
 ## 7. 审批通过后的执行步骤
 
 1. 启动前：确认 DEEPSEEK_API_KEY（不打印）；确认冻结 golden sha256 不变；**检查 DeepSeek flash 单次请求 token 上限（若可查）**。
-2. **单次冒烟预算（¥3 预警 / ¥5 硬停）实施说明**：当前 `evaluate.py` 仅硬编码全局预算（¥20 硬停/¥15 暂停/¥10 提醒，`EvalBudget(...)` 于 `evaluate.py:113`），config 无预算 env。单次更严预算需在批准冒烟时经用户同意给 `evaluate.py` 增加 CLI 参数或 env 覆盖（如 `--budget-cap 5 --budget-warn 3`）后方可生效；**批准前不修改业务代码**。
-3. `python -m backend.app.eval.evaluate --mode online --llm-mode real --allow-live-api --db <eval库> --workdir <运行目录> --run-id smoke_<date>`（加上一步骤获准的单次预算参数）。
-4. 读取报告：20 条完成度、已知/未知成本任务数、总成本、预算快照、逐 case cost_known/usage。
+2. **单次冒烟预算（¥3 预警 / ¥5 硬停）已实现**：`evaluate.py` 提供 `--budget-warn 3 --budget-cap 5`（默认值即 3/5），与全局 ¥10/¥15/¥20 经 `BudgetStack` 同时生效、取最严格（S2-C）。冒烟直接使用默认即可。
+3. `python -m backend.app.eval.evaluate --mode online --llm-mode real --allow-live-api --db <eval库> --workdir <运行目录> --run-id smoke_<date>`。
+4. 读取报告：20 条完成度、已知/未知成本任务数、总成本、预算快照（含 `most_restrictive`）、逐 case cost_known/usage。
 5. 对照 §1 验收门槛逐项核验；按需回填实测 token/成本到本计划 §4。
 6. 结果反馈后评估：是否进入全量 online / 缺陷修复（gc_b16/b23）/ S3 judge——均需另行决策。
 
