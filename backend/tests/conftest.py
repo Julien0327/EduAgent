@@ -78,6 +78,13 @@ def _isolated_task_store(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _fake_api_key(monkeypatch):
+    """CI/无 .env 环境：注入测试用 Key（LLM 全部 Mock，不发起真实调用）。"""
+    from backend.config import settings
+    monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", "test-key", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _auth_token(monkeypatch):
     """S6 起 API fail-closed——测试统一注入 test token（配合各 TestClient 的 AUTH 头）。"""
     from backend.app.api.security import limiter

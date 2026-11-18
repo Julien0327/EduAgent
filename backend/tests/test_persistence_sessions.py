@@ -39,6 +39,9 @@ def fake_llm(monkeypatch):
 
         fake = FakeLLM()
         monkeypatch.setattr(llm_utils, "get_llm_service", lambda: fake)
+        # chat 端点直接持有了 llm_client.get_llm_service 的引用——一并替换（离线，不打真实 API）
+        import backend.app.api.chat as chat_api
+        monkeypatch.setattr(chat_api, "get_llm_service", lambda: fake)
         return fake
 
     return _install
