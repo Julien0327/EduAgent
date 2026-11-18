@@ -68,6 +68,8 @@ def main() -> int:
                     help="单次运行预算预警线（¥，默认 3）")
     ap.add_argument("--budget-cap", type=float, default=5.0,
                     help="单次运行预算硬停线（¥，默认 5；冒烟更严，全局 ¥20 仍恒生效）")
+    ap.add_argument("--cases", default=None,
+                    help="逗号分隔的 case_id 子集（如 --cases gc_e03,gc_q01）；缺省=全量")
     args = ap.parse_args()
 
     from backend.app.eval.golden import load_frozen
@@ -77,6 +79,15 @@ def main() -> int:
     )
 
     cases, sha = load_frozen(args.frozen)
+    if args.cases:
+        wanted = {c.strip() for c in args.cases.split(",") if c.strip()}
+        cases = [c for c in cases if c["case_id"] in wanted]
+        missing = wanted - {c["case_id"] for c in cases}
+        if missing:
+            print(f"[子集警告] 以下 case_id 不在冻结集（忽略）：{sorted(missing)}")
+        if not cases:
+            print("[子集错误] 过滤后为空，退出")
+            return 2
     print(f"[golden] {len(cases)} 条；sha256={sha[:16]}…")
 
     workdir = build_workdir(Path(args.workdir) if args.workdir else None)

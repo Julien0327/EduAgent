@@ -1,10 +1,25 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+S2-A+S2-B+S2-C 完成**：golden 111 条冻结入库；Fake Runner 全量跑通；Online 适配/成本统计/预算保护实现完成——**S2-C 真实冒烟前置安全加固：单次预算 ¥3 预警/¥5 硬停（BudgetStack 最严格）、预留覆盖重试、max_tokens 已核查待核实、424 passed**；**真实 LLM 未批准不执行、零费用**；20 条冒烟计划待审批）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中：S2 已关账（真实 20 条冒烟通过，¥0.211，用户批准执行），S3 judge 五维+校准开工中**；gc_e03 真实诊断降级已如实记录并定处置路线（S3 规则评分加 degraded 检测 → 全量量化 → 业务修复待用户决策））。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A+S2-B+S2-C 完成，S3 待批准进入，决策㊲㊳㊴㊵㊵b）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3 进行中，决策㊲㊳㊴㊵㊵b㊶）**
+
+### Phase 4 S2 关账（2026-11-18，真实冒烟通过，决策㊶）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 子集入口 | ✅ `evaluate.py --cases`（逗号分隔 case_id 过滤；缺失 id 警告忽略、空集拒绝退出） | mock 预演精确选中 20 条 |
+| Mock 预演 | ✅ 20 条子集 mock 跑通：行为正确率 100%、成本模拟 ¥0.048、预算矩阵正常 | `online_20261118185637_55bca8` |
+| **真实冒烟（用户批准）** | ✅ `smoke_real_01`：20 条全完成、273.5s、**总成本 ¥0.210568**、20/20 cost_known、0 未知；单次预算 ¥3/¥5 与全局均未触发（trip=none）；逐条归因全 ok | `data/staging/eval_runs/smoke_real_01/report.json` |
+| 成本实测 vs 估算 | ✅ 17 个 LLM case 均值 ¥0.0105/条（区间 ¥0.008–0.025），落在冒烟计划保守档（¥0.21）内 | 报告逐 case cost |
+| 行为指标 | ✅ 行为正确率 100%（20 条清单不含 clarify/reject 缺陷项）；正确拒绝率 100%（2/2）；HTTP 边界 100%（1/1）；Planner 字段准确率 96.43% | 同上 |
+| **真实发现：gc_e03 诊断降级** | ⚠️ 真实 LLM 在 diagnose 节点 3 次未返回合法 schema → 双失败兜底模板（PDF 含「学情诊断暂不可用」，2 页 6.1KB）。任务仍 completed/err=ok（P2-8 降级契约为设计内行为）；**评测系统如实记录，非评测 bug** | pypdf 实读核验；task `eec48e319827` |
+| gc_e03 处置路线（用户批准） | ①评测侧：S3 规则评分加入 degraded 标记检测（eval 层）；②量化：全量 online 跑真实 degraded 率；③业务侧修复：拿到频率数据后由用户决策，S3 前不动业务代码 | 决策㊶ |
+| 验收门槛 | ✅ 全部达成：20 条全完成、无 infra、已知成本 100%（≥90%）、未触发硬停、报告含逐 case 成本+预算快照、cost_known 语义如实 | 冒烟计划 §1 |
+| 真实 API 调用 | 本轮经用户明确批准执行 20 条冒烟；除此以外全程零真实调用 | 用户批准记录 |
+| **S2 状态** | ✅ **关账**（S2-A Fake Runner + S2-B Online 适配 + S2-C 预算加固 + 真实冒烟验证全部交付） | 决策㊶ |
 
 ### Phase 4 S2-C 真实冒烟前置安全加固（2026-11-18，实现完成，Mock 验证，决策㊵b）
 
