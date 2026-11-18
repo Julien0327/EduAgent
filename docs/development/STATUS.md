@@ -14,7 +14,7 @@
 | 依赖 | ✅ `requirements-ci.txt`（含 pypdf 补齐；fastembed/onnxruntime 供 embedding 导入与本地推理）；`requirements.txt` 补 pypdf | 文件 |
 | 跳过守卫 | ✅ interop 测试 `importorskip("acps_sdk")`（CI 无 SDK）；annotation recall 在 BGE 模型缓存缺失时 skipif（CI 无模型） | 测试 |
 | 本地验证 | ✅ 全量 **447 passed**；CI smoke 命令本地实跑 20 条 100%/5.2s | 实测 |
-| 线上结果 | ⏳ push 后 GitHub Actions 运行中，结果回填 | `gh run list` |
+| 线上结果 | ✅ **GitHub Actions 全绿**（run 44315627357，50s）：pytest 全量 + fake smoke 20 均通过；首轮失败因 CI 无 DEEPSEEK_API_KEY（tasks/chat 入口 500）→ 测试注入假 Key + chat 端点离线化后修复（commit `f5fc662`） | `gh run view 44315627357` |
 
 ### Phase 4 S4 eval API + 前端评测页（2026-11-18，进行中 → 待验收，决策㊻）
 
