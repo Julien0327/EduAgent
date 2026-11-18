@@ -105,6 +105,11 @@
 3. V7 迁移修正真库 eval_runs 复合主键；导入真实 runs（smoke_real_01 / s3b_calib_real_01）；
 4. 冒烟：uvicorn 200/页面含评测中心/无 token 401；测试 4 项，全量 447 passed。
 
+### S6 关账 + 收尾加固（✅ 2026-11-18，决策㊽）
+1. A：p95 按工作流分组（§9.1）；B：judge 未采信 → 规则评分回退应用全量（rule_scores 持久化+API 均值+前端展示）；E：baseline→current delta；修正任务成功率分母口径（execute/fallback）。
+2. 数据回填 + fake_s6_full(111)；447 passed；CI 全绿。
+3. 遗留交接：全量 online（可选）/gc_e03 修复（待决）/ECS 部署窗口（待批）/浏览器点验。
+
 ### S5 CI
 1. `.github/workflows/ci.yml`：push → Python 3.13 + Ubuntu → 装依赖 → pytest 全量 + fake smoke eval 20 条；失败即红。
 2. Linux 兼容验证（路径/编码/平台差异）；个别 Windows 耦合测试用 skipif 处理而非改逻辑。

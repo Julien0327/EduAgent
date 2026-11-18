@@ -1,10 +1,37 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中：S2 已关账（真实 20 条冒烟通过，¥0.211，用户批准执行）；S3-A judge 五维+校准骨架完成（443 passed，零真实调用）**；S3-B/C 真实校准执行待用户批准；gc_e03 真实诊断降级已如实记录并定处置路线）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 4 评测体系已关账**：S0–S6 全部完成并验收；golden 111 条冻结；Fake/Online Runner + 预算保护 + 真实冒烟（¥0.211+¥0.661）+ judge 4 轮校准（64.0% 未达 80% → 规则评分回退并应用到全量）+ eval API/评测页 + CI 全绿；**447 passed**；全部提交已 push；决策㊲–㊽；遗留：全量 online（可选）/gc_e03 修复（待决）/ECS 部署窗口（待批））。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3-A 完成，S3-B/C 待批准，决策㊲㊳㊴㊵㊵b㊶㊷）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账）｜Phase 2 可信检索 ✅（2026-11-15 关账）｜Phase 3 归因+观测 ✅（2026-11-17 验收并 push）｜Phase 4 评测体系 ✅（2026-11-18 关账，决策㊲–㊽）｜Phase 5 纵深 ⬜ 待启动（critique 质检环 + MCP）**
+
+
+### Phase 4 关账总表（2026-11-18，决策㊲–㊽）
+
+| 阶段 | 交付 | 关键数字/证据 |
+|---|---|---|
+| S0 开工 | PHASE4-PLAN、决策㊲、401 基线 | push 已核实、计划落盘 |
+| S1 golden | 111 条冻结（`data/gt/golden_set_v1.jsonl` + eval_cases） | core 80/boundary 31（28%）；sha256 `268cd828…`；真实 82 KP 核对 76 处 0 错 |
+| S2-A Fake Runner | `backend/app/eval/` 全套 + V6 迁移 | 111 条：任务成功率 100%（93/93）、行为正确率 90.09%；暴露追问 0%/拒绝 66.7% |
+| S2-B Online | provider/MockLLM/成本统计/预算三线/安全闸门 | mock 全量一致；未知成本不视 0 |
+| S2-C 预算加固 | BudgetStack 单次 ¥3/¥5 + 全局；重试预留；超支核查 | 11+6 项测试；端到端暂停拦截验证 |
+| 真实冒烟 | 20 条 `smoke_real_01` | **¥0.210568**、20/20 已知成本、预算未触发 |
+| S3 judge | judge 五维+规则兜底+校准集 50 条+评分表 | 校准 4 轮：46.4/61.6/**64.0**/55.2% → **未采信，规则回退并记录**；真实 50 条 ¥0.661 + judge ¥1.818 |
+| 真实检索接入 | `--real-retrieval`（本地 BGE，零 API） | mock 冒烟通过 |
+| S4 eval API+页 | `GET /api/eval/report` + 前端「评测中心」+ V7 迁移 | 分工作流 p95/规则分均值/baseline delta；API/页面/401 冒烟通过 |
+| S5 CI | `.github/workflows/ci.yml` + requirements-ci | **GitHub Actions 全绿**（pytest 全量 + fake smoke 20） |
+| S6 加固关账 | A/B/E 落地 + 口径修正 + 文档 | 447 passed；任务成功率分母修正（93/93） |
+
+**真实花费合计 ≈ ¥2.69**（冒烟 0.211 + 校准 0.661 + judge 1.818），全部在预算保护内。
+
+**遗留交接（不阻塞 Phase 5）**：
+1. C 全量 111 条 online 评测（可选，≈¥1.5，拿完整 degraded 率）；
+2. F gc_e03 类诊断降级（真实频率 7/25≈28%）业务修复——改 `generate_diagnosis` prompt，需独立评审；
+3. ECS 集中部署窗口（代码同步/HTTPS/compose），需用户逐次批准；
+4. D 浏览器交互点验「评测中心」页（静态/接口冒烟已过）。
+
+**Phase 5 交接要点**：技术方案 §8（critique 质检环 §8.1/§8.2、MCP §8.3）；评测框架已就绪（golden/fake runner/eval_runs），critique 拦截率与回流轮次可直接接入 `eval_runs` 与评测页；CI 已可承接新增测试。
 
 ### Phase 4 S6 关账 + 收尾加固（2026-11-18，决策㊽）
 
