@@ -72,9 +72,19 @@
 - 测试：`test_eval_fake_runner.py`（6 项）；全量 **407 passed**（基线 401 + V6 版本断言 + eval 6）。
 - detection 生效在 `python -m backend.app.eval.evaluate --mode fake [--db 独立库] [--run-id X]`。
 
-### S2-B Online Runner（接口/成本/安全已交付，**真实 LLM 未经批准不执行**）
-- 交付：成本统计与安全控制接口（见 S2-A aggregate `cost/cost_known` 字段 + 预算约定），**在线档执行在决策㊴ 批准后**：先 20 条冒烟 → 全量前逐次批准（决策㊲③预算三线）。
-- 状态：⬜ 未执行真实 LLM 评测（零费用）；接口已预留 `mode=online`。
+### S2-B Online Runner 适配 + 成本统计 + 预算保护（2026-11-18 ✅ 实现完成，**真实 LLM 未批准不执行**）
+- **交付**：
+  - `provider.py`：Online 适配（install_online_env）+ MockLLM（模拟供应商带 usage 上报，走 tracing 真实上报路径）+ `aggregate_cost_from_ctx`（从 steps 聚合成ig日成本）；
+  - `budget.py`：EvalBudget——¥10 提醒 / ¥15 暂停 / ¥20 硬停三线，执行前 try_reserve 预留（防并发/重试/未知绕过），未知成本按最坏口径入账**不视 0**，暂停后 `allow_resume()` 人工确认恢复；
+  - `evaluate.py`：`--llm-mode fake/mock/real` + `--allow-live-api` 安全闸门（real 未批准即拒绝，`exit 2`）；
+  - `docs/development/PHASE4-ONLINE-SMOKE-PLAN.md`：待审批的 20 条冒烟计划（模型配置/成本估算/风险/边界）。
+- **验证（全部 Mock，零真实 API）**：
+  - mock online 全量 111 条：指标与 fake 完全一致（任务成功率 100%、行为 90.09%、预期 fail 100%）；成本统计 111 任务全已知、总额 ¥0.583 模拟、均值 ¥0.0053/任务；预算快照落盘（spent_total/remaining/calls_known/calls_unknown/trip_point）；
+  - 预算保护单测 **11 项**（提醒/暂停/恢复/硬停/并发不绕过/未知不视 0/异常不泄漏）+ 端到端：初始 ¥14.97 → 第 6 个 case 累计越过 ¥15 暂停线被拦截（trip=pause）；
+  - 未知成本:cost_known=False、tokens NULL 不视 0（单测 + 集成）。
+- **约束遵守**：未发起任何真实 LLM/API 请求、未启动冒烟/全量在线、未改冻结 Golden、未修复 Golden 记录的业务缺陷；S3 未启动。
+- 测试：`test_eval_budget.py`（11 项）；全量 pytest **417 passed**（407 + budget 11 - 1 合并）。
+- **待审批**：`PHASE4-ONLINE-SMOKE-PLAN.md` 的 20 条冒烟需用户单独审批后执行。
 
 ### S3 judge 五维 + 校准（LLM-as-judge）
 1. `judge.py`：五维（内容正确性/难度适切/覆盖完整/表述规范/引用规范）1–5 分 + 理由；fake 档记 N/A（FakeLLM 判分无意义）。

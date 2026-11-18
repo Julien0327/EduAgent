@@ -76,12 +76,20 @@ def _artifact_to_dict(a) -> dict:
             "content_assertions": a.content_assertions, "error": a.error}
 
 
-def run_workflow_case(case: dict, seed: int, workdir: Path | None = None) -> CaseRecord:
-    """workflow 层执行：FakeLLM 注入 → run_workflow → 产物校验。"""
+def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
+                      mode: str = "fake", llm_provider=None,
+                      budget=None) -> CaseRecord:
+    """workflow 层执行：LLM/检索注入 → run_workflow → 产物校验。
+
+    mode='fake'：install FakeLLM，cost=0（S2-A，离线确定性）。
+    mode='online'：install 真实/Mock provider，事后从 tracing 聚合真实 cost
+    （cost_known 语义；S2-B 用 Mock 不发起真实请求）。
+    budget（online 用）：执行前 try_reserve，超预算则 case 标记 budget_stopped 不执行。
+    """
     from backend.app.agent import workflow as wf
     from backend.app.agent.context import task_store
 
-    rec = CaseRecord(execution_mode="fake")
+    rec = CaseRecord(execution_mode=mode)
     exp = case["expect"]
     rec.case_id = case["case_id"]
     rec.expected_behavior = exp["behavior"]
@@ -89,8 +97,23 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None) -> Cas
     ew = exp.get("workflow")
     rec.workflow = ew if isinstance(ew, str) else ""
     workdir = workdir or (Path(__file__).resolve().parent / ".runout")
-    fake = FakeLLM(seed=seed)
-    install_fake_env(fake, workdir)
+    if mode == "online":
+        from backend.app.eval.provider import install_online_env
+        install_online_env(llm_provider, workdir)
+        # 预算保护：执行前预留（要求 3）——预留失败 = 硬停/暂停，本 case 不执行
+        if budget is not None:
+            worst_reserved = budget.try_reserve(800, 400)   # 按冒烟平均最坏口径预留
+            if worst_reserved is None:
+                rec.task_status = "budget_stopped"
+                rec.actual_behavior = "budget_stopped"
+                rec.task_error = "预算剩余不足以执行本 case（硬停或暂停线触发）"
+                rec.details = str(budget.status())
+                rec.error_type = "budget_stop"
+                return rec
+            self_worst = worst_reserved
+    else:
+        fake = FakeLLM(seed=seed)
+        install_fake_env(fake, workdir)
     t0 = time.perf_counter()
     try:
         ctx = wf.run_task(case["prompt"])
@@ -103,8 +126,22 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None) -> Cas
         checks, _content = check_artifacts(case["case_id"], art_paths)
         rec.artifacts = [_artifact_to_dict(c) for c in checks]
         rec.artifacts_ok = bool(checks) and all(c.valid for c in checks)
-        rec.cost = 0.0  # fake 档零成本（真实成本语义上线）/online 档才会变化
-        rec.cost_known = True
+        if mode == "online":
+            from backend.app.eval.provider import aggregate_cost_from_ctx
+            agg = aggregate_cost_from_ctx(ctx)
+            rec.cost = agg["cost"]
+            rec.cost_known = agg["cost_known"]
+            rec.details = f"tokens_in={agg['tokens_in']} tokens_out={agg['tokens_out']} " \
+                          f"llm_calls={agg['llm_calls']} usage={agg['usage_sources']}"
+            if budget is not None:
+                # 提交真实成本到预算；最坏额自预留冲抵，避免泄漏（要求 3/6）
+                budget.commit(
+                    cost_cny=rec.cost if rec.cost_known else None,
+                    tokens_in=agg["tokens_in"], tokens_out=agg["tokens_out"],
+                    worst_cny=self_worst if self_worst else None)
+        else:
+            rec.cost = 0.0
+            rec.cost_known = True
         if ctx.status != "completed":
             rec.error_type = ERR_WORKFLOW_FAILED
             rec.error_message = ctx.error or "执行失败"
@@ -320,13 +357,17 @@ def run_reject_404_case(case: dict, db_path: Path) -> CaseRecord:
 
 def dispatch_case(case: dict, seed: int, db_path: Path | None = None,
                   fixture: "Fixture | None" = None,
-                  out_dir: Path | None = None) -> CaseRecord:
+                  out_dir: Path | None = None,
+                  mode: str = "fake", llm_provider=None,
+                  budget=None) -> CaseRecord:
     """按 case 的 expected_behavior + entry 分发到对应执行器。
 
     返回的 CaseRecord 只含原始执行结果（不含判定），判定在 aggregate 统一定义，
     保证可重复性（同一输入同一结果）。gc_c01–c04（class_diagnosis）走独立 fixture。
 
     兜底：expect 结构异常 / 任何执行异常 → 记 infra（要求 5：单条不中断）。
+    mode='online' 时 workflow 层用真实/Mock provider，成本从 traces 聚合（S2-B）；
+    budget（online）→ 执行前 try_reserve，超预算 case 标记 budget_stopped。
     """
     try:
         exp = case["expect"]
@@ -347,9 +388,10 @@ def dispatch_case(case: dict, seed: int, db_path: Path | None = None,
             return run_reject_404_case(case, probe)
         if behavior == "clarify":
             return run_clarify_case(case, seed, workdir=out_dir)
-        return run_workflow_case(case, seed, workdir=out_dir)
+        return run_workflow_case(case, seed, workdir=out_dir, mode=mode,
+                                 llm_provider=llm_provider, budget=budget)
     except Exception as exc:
-        rec = CaseRecord(execution_mode="fake")
+        rec = CaseRecord(execution_mode=mode)
         rec.case_id = case.get("case_id", "?")
         rec.expected_behavior = "?"
         rec.expected_params = {}

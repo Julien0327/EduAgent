@@ -1,10 +1,25 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+ S2-A 完成**：golden 111 条冻结入库；Fake Runner 全量跑通且如实暴露系统短版；S2-B Online 接口预留但**真实 LLM 未批准不执行**）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0+S1+S2-A+S2-B 完成**：golden 111 条冻结入库；Fake Runner 全量跑通；Online 适配/成本统计/预算保护实现完成（Mock 验证，**真实 LLM 未批准不执行、零费用**）；20 条冒烟计划待审批）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + docs/development/PHASE4-ONLINE-SMOKE-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A 完成，S2-B 待批准真实 LLM 评测，决策㊲㊳㊴）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2-A+S2-B 完成，S3 待批准进入，决策㊲㊳㊴㊵）**
+
+### Phase 4 S2-B Online 适配 + 成本 + 预算（2026-11-18，实现完成，Mock 验证，决策㊵）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| Online 适配 | ✅ `eval/provider.py`：install_online_env + MockLLM（带 usage 上报，走 tracing 真实路径）+ aggregate_cost_from_ctx | 代码 |
+| 成本统计 | ✅ 已知/未知任务数、总额、均值、预算剩余；cost_known 语义（未知不视 0） | `budget.py` + 报告 |
+| 预算保护 | ✅ ¥10 提醒 / ¥15 暂停 / ¥20 硬停；执行前 try_reserve 预留；未知按最坏入账；暂停 `allow_resume()` 人工恢复；并发/重试/异常不绕过 | `budget.py` + 11 项单测 |
+| 安全闸门 | ✅ `--allow-live-api` 未批准即拒绝 exit 2；real 无 Key 拒绝 | `evaluate.py` |
+| Mock 全量验证 | ✅ 111 条：与 fake 指标完全一致（成功率 100%/行为 90.09%/预期 fail 100%）；成本 111 任务全已知 ¥0.583 模拟；预算快照落盘（trip=none） | `data/staging/eval_runs/online_20261118162226_2098e2/report.json` |
+| 端到端预算停止 | ✅ 初始 ¥14.97 → 第 6 case 累计越 ¥15 暂停线被拦（trip=pause） | 集成验证（Mock） |
+| 冒烟计划 | ✅ `docs/development/PHASE4-ONLINE-SMOKE-PLAN.md`：20 条抽样、模型配置、成本估算、风险、边界——**待用户单独审批** | 文档 |
+| 测试 | ✅ **418 passed**（407 + budget 11 + 暂停恢复，S2-B 净增 11） | 全量 pytest |
+| 约束遵守 | ✅ **未发起任何真实 LLM/API 请求、未启动冒烟/全量在线、未改冻结 Golden、未修复 Golden 记录的业务缺陷、S3 未启动** | — |
+| **待审批** | 20 条 Online 冒烟（`PHASE4-ONLINE-SMOKE-PLAN.md`）→ 批准后执行；之后 S3 judge | — |
 
 ### Phase 4 S2-A Fake Runner（2026-11-18，已完成，决策㊴）
 
@@ -20,7 +35,6 @@
 | 产物三层 | ✅ 存在性+有效性（docx/xlsx/pdf/json 可解析非空）+ 代表 case 内容断言 | `artifacts.py` |
 | 失败归因 | ✅ 每 case 含 error_type（7 类：planner_params/workflow_choice/api_behavior/workflow_failed/artifact_*/infra）+ 全字段 | `models.py` + report |
 | 测试 | ✅ **407 passed / 0 failed**（401 基线 + V6 断言 + eval 6） | 全量 pytest（2026-11-18） |
-| S2-B | ⬜ Online 接口/成本/安全已预留（cost/cost_known/mode=online）；**真实 LLM 评测未批准不执行、零费用** | — |
 
 ### Phase 4 S1 Golden Set 冻结（2026-11-18，已完成并入库）
 

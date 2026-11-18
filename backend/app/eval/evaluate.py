@@ -29,7 +29,8 @@ def build_workdir(base: Path | None = None) -> Path:
 
 
 def run_all(cases: list[dict], seed: int, workdir: Path,
-            db_path: Path | None = None) -> list:
+            db_path: Path | None = None, mode: str = "fake",
+            llm_provider=None, budget=None) -> list:
     from backend.app.eval.runner import dispatch_case
     from backend.app.eval.db_fixture import Fixture
 
@@ -42,14 +43,21 @@ def run_all(cases: list[dict], seed: int, workdir: Path,
         if needs_fixture and fixture is None:
             fixture = Fixture()
         rec = dispatch_case(case, seed, db_path=db_path, fixture=fixture,
-                            out_dir=workdir)
+                            out_dir=workdir, mode=mode, llm_provider=llm_provider,
+                            budget=budget)
         records.append(rec)
     return records
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Phase 4 S2-A Fake Runner")
-    ap.add_argument("--mode", default="fake")
+    ap = argparse.ArgumentParser(description="Phase 4 S2 Fake/Online Runner")
+    ap.add_argument("--mode", default="fake",
+                    help="fake=离线复刻（零成本）；online=在线语义（成本统计/预算）")
+    ap.add_argument("--llm-mode", default="fake",
+                    help="fake=FakeLLM 复刻现状；mock=MockLLM 模拟供应商（零真实调用）；"
+                         "real=真实 DeepSeek（需 --allow-live-api）")
+    ap.add_argument("--allow-live-api", action="store_true",
+                    help="允许真实 LLM 调用（仅用户批准后设置；S2-B 阶段禁用）")
     ap.add_argument("--frozen", default=str(REPO_ROOT / "data" / "gt" / "golden_set_v1.jsonl"))
     ap.add_argument("--db", default=None, help="独立 eval DB（落 eval_runs）；默认共享真库", )
     ap.add_argument("--workdir", default=None, help="运行目录（产物/临时）")
@@ -69,9 +77,45 @@ def main() -> int:
 
     workdir = build_workdir(Path(args.workdir) if args.workdir else None)
 
+    # ---- LLM provider 构造 + 安全闸门（S2-B：不发起真实调用）----
+    mode = args.mode
+    llm_provider = None
+    if args.llm_mode == "fake":
+        mode = "fake" if mode == "fake" else mode
+    elif args.llm_mode == "mock":
+        from backend.app.eval.provider import MockLLM
+        llm_provider = MockLLM(seed=args.seed)
+        mode = "online"
+    elif args.llm_mode == "real":
+        if not args.allow_live_api:
+            print("[安全闸门] 真实 LLM 调用未获批准（需 --allow-live-api；S2-B 阶段禁用）")
+            return 2
+        from backend.app.agent.llm_client import DeepSeekProvider
+        from backend.config import settings
+        if not settings.DEEPSEEK_API_KEY:
+            print("[安全闸门] 未配置 DEEPSEEK_API_KEY，拒绝真实调用")
+            return 2
+        llm_provider = DeepSeekProvider(
+            api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_BASE_URL,
+            model=settings.DEEPSEEK_MODEL, timeout=settings.LLM_TIMEOUT)
+        mode = "online"
+    else:
+        print(f"[参数非法] --llm-mode={args.llm_mode}（fake/mock/real）")
+        return 2
+    if mode not in ("fake", "online"):
+        print(f"[参数非法] --mode={mode}（fake/online）")
+        return 2
+
+    # 预算保护（要求 3）：online 档启用 ¥10 提醒 / ¥15 暂停 / ¥20 硬停；fake 档不启用
+    budget = None
+    if mode == "online":
+        from backend.app.eval.budget import EvalBudget
+        budget = EvalBudget(cap_cny=20.0, warn_at_cny=10.0, pause_at_cny=15.0)
+
     t0 = time.time()
     records = run_all(cases, seed=args.seed, workdir=workdir,
-                      db_path=Path(args.db) if args.db else None)
+                      db_path=Path(args.db) if args.db else None,
+                      mode=mode, llm_provider=llm_provider, budget=budget)
     elapsed = time.time() - t0
 
     # 判定（与执行分离）
@@ -82,12 +126,14 @@ def main() -> int:
 
     metrics = build_metrics(cases, records)
     metrics["elapsed_sec"] = round(elapsed, 2)
+    if budget is not None:
+        metrics["budget"] = budget.to_dict()   # 预算快照（含触发线/剩余/未知成本）
 
-    run_id = args.run_id or f"fake_{time.strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    run_id = args.run_id or f"{mode}_{time.strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}"
 
     # 落库（可重复性：同一 run_id 重跑是 UPSERT，不产生重复行）
     _db = args.db or (REPO_ROOT / "data" / "db" / "edumate.sqlite")
-    persist_records(cases, records, sha, run_id=run_id, mode="fake", db_path=Path(_db))
+    persist_records(cases, records, sha, run_id=run_id, mode=mode, db_path=Path(_db))
 
     report_path = write_report(cases, records, metrics, sha, run_id,
                                _commit_short(),
@@ -100,7 +146,8 @@ def main() -> int:
 
 def _print_summary(m: dict) -> None:
     t = m["tasks"]
-    print(f"\n===== Fake Runner 指标 =====")
+    c = m.get("cost", {})
+    print(f"\n===== Runner 指标 =====")
     print(f"cases_total       : {m['cases_total']}")
     if m.get("cases_pending_ids"):
         print(f"  pending(未执行)   : {m['cases_pending_ids']}")
@@ -115,7 +162,14 @@ def _print_summary(m: dict) -> None:
     print(f"错误执行率         : {_fmt(m['wrong_execution_rate'])}")
     print(f"错误拒绝率         : {_fmt(m['wrong_rejection_rate'])}")
     print(f"预期 fail 率       : {_fmt(m['fail_expected']['rate'])}（{m['fail_expected']['hit']}/{m['fail_expected']['denominator']}）")
+    print(f"成本(已知任务)     : {c.get('known_cost_total_cny','—')} 元 / "
+          f"{c.get('known_cost_tasks')} 任务 / 均值 {_fmt_mean(c.get('known_cost_mean_cny'))}")
+    print(f"成本(未知任务)     : {c.get('unknown_cost_tasks')} 任务（未知成本不视 0，页面如实展示）")
     print(f"耗时               : {m.get('elapsed_sec', 0)}s")
+
+
+def _fmt_mean(x) -> str:
+    return "N/A" if x is None else f"{x:.6f}元"
 
 
 def _fmt(x) -> str:

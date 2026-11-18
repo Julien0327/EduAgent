@@ -1,0 +1,181 @@
+"""Phase 4 / S2-B 预算保护与成本统计测试（要求 3/4/6）。
+
+全部使用 Mock/模拟费用，不触发真实 LLM/API 请求。
+覆盖：
+- 预算边界：提醒/暂停/硬停三线触发；
+- 暂停后恢复（用户确认后继续）；
+- 硬停止：不得绕过（重试/并发/未知成本）；
+- 未知成本：不得视 0（按最坏预留入账）；
+- 并发：多个 worker 同时 try_reserve/commit 不超支、不泄漏；
+- 异常路径：预留后异常 → 按最坏额确认，不泄漏。
+"""
+from __future__ import annotations
+
+import threading
+
+import pytest
+
+from backend.app.eval.budget import EvalBudget
+from backend.app.annotation.pricing import worst_case_cost_cny
+
+
+def _small_worst(prompt=200, comp=100):
+    return worst_case_cost_cny("deepseek-flash", prompt, comp)
+
+
+# ===================== 三线边界 =====================
+
+def test_budget_lines_prerequisite():
+    with pytest.raises(ValueError):
+        EvalBudget(cap_cny=20, warn_at_cny=25, pause_at_cny=15)  # 提醒 > cap
+
+
+def test_warn_line_not_stop():
+    """提醒线触发但不停止（还可继续调用）。"""
+    b = EvalBudget(warn_at_cny=10, pause_at_cny=15, cap_cny=20)
+    assert b.try_reserve(200, 100) is not None
+    b.commit(cost_cny=11.0, tokens_in=200, tokens_out=100)  # 越过提醒线
+    st = b.status()
+    assert st["reminded"] is True
+    assert st["pause_requested"] is False
+    assert st["hard_stopped"] is False
+    assert b.try_reserve(200, 100) is not None  # 提醒不阻止
+
+
+def test_pause_line_stops_new_calls():
+    """暂停线触发 → 停止提交新调用（决策㉖：等待人工确认）。"""
+    b = EvalBudget(warn_at_cny=10, pause_at_cny=15, cap_cny=20)
+    b.reserved = 0
+    b.commit(cost_cny=16.0, tokens_in=400, tokens_out=200)  # > 15
+    st = b.status()
+    assert st["pause_requested"] is True
+    # 暂停触发后新调用被拒（未人工确认恢复）
+    assert b.try_reserve(1, 1) is None
+
+
+def test_pause_resume_after_confirm():
+    """暂停后人工确认恢复 → 可继续（新调用通过），但仍然受 cap 约束。"""
+    b = EvalBudget(warn_at_cny=10, pause_at_cny=15, cap_cny=20)
+    b.reserved = 0
+    b.commit(cost_cny=16.0, tokens_in=400, tokens_out=200)  # > 15 → paused
+    assert b.try_reserve(1, 1) is None                    # 暂停中拒绝
+    b.allow_resume()                                       # 人工确认
+    assert b.try_reserve(1, 1) is not None                # 恢复后可继续
+
+
+def test_hard_stop_cannot_reserve():
+    """硬停线：cost+reserved ≥ cap 即拒绝一切新预留。
+
+    pause_at 设为 cap 等值，确保仅 hard（cap）触发（不先触 pause 混淆断言）。
+    """
+    b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=20)  # pause==cap
+    # cost 推到 19.5；剩余 0.5。预留一个接近 0.5 的大调用 → 压线 → 拒绝
+    b.commit(cost_cny=19.5, tokens_in=1, tokens_out=1)
+    # 构造一个 worst ≈ 0.6 的预留（prompt 300k tokens 高峰价 2/百万=0.6）
+    assert b.try_reserve(300000, 0) is None       # 0.6 + 19.5 ≥ 20 → 硬停
+    st = b.status()
+    assert st["hard_stopped"] is True
+    # 连最小预留也被拒（硬停后一切拒绝）
+    assert b.try_reserve(1, 1) is None
+
+
+def test_hard_stop_no_bypass_via_retry_or_concurrency():
+    """硬停不得通过重试/并发绕过。"""
+    b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=20)
+    b.commit(cost_cny=19.5, tokens_in=1, tokens_out=1)
+    # 并发窗口：多个 worker 同时尝试预留（每个 worst≈0.6）——硬停后全部拒绝
+    results = []
+    stop = threading.Event()
+    def worker():
+        stop.wait()                  # 对齐开始窗口模拟并发
+        results.append(b.try_reserve(300000, 0))
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads: t.start()
+    stop.set()
+    for t in threads: t.join()
+    assert b.status()["hard_stopped"] is True
+    assert all(r is None for r in results)          # 无一个成功（不绕过）
+    assert b.cost + b.reserved <= b.cap + 1e-9
+
+
+# ===================== 未知成本 =====================
+
+def test_unknown_cost_not_treated_as_zero():
+    """未知成本：按最坏预留额入账，cost_known=False，不可视 0。"""
+    b = EvalBudget()
+    assert b.try_reserve(300, 150) is not None
+    worst = _small_worst(300, 150)
+    entry = b.commit(cost_cny=None, tokens_in=300, tokens_out=150,
+                     worst_cny=worst)   # 供应商未返回 usage，显式预留额
+    st = b.status()
+    assert entry.cost_known is False
+    assert entry.cost_cny is None
+    assert st["calls_unknown"] == 1
+    assert st["spent_unknown_cny"] == pytest.approx(worst, abs=1e-9)  # 按最坏预留入账，非 0
+    assert st["spent_known_cny"] == 0.0
+
+
+def test_known_and_unknown_cost_stats():
+    """已知/未知任务数、总额、均值、剩余（要求 6 全部字段）。"""
+    b = EvalBudget()
+    b.commit(0.05, tokens_in=100, tokens_out=300)              # known
+    b.commit(0.12, tokens_in=300, tokens_out=700)              # known
+    w = _small_worst(200, 100)
+    b.commit(None, tokens_in=200, tokens_out=100, worst_cny=w)  # unknown
+    st = b.status()
+    assert st["calls_known"] == 2 and st["calls_unknown"] == 1
+    assert st["spent_known_cny"] == pytest.approx(0.17, abs=1e-6)
+    assert st["known_cost_mean_cny"] == pytest.approx(0.085, abs=1e-6)
+    assert st["spent_unknown_cny"] == pytest.approx(w, abs=1e-9)
+    assert st["spent_total_cny"] == pytest.approx(0.17 + w, abs=1e-6)
+    assert st["budget_remaining_cny"] == pytest.approx(max(0.0, 20 - 0.17 - w), abs=1e-6)
+
+
+# ===================== 异常路径 / 预留泄漏 =====================
+
+def test_reservation_released_after_exception():
+    """预留后调用异常 → 按最坏额确认（reserved 冲抵），不泄漏、不超支。"""
+    b = EvalBudget()
+    assert b.try_reserve(200, 100) is not None
+    worst = _small_worst(200, 100)
+    before = b.reserved
+    entry = b.commit(None, worst_cny=worst)   # 模拟异常：无 usage → 按最坏确认
+    st = b.status()
+    assert b.reserved < before                # 预留已冲抵
+    assert st["calls_unknown"] == 1
+    assert st["spent_unknown_cny"] == pytest.approx(worst, abs=1e-9)
+
+
+def test_reservation_no_leak_on_commit_worst_none():
+    """commit 不带 worst/tokens → 未知成本仍按默认最坏额入账（不泄漏、不视 0）。"""
+    b = EvalBudget()
+    assert b.try_reserve(200, 100) is not None
+    # 不传 worst 也不传 tokens：实施按默认最坏额（1000+500 tokens）入账
+    entry = b.commit(None, worst_cny=None, tokens_in=None, tokens_out=None)
+    st = b.status()
+    exp_unknown = worst_case_cost_cny("deepseek-flash", 1000, 500)
+    assert entry.cost_known is False
+    assert st["calls_unknown"] == 1
+    assert st["spent_unknown_cny"] == pytest.approx(exp_unknown, abs=1e-9)
+    # reserved 已被冲抵（不泄漏为已消费）
+    assert b.reserved < 0.001
+
+
+# ===================== 并发正确性 =====================
+
+def test_concurrent_commits_budget_locked():
+    """并发 commit 不超 cap、统计准确（线程安全）。"""
+    b = EvalBudget(cap_cny=20)
+    N = 40
+    def worker(i):
+        b.try_reserve(200, 100)
+        b.commit(0.05, tokens_in=200, tokens_out=100)   # 共 40*0.05=2
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    st = b.status()
+    assert st["calls_known"] == N
+    assert st["spent_known_cny"] == pytest.approx(N * 0.05, abs=1e-6)
+    assert st["spent_total_cny"] == pytest.approx(N * 0.05, abs=1e-6)
+    assert st["hard_stopped"] is False          # 2 << 20
+    assert b.cost + b.reserved <= b.cap + 1e-9

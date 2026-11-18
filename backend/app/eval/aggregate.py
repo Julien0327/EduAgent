@@ -202,6 +202,12 @@ def build_metrics(cases: list[dict], records: list[CaseRecord]) -> dict:
     def pct(n, d):
         return round(n / d, 4) if d else None
 
+    # ---- 成本统计（要求 2/6：已知/未知任务数、总额、均值、成本可信）----
+    known_task_n = sum(1 for r in records if r.cost_known and r.cost is not None)
+    unknown_task_n = sum(1 for r in records if not r.cost_known)
+    known_sum = sum((r.cost or 0.0) for r in records if r.cost_known and r.cost is not None)
+    # 未知成本不得视 0（页面要如实展示）——这里单独标注任务数；预算剩余由 budget 负责
+
     return {
         "cases_total": total,
         "cases_pending_ids": pending_ids,
@@ -213,6 +219,12 @@ def build_metrics(cases: list[dict], records: list[CaseRecord]) -> dict:
         "planner_field_accuracy": pct(param_hit, param_total),
         "planner_params_total_fields": param_total,
         "case_complete_match_rate": pct(case_complete_hit, case_complete_denom),
+        "cost": {
+            "known_cost_tasks": known_task_n,
+            "unknown_cost_tasks": unknown_task_n,      # 成本未知的任务数（不冒充 0）
+            "known_cost_total_cny": round(known_sum, 6),
+            "known_cost_mean_cny": round(known_sum / known_task_n, 6) if known_task_n else None,
+        },
         "clarify": {"denominator": clarify_denom, "hit": clarify_hit,
                     "rate": pct(clarify_hit, clarify_denom)},
         "reject": {"denominator": reject_denom, "hit": reject_hit,
