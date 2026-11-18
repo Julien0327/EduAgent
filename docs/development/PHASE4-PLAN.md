@@ -99,11 +99,11 @@
 3. **S3-C（✅ 三轮迭代，未达标回退）**：judge v1 46.4% → v2 61.6% → v3 64.0%（覆盖 78%/引用 42%）；**judge 未采信（<80%）→ 回退规则评分（44.8%）并记录**（决策㊲④⑤）；judge 成本合计 ¥1.338；口径边界如实记录。
 4. 测试：judge 解析/失败兜底/规则评分/校准统计/一致性计算（已完成）；全量 443 passed。
 
-### S4 eval API + 前端评测页
-1. `backend/app/api/eval_api.py`：`GET /api/eval/report`（baseline→current、近 5 次 run 对比；聚合展示检索与归因既有数字；质检行标「待 Phase 5」）。
-2. 前端新增「评测中心」导航页（照「运行观测」页模式）：run 列表 / 指标卡 / baseline vs current / judge 采信或回退徽标 / 逐条明细。
-3. 如确需持久化 judge 打分且 `eval_runs.metrics` 不够 → V6 增量迁移（尽量零迁移）。
-4. API + 前端 L3 冒烟。
+### S4 eval API + 前端评测页（✅ 2026-11-18 实现完成，待验收，决策㊻）
+1. `GET /api/eval/report`（最新 5 次 run 聚合 + 冻结基线 + judge 校准状态 + 质检待 Phase 5）；
+2. 前端「评测中心」页（导航 + 指标卡 + run 列表 + baseline 对比 + judge 回退徽标）；
+3. V7 迁移修正真库 eval_runs 复合主键；导入真实 runs（smoke_real_01 / s3b_calib_real_01）；
+4. 冒烟：uvicorn 200/页面含评测中心/无 token 401；测试 4 项，全量 447 passed。
 
 ### S5 CI
 1. `.github/workflows/ci.yml`：push → Python 3.13 + Ubuntu → 装依赖 → pytest 全量 + fake smoke eval 20 条；失败即红。

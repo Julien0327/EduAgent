@@ -38,6 +38,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (4, "migrations_v4.sql"),
     (5, "migrations_v5.sql"),
     (6, "migrations_v6.sql"),
+    (7, "migrations_v7.sql"),
 ]
 
 # 建库后必须存在的全部表（§2.3 全部表 + schema_migrations；缺任一即 fail-fast）

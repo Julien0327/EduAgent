@@ -1572,3 +1572,108 @@ function initObserve() {
 initDiagnosis();
 initObserve();
 initImport();
+
+/* ===================== 评测中心（Phase 4 / S4） ===================== */
+function initEval() {
+  const btn = $("eval-refresh");
+  if (btn) btn.addEventListener("click", loadEvalReport);
+  loadEvalReport();
+}
+
+function setEvalStatus(text, isErr) {
+  const el = $("eval-status");
+  if (!el) return;
+  el.textContent = text || "";
+  el.classList.toggle("diag-err", !!isErr);
+}
+
+function pctFmt(v) {
+  return (v === null || v === undefined) ? "—" : (v * 100).toFixed(2) + "%";
+}
+
+async function loadEvalReport() {
+  if (!$("eval-cards")) return;
+  setEvalStatus("加载中…");
+  try {
+    const data = await fetchJSON("/api/eval/report?limit=5");
+    renderEvalCards(data);
+    renderEvalRuns(data.recent_runs || []);
+    renderEvalBaseline(data);
+    setEvalStatus(`已加载（${new Date().toLocaleTimeString()}）`);
+  } catch (err) {
+    setEvalStatus(err.message, true);
+    const box = $("eval-cards");
+    if (box) box.innerHTML = '<p class="diag-err">评测数据加载失败（检查 Token / 服务状态）</p>';
+  }
+}
+
+function renderEvalCards(d) {
+  const box = $("eval-cards");
+  if (!box) return;
+  const l = d.latest_run;
+  if (!l) {
+    box.innerHTML = '<p class="diag-note">暂无评测记录（先运行 python -m backend.app.eval.evaluate 写入 eval_runs）</p>';
+    return;
+  }
+  const card = (label, val) =>
+    `<div class="state-card"><b>${val}</b><span>${label}</span></div>`;
+  box.innerHTML =
+    card("最近任务成功率", pctFmt(l.pass_rate)) +
+    card("行为正确率", pctFmt(l.behavior_accuracy)) +
+    card("已知成本（元）", fmtCost(l.known_cost_cny)) +
+    card("用例数", fmtNum(l.cases));
+}
+
+function renderEvalRuns(runs) {
+  const box = $("eval-runs");
+  if (!box) return;
+  if (!runs.length) { box.innerHTML = '<p class="diag-note">暂无 run</p>'; return; }
+  const rows = runs.map((r) => `<tr>
+    <td><code>${escapeHtml(r.run_id)}</code></td>
+    <td>${escapeHtml(r.mode || "—")}</td>
+    <td>${fmtNum(r.cases)}</td>
+    <td>${pctFmt(r.pass_rate)}</td>
+    <td>${pctFmt(r.behavior_accuracy)}</td>
+    <td>${fmtCost(r.known_cost_cny)}</td>
+    <td>${r.unknown_cost_cases ? fmtNum(r.unknown_cost_cases) + " 未知" : "0"}</td>
+    <td>${r.p95_latency_ms === null || r.p95_latency_ms === undefined ? "—" : r.p95_latency_ms + " ms"}</td>
+  </tr>`).join("");
+  box.innerHTML = `<table class="diag-table"><thead><tr>
+    <th>run_id</th><th>模式</th><th>用例</th><th>任务成功率</th><th>行为正确率</th>
+    <th>已知成本</th><th>成本未知任务</th><th>p95 延迟</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderEvalBaseline(d) {
+  const box = $("eval-baseline");
+  if (!box) return;
+  const b = d.baselines || {};
+  const ret = b.retrieval || {};
+  const diag = b.diagnosis || {};
+  const fake = b.fake_runner || {};
+  const jc = d.judge_calibration || {};
+  const qi = d.quality_inspection || {};
+  const adoptedTxt = jc.adopted
+    ? `<span class="diag-status">已采信 judge（${pctFmt(jc.best_agreement)}）</span>`
+    : `<span class="diag-warn">judge 未采信（best ${pctFmt(jc.best_agreement)} &lt; 阈值 ${pctFmt(jc.threshold)}）→ 规则评分回退（${escapeHtml(jc.fallback || "rule_score")}）</span>`;
+  const versions = (jc.versions || []).map((v) =>
+    `<span class="diag-note">${escapeHtml(v.version)}：${pctFmt(v.agreement)}${v.note ? "（" + escapeHtml(v.note) + "）" : ""}</span>`).join("；");
+  const qiTxt = qi.status === "pending_phase5"
+    ? `<span class="diag-note">质检拦截率 / 回流收敛轮次：${escapeHtml(qi.note || "待 Phase 5")}</span>`
+    : `<span class="diag-note">${escapeHtml(JSON.stringify(qi))}</span>`;
+  box.innerHTML = `
+    <table class="diag-table"><thead><tr><th>指标</th><th>基线值</th><th>说明</th></tr></thead><tbody>
+      <tr><td>检索 R@1 / R@5 / MRR / NDCG@5</td>
+          <td>${pctFmt(ret["R@1"])} / ${pctFmt(ret["R@5"])} / ${ret.MRR ?? "—"} / ${ret["NDCG@5"] ?? "—"}</td>
+          <td>${escapeHtml(ret.source || "")}（${fmtNum(ret.cases)} 条）</td></tr>
+      <tr><td>归因一致率</td><td>${pctFmt(diag.consistency)}</td>
+          <td>${escapeHtml(diag.source || "")}（${fmtNum(diag.cases)} 例）</td></tr>
+      <tr><td>Fake Runner 任务成功率 / 行为正确率 / Planner 准确率</td>
+          <td>${pctFmt(fake.task_success_rate)} / ${pctFmt(fake.behavior_accuracy)} / ${pctFmt(fake.planner_field_accuracy)}</td>
+          <td>${escapeHtml(fake.source || "")}（${fmtNum(fake.cases)} 条）</td></tr>
+      <tr><td>judge 校准</td><td>${adoptedTxt}</td><td>${versions}</td></tr>
+      <tr><td>质检拦截率 / 回流收敛</td><td>待 Phase 5</td><td>${qiTxt}</td></tr>
+    </tbody></table>`;
+}
+
+initEval();

@@ -6,6 +6,17 @@
 
 **Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3-A 完成，S3-B/C 待批准，决策㊲㊳㊴㊵㊵b㊶㊷）**
 
+### Phase 4 S4 eval API + 前端评测页（2026-11-18，进行中 → 待验收，决策㊻）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| API | ✅ `backend/app/api/eval_api.py`：`GET /api/eval/report?limit=5`（库直读）——最近 run 聚合（用例/通过/任务成功率/行为正确率/已知成本/未知成本任务数/p95）、冻结基线（检索 §4.5、归因 §5.4、Fake Runner S2-A）、judge 校准（v1–v4 + 未采信→规则回退）、质检位（pending Phase 5，不编数字） | 代码 + 测试 |
+| 路由 | ✅ main.py 注册 eval_api；限流沿用 `/api/eval` 60/min；无 token 401 | 冒烟 |
+| 数据 | ✅ V7 迁移修正真库 eval_runs 复合主键（V6 早期版本差异）；导入真实 run：`smoke_real_01`（20 行）、`s3b_calib_real_01`（50 行）入业务库 | SQL 实测 |
+| 前端 | ✅ 导航「评测中心」+ section：最近 run 指标卡、run 列表（任务成功率/行为正确率/成本/未知成本/p95）、baseline 对比表、judge 未采信回退徽标、质检待 Phase 5 | index.html/app.js |
+| 冒烟 | ✅ uvicorn 8015：/api/eval/report 带 token 200（2 runs 真实数据）；`/` 含「评测中心」；无 token 401 | 冒烟实录 |
+| 测试 | ✅ `test_eval_api.py` 4 项（空库/聚合/基线常量/401）；全量 **447 passed**（443 + 4） | 全量 pytest |
+
 ### Phase 4 S3-A judge 五维 + 校准骨架（2026-11-18，零真实调用，决策㊷）
 
 | 项 | 结果 | 证据 |

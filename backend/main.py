@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.api import chat, diagnosis_api, health, import_api, sessions, tasks
+from backend.app.api import chat, diagnosis_api, eval_api, health, import_api, sessions, tasks
 from backend.app.knowledge import loader
 from backend.app.retrieval import service as retrieval
 from backend.app.storage import db, importer
@@ -87,6 +87,7 @@ app.include_router(tasks.router)
 app.include_router(import_api.router)
 app.include_router(sessions.router)
 app.include_router(diagnosis_api.router)
+app.include_router(eval_api.router)
 
 # AIP 智能体互联端点（/rpc + /health）：ACP_ENABLED=true 时挂载，默认关闭不影响现有业务。
 # 真实 mTLS / identity_binding 由部署层承担（见 backend/interop/acp.toml.example）。
