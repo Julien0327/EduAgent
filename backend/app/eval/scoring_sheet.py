@@ -13,9 +13,21 @@ import csv
 import json
 from pathlib import Path
 
-from backend.app.eval.judge import DIMENSIONS, DIM_LABELS, extract_artifact_text
+from backend.app.eval.judge import (DIMENSIONS, DIM_LABELS, extract_artifact_text,
+                                    is_degraded)
 
 EXCERPT_CHARS = 600
+
+
+def _expected_note(exp: dict) -> str:
+    """预期行为说明（供人工评分参考，避免边界 case 误判）。"""
+    behavior = exp.get("behavior", "")
+    if behavior == "fallback":
+        return ("预期：确定性回退（参数越界/非法输入 → Planner 拒绝并用默认参数执行）；"
+                "按回退后产出的正常产物评分，不因 prompt 字面越界扣分")
+    if behavior == "execute":
+        return "预期：正常执行"
+    return f"预期：{behavior}"
 
 
 def _artifact_texts(rec: dict) -> str:
@@ -40,21 +52,29 @@ def generate_sheet(report_path: Path, calibration_path: Path,
                      "prompt": "",
                      "excerpt": _artifact_texts(rec),
                      "status": rec.get("task_status", "")})
-    # prompt 需要从冻结 golden 读（report records 不含 prompt）
+    # prompt/预期行为从冻结 golden 读（report records 不含）
     from backend.app.eval.golden import load_frozen
     cases, _ = load_frozen()
-    prompt_of = {c["case_id"]: c["prompt"] for c in cases}
+    case_of = {c["case_id"]: c for c in cases}
     for r in rows:
-        r["prompt"] = prompt_of.get(r["case_id"], "")
+        c = case_of.get(r["case_id"], {})
+        r["prompt"] = c.get("prompt", "")
+        exp = c.get("expect", {})
+        r["expected_behavior"] = exp.get("behavior", "")
+        r["expected_note"] = _expected_note(exp)
+        r["degraded"] = is_degraded(r["excerpt"])
 
     out_md.parent.mkdir(parents=True, exist_ok=True)
     lines = ["# judge 校准：人工评分表（50 条）", "",
              f"> 来源 run：`{Path(report_path).parent.name}`；校准集：`{Path(calibration_path).name}`",
              "> 评分方式：五维各 1–5 分（整数），填入 CSV 的对应列；备注可写理由。",
-             "> 提示：产物含「暂不可用」等降级标记时，内容正确性/覆盖完整应 ≤2。", ""]
+             "> 硬规则 1：产物含「暂不可用」降级标记 → 内容正确性/覆盖完整 ≤2。",
+             "> 硬规则 2：预期=fallback 的边界 case（参数越界）→ 按回退后正常产物评分，不因 prompt 字面扣分。", ""]
     for i, r in enumerate(rows, 1):
-        lines += [f"## {i}. {r['case_id']}（{r['workflow']}）", "",
+        flag = " ⚠️含降级标记" if r["degraded"] else ""
+        lines += [f"## {i}. {r['case_id']}（{r['workflow']}）{flag}", "",
                   f"- **prompt**：{r['prompt']}",
+                  f"- **预期行为**：`{r['expected_behavior']}` — {r['expected_note']}",
                   f"- **任务状态**：{r['status']}",
                   "- **产物摘录**：", "```", r["excerpt"] or "（无产物）", "```",
                   "- **评分**：内容正确性 ___ ｜ 难度适切 ___ ｜ 覆盖完整 ___ ｜ 表述规范 ___ ｜ 引用规范 ___",
@@ -62,12 +82,14 @@ def generate_sheet(report_path: Path, calibration_path: Path,
     out_md.write_text("\n".join(lines), encoding="utf-8")
 
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    header = ["case_id", "workflow", "prompt"] + list(DIMENSIONS) + ["remarks"]
+    header = (["case_id", "workflow", "prompt", "expected_behavior", "expected_note"]
+              + list(DIMENSIONS) + ["remarks"])
     with open(out_csv, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(header)
         for r in rows:
-            w.writerow([r["case_id"], r["workflow"], r["prompt"]]
+            w.writerow([r["case_id"], r["workflow"], r["prompt"],
+                        r["expected_behavior"], r["expected_note"]]
                        + [""] * len(DIMENSIONS) + [""])
     return {"cases": len(rows), "md": str(out_md), "csv": str(out_csv)}
 

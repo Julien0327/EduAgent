@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CALIBRATION = REPO_ROOT / "data" / "staging" / "calibration_set_v1.json"
+CALIBRATION = REPO_ROOT / "data" / "gt" / "calibration_set_v1.json"
 
 
 def main() -> int:
@@ -31,8 +31,10 @@ def main() -> int:
     ap.add_argument("--report", help="评测 run 的 report.json")
     ap.add_argument("--calibration", default=str(CALIBRATION))
     ap.add_argument("--sheet", action="store_true", help="生成人工评分表")
-    ap.add_argument("--judge", choices=["rule"], default=None,
-                    help="规则评分（judge 兜底；LLM 评分需另行批准）")
+    ap.add_argument("--judge", choices=["rule", "llm"], default=None,
+                    help="rule=规则评分（零 LLM）；llm=真实 judge（需 --allow-live-api）")
+    ap.add_argument("--allow-live-api", action="store_true",
+                    help="允许真实 judge LLM 调用（S3-C 需用户批准）")
     ap.add_argument("--judge-out", default=None)
     ap.add_argument("--agreement", action="store_true")
     ap.add_argument("--human-csv", default=None)
@@ -51,18 +53,36 @@ def main() -> int:
         print(f"评分表已生成：{info['md']} / {info['csv']}（{info['cases']} 条）")
         return 0
 
-    if args.judge == "rule":
+    if args.judge in ("rule", "llm"):
         from backend.app.eval.judge import judge_report
         if not args.report:
             print("--judge 需要 --report")
             return 2
+        use_llm = args.judge == "llm"
+        llm_provider = None
+        if use_llm:
+            if not args.allow_live_api:
+                print("[安全闸门] 真实 judge 调用未获批准（需 --allow-live-api）")
+                return 2
+            from backend.app.agent.llm_client import DeepSeekProvider
+            from backend.config import settings
+            if not settings.DEEPSEEK_API_KEY:
+                print("[安全闸门] 未配置 DEEPSEEK_API_KEY")
+                return 2
+            llm_provider = DeepSeekProvider(
+                api_key=settings.DEEPSEEK_API_KEY,
+                base_url=settings.DEEPSEEK_BASE_URL,
+                model=settings.DEEPSEEK_MODEL,
+                timeout=settings.LLM_TIMEOUT)
         run_name = Path(args.report).parent.name
+        tag = "llm" if use_llm else "rule"
         out = Path(args.judge_out) if args.judge_out else \
-            REPO_ROOT / "data" / "staging" / f"judge_rule_{run_name}.json"
-        result = judge_report(Path(args.report), Path(args.calibration), use_llm=False)
+            REPO_ROOT / "data" / "staging" / f"judge_{tag}_{run_name}.json"
+        result = judge_report(Path(args.report), Path(args.calibration),
+                              use_llm=use_llm, llm_provider=llm_provider)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"规则评分完成：{result['summary']} → {out}")
+        print(f"{tag} 评分完成：{result['summary']} → {out}")
         return 0
 
     if args.agreement:

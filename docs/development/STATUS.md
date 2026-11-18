@@ -12,9 +12,13 @@
 |---|---|---|
 | judge 模块 | ✅ `backend/app/eval/judge.py`：五维（内容正确性/难度适切/覆盖完整/表述规范/引用规范）1–5 分 + 理由（structured_completion 强制 schema）；失败/异常 → **规则评分兜底**（任务状态/参数命中/产物有效/**degraded 标记检测（「暂不可用」）**/引用覆盖）；`scoring_source ∈ llm_judge/rule_fallback` | 代码 + 测试 |
 | 校准一致率 | ✅ `calibration_agreement`：judge vs 人工分档（四舍五入）逐维/总体一致率；**≥80% 采信 judge，否则回退规则评分**（阈值常量 `CALIBRATION_ADOPT_THRESHOLD`） | 测试（含 80% 边界） |
-| 校准集 50 条 | ✅ 确定性选取（exam_loop 20 / question_gen 16 / lesson_plan 10 / class_diagnosis 4），**全部有产物 execute/fallback**；**含 gc_e03（真实诊断降级样本）**；提案 `data/staging/calibration_set_v1.json`，**待用户确认后冻结** | 选取脚本输出 |
+| 校准集 50 条 | ✅ **已冻结**：`data/gt/calibration_set_v1.json`（Git，sha256 `7b71a6161266ccce…`，用户 2026-11-18 确认）；构成 exam_loop 20 / question_gen 16 / lesson_plan 10 / class_diagnosis 4；全部有产物 execute/fallback；**含 gc_e03 真实诊断降级样本** | `data/gt/calibration_set_v1.json` |
 | 人工评分表 | ✅ `scoring_sheet.py`：从 run report 生成 Markdown+CSV 评分表（含产物全文摘录、五维评分栏、备注）；`read_human_csv` 回读 | 链路演练（mock 50 条） |
 | 链路演练（零费用） | ✅ mock 50 条 → 评分表 50 条 → 规则评分 50/50 rule_fallback → 模拟人工回填 → 一致率 1.0/adopted=true（人工=judge 时符合预期） | `data/staging/calibration_*`、`judge_rule_*` |
+| **S3-B 真实 50 条执行（用户批准）** | ✅ `s3b_calib_real_01`：50/50 成功、943s、**总成本 ¥0.6614**、46 次真实 LLM 调用、0 未知、预算未触发（单次 ¥0.66/¥5，全局 ¥0.66/¥20） | `data/staging/eval_runs/s3b_calib_real_01/report.json` |
+| **降级率量化（决策㊶路线②）** | ⚠️ **6/20 exam_loop 诊断降级（30%）**：gc_e04/e06/e15/e20/e22/e26 的 03 报告含「暂不可用」；叠加冒烟 1/5 → 合计 7/25 ≈ 28%。规则评分正确识别全部 6 条（content=2） | 扫描 + `judge_rule_s3b_calib_real_01.json` |
+| 人工评分表 | ✅ `data/staging/calibration_scoring_s3b_calib_real_01_v2.md/.csv`（50 条，含真实产物全文摘录 + **预期行为列**：fallback 边界按回退后正常产物评分；降级 case 已标注）→ **待用户评分（S3-B）** | staging |
+| **已知限制（如实）** | ⚠️ 本次校准执行的检索层为固定替身 `FakeKpService`（S2-B 范围选择）：question_gen/lesson_plan 的部分产物知识点来自固定替身 KP，不代表真实检索质量；**不影响 judge vs 人工一致率测量**（同一批产物），但"系统真实质量"结论需谨慎。用户决策 A：按现状评、如实记录；真实检索接入留 S4/S6 前（本地推理零 API 成本） | 决策㊸ |
 | CLI | ✅ `python -m backend.scripts.run_judge_calibration --sheet/--judge rule/--agreement` | 脚本 |
 | MockLLM judge 支持 | ✅ `submit_judge_scores` 工具返回确定性合法结构（零费用测试链路） | `provider.py` |
 | 测试 | ✅ `test_eval_judge.py` 14 项（规则评分/degraded/LLM judge/失败回退/文本提取/一致率阈值/评分表回读）；全量 **443 passed** | 全量 pytest |
