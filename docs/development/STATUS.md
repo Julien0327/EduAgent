@@ -1,10 +1,21 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-17（**Phase 3 全部完成，待最终人工验收**：S0–S6 验收；前端 F16 导入与端到端验收；Gold 10 例一致率 10/10；端到端复核（JSON/PDF/Trace/成本/重启回放/权重重算）；关账文档/决策㊱；**401 passed**；未 push——待最终验收后统一推送）。**新会话开工前必读本文件 + docs/development/PHASE3-PLAN.md + 技术方案 §5/§6**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系启动，S0 开工准备完成**：PHASE4-PLAN.md 落盘、决策㊲、全量 pytest 基线复跑；**S1 golden set 起草待用户批准进入**）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（S0–S6 完成，待最终人工验收后统一 push，决策㉟㊱）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0 完成，S1 待批准，决策㊲）**
+
+### Phase 4 S0 开工准备（2026-11-18，已完成，待用户核验后进入 S1）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| Phase 3 push 核实 | ✅ **已 push，无需重推**：`git status` 干净且与 origin/main 同步；`origin/main = a47c472`，reflog「update by push」@2026-11-17 23:09:24 | `git reflog show origin/main` |
+| 执行计划落盘 | ✅ `docs/development/PHASE4-PLAN.md`：范围对齐（§9 与小学收窄适配）、S0–S6 分步、指标矩阵、成本预算、风险边界、复现方法 | 本文件 |
+| 决策落盘 | ✅ `DECISIONS.md` ㊲：golden 构成（core≈80 + boundary≥20）、online 预算三线 ¥10/¥15/¥20、judge 人工 50 条校准、质检拦截率「待 Phase 5 不编数字」、既有检索/归因基线只聚合不重跑 | DECISIONS.md |
+| 全量测试基线 | ✅ `401 passed in 39.20s`（exit 0），与 Phase 3 关账基线一致 | 全量 pytest（2026-11-18 实测） |
+| 工程事实（已核实） | `eval_cases`/`eval_runs` 表 V1 已建、真库 0 行；`/api/eval → 60/min` 限流已就位；无 `.github/`；FakeLLM 注入范例见 `test_workflow.py` | SQL + 代码 |
+| **未做（S1 开始前不动代码）** | golden 起草/runner/judge/API/前端/CI 均未开始；未调 LLM、无费用 | — |
 
 ### Phase 3 S0-1 小学前置图冻结（2026-11-15，决策㉝）
 
