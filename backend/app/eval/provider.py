@@ -14,19 +14,25 @@ from pathlib import Path
 from backend.app.agent.llm_client import LLMResponse
 
 
-def install_online_env(llm_provider, workdir: Path) -> None:
+def install_online_env(llm_provider, workdir: Path,
+                       use_real_retrieval: bool = False) -> None:
     """把 LLM / 检索 / 产物路径改写为 online 语义。
 
     llm_provider：真实 DeepSeekProvider（批准后）或 MockLLM（本阶段）。
-    检索保持 FakeKpService（S2 聚焦链路与成本；真实检索属于 S3+ 增强）。
+    use_real_retrieval=False：检索替身 FakeKpService（S2-B 默认，聚焦链路）；
+    use_real_retrieval=True：恢复真实检索层（本地 BGE + 业务库，零 API 成本）。
     """
     import backend.app.agent.llm_utils as llmu
     import backend.app.tools.knowledge_tools as kt
     import backend.app.storage.file_store as fstore
-    from backend.app.eval.runner import FakeKpService
 
     llmu.get_llm_service = lambda: llm_provider
-    kt.get_retrieval_service = lambda: FakeKpService()
+    if use_real_retrieval:
+        from backend.app.retrieval.service import get_retrieval_service as _real
+        kt.get_retrieval_service = _real
+    else:
+        from backend.app.eval.runner import FakeKpService
+        kt.get_retrieval_service = lambda: FakeKpService()
     (workdir / "outputs").mkdir(parents=True, exist_ok=True)
     fstore.OUTPUTS_ROOT = workdir / "outputs"
 

@@ -30,7 +30,7 @@ def build_workdir(base: Path | None = None) -> Path:
 
 def run_all(cases: list[dict], seed: int, workdir: Path,
             db_path: Path | None = None, mode: str = "fake",
-            llm_provider=None, budget=None) -> list:
+            llm_provider=None, budget=None, use_real_retrieval: bool = False) -> list:
     from backend.app.eval.runner import dispatch_case
     from backend.app.eval.db_fixture import Fixture
 
@@ -44,7 +44,7 @@ def run_all(cases: list[dict], seed: int, workdir: Path,
             fixture = Fixture()
         rec = dispatch_case(case, seed, db_path=db_path, fixture=fixture,
                             out_dir=workdir, mode=mode, llm_provider=llm_provider,
-                            budget=budget)
+                            budget=budget, use_real_retrieval=use_real_retrieval)
         records.append(rec)
     return records
 
@@ -70,6 +70,8 @@ def main() -> int:
                     help="单次运行预算硬停线（¥，默认 5；冒烟更严，全局 ¥20 仍恒生效）")
     ap.add_argument("--cases", default=None,
                     help="逗号分隔的 case_id 子集（如 --cases gc_e03,gc_q01）；缺省=全量")
+    ap.add_argument("--real-retrieval", action="store_true",
+                    help="online 档使用真实检索层（本地 BGE + 业务库；零 API 成本）")
     args = ap.parse_args()
 
     from backend.app.eval.golden import load_frozen
@@ -137,7 +139,8 @@ def main() -> int:
     t0 = time.time()
     records = run_all(cases, seed=args.seed, workdir=workdir,
                       db_path=Path(args.db) if args.db else None,
-                      mode=mode, llm_provider=llm_provider, budget=budget)
+                      mode=mode, llm_provider=llm_provider, budget=budget,
+                      use_real_retrieval=args.real_retrieval)
     elapsed = time.time() - t0
 
     # 判定（与执行分离）

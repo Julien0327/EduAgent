@@ -79,7 +79,7 @@ def _artifact_to_dict(a) -> dict:
 
 def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
                       mode: str = "fake", llm_provider=None,
-                      budget=None) -> CaseRecord:
+                      budget=None, use_real_retrieval: bool = False) -> CaseRecord:
     """workflow 层执行：LLM/检索注入 → run_workflow → 产物校验。
 
     mode='fake'：install FakeLLM，cost=0（S2-A，离线确定性）。
@@ -100,7 +100,8 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
     workdir = workdir or (Path(__file__).resolve().parent / ".runout")
     if mode == "online":
         from backend.app.eval.provider import install_online_env
-        install_online_env(llm_provider, workdir)
+        install_online_env(llm_provider, workdir,
+                           use_real_retrieval=use_real_retrieval)
         # 预算保护：执行前预留（要求 3/要求 4 覆盖重试）
         #   case 级预留 = maxLLM节点(4) × 单节点重试上限(9) × 单次最坏 token
         #   预留一次锁定；commit 时按 self_worst 全额冲抵（释放预留 + 计实际成本）
@@ -371,7 +372,7 @@ def dispatch_case(case: dict, seed: int, db_path: Path | None = None,
                   fixture: "Fixture | None" = None,
                   out_dir: Path | None = None,
                   mode: str = "fake", llm_provider=None,
-                  budget=None) -> CaseRecord:
+                  budget=None, use_real_retrieval: bool = False) -> CaseRecord:
     """按 case 的 expected_behavior + entry 分发到对应执行器。
 
     返回的 CaseRecord 只含原始执行结果（不含判定），判定在 aggregate 统一定义，
@@ -401,7 +402,8 @@ def dispatch_case(case: dict, seed: int, db_path: Path | None = None,
         if behavior == "clarify":
             return run_clarify_case(case, seed, workdir=out_dir)
         return run_workflow_case(case, seed, workdir=out_dir, mode=mode,
-                                 llm_provider=llm_provider, budget=budget)
+                                 llm_provider=llm_provider, budget=budget,
+                                 use_real_retrieval=use_real_retrieval)
     except Exception as exc:
         rec = CaseRecord(execution_mode=mode)
         rec.case_id = case.get("case_id", "?")
