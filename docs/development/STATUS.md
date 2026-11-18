@@ -16,7 +16,7 @@
 | 安全闸门 | ✅ `--allow-live-api` 未批准即拒绝 exit 2；real 无 Key 拒绝 | `evaluate.py` |
 | Mock 全量验证 | ✅ 111 条：与 fake 指标完全一致（成功率 100%/行为 90.09%/预期 fail 100%）；成本 111 任务全已知 ¥0.583 模拟；预算快照落盘（trip=none） | `data/staging/eval_runs/online_20261118162226_2098e2/report.json` |
 | 端到端预算停止 | ✅ 初始 ¥14.97 → 第 6 case 累计越 ¥15 暂停线被拦（trip=pause） | 集成验证（Mock） |
-| 冒烟计划 | ✅ `docs/development/PHASE4-ONLINE-SMOKE-PLAN.md`：20 条抽样、模型配置、成本估算、风险、边界——**待用户单独审批** | 文档 |
+| 冒烟计划 | ✅ `docs/development/PHASE4-ONLINE-SMOKE-PLAN.md`：20 条抽样、模型配置、成本估算、风险、**单次冒烟 ¥3 预警 / ¥5 硬停**（另受全局 ¥10/¥15/¥20 约束）、gc_b24 移除为 Fake-only、不验证 gc_b16/b23 缺陷修复——**待用户单独审批** | 文档 |
 | 测试 | ✅ **418 passed**（407 + budget 11 + 暂停恢复，S2-B 净增 11） | 全量 pytest |
 | 约束遵守 | ✅ **未发起任何真实 LLM/API 请求、未启动冒烟/全量在线、未改冻结 Golden、未修复 Golden 记录的业务缺陷、S3 未启动** | — |
 | **待审批** | 20 条 Online 冒烟（`PHASE4-ONLINE-SMOKE-PLAN.md`）→ 批准后执行；之后 S3 judge | — |
