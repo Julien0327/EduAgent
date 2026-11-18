@@ -280,3 +280,84 @@ def test_budget_stack_release_prevents_leak():
     after = stack.status()["budgets"][0]["reserved_cny"]
     assert after == pytest.approx(0.0, abs=1e-9)      # 预留释放干净
     assert stack.status()["budgets"][0]["spent_total_cny"] == 0.0  # 未记成本
+
+
+# ===================== S2-Cbis：超支保护针对性核查 =====================
+
+def test_overreserve_actual_settlement_counts_full():
+    """预留 ¥0.10 实际结算 ¥0.30：超出部分全额计入所有子预算（非只计预留额）。"""
+    single = EvalBudget(cap_cny=10, warn_at_cny=3, pause_at_cny=5)
+    global_b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=15)
+    stack = BudgetStack([single, global_b])
+    r = stack.try_reserve(200, 100)          # 预留 worst≈0.0012（近似 ¥0.10 场景用显式 worst）
+    worst_amt = 0.10                          # 显式把预留额当作 ¥0.10
+    # 用显式 worst 入账：模拟预留 0.10、结算 0.30
+    stack.commit(cost_cny=0.30, tokens_in=500, tokens_out=500, worst_cny=worst_amt)
+    assert single.status()["spent_known_cny"] == pytest.approx(0.30, abs=1e-6)
+    assert global_b.status()["spent_known_cny"] == pytest.approx(0.30, abs=1e-6)
+    assert single.status()["reserved_cny"] == pytest.approx(0.0, abs=1e-9)  # 预留已释放
+    # 超出预留的 0.20 已计入（非丢弃）——核心断言
+
+
+def test_overrun_triggers_hard_stop_and_blocks_next():
+    """超支结算立即触发硬停（cost>=cap），并阻止后续 case 预留。"""
+    single = EvalBudget(cap_cny=0.25, warn_at_cny=0.1, pause_at_cny=0.2)
+    stack = BudgetStack([single])
+    r = stack.try_reserve(200, 100)
+    assert r is not None
+    stack.commit(cost_cny=0.30, tokens_in=500, tokens_out=500, worst_cny=0.10)
+    assert single.hard_stopped is True         # 0.30 ≥ cap 0.25 → 立刻硬停
+    assert stack.status()["most_restrictive"]["trip"] == "cap"
+    # 后续 case 预留被拒（阻止继续）
+    assert stack.try_reserve(200, 100) is None
+
+
+def test_overrun_concurrent_no_bypass_or_double():
+    """并发超支：多个 worker 各自结算，累计=实际总额，无绕过/无重复结算。"""
+    single = EvalBudget(cap_cny=10, warn_at_cny=3, pause_at_cny=5)
+    global_b = EvalBudget(cap_cny=20, warn_at_cny=10, pause_at_cny=15)
+    stack = BudgetStack([single, global_b])
+    N = 5
+    def worker():
+        r = stack.try_reserve(200, 100)
+        if r is not None:
+            stack.commit(cost_cny=0.30, tokens_in=500, tokens_out=500, worst_cny=0.10)
+    threads = [threading.Thread(target=worker) for _ in range(N)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    # 每个 worker 结算 0.30；若全部成功 → 单次 cost = 1.5
+    assert single.status()["spent_known_cny"] == pytest.approx(N * 0.30, abs=1e-6)
+    assert global_b.status()["spent_known_cny"] == pytest.approx(N * 0.30, abs=1e-6)
+    assert single.cost + single.reserved <= 10 + 1e-9     # 不超 cap（此处 cap 大）
+    assert single.status()["calls_known"] == N            # 无重复结算
+
+
+def test_unknown_cost_after_overrun_no_bypass():
+    """未知成本 + 超支：cost_known=False 仍按最坏入账（不视 0），预留释放。"""
+    single = EvalBudget(cap_cny=1.0, warn_at_cny=0.3, pause_at_cny=0.5)
+    stack = BudgetStack([single])
+    r = stack.try_reserve(200, 100)
+    assert r is not None
+    worst_known = 0.10
+    stack.commit(cost_cny=None, tokens_in=None, tokens_out=None, worst_cny=worst_known)
+    st = stack.status()["budgets"][0]
+    assert st["calls_unknown"] == 1
+    assert st["spent_unknown_cny"] == pytest.approx(worst_known, abs=1e-9)  # 按最坏入账非 0
+    assert st["reserved_cny"] == pytest.approx(0.0, abs=1e-9)                # 预留释放
+
+
+def test_exception_release_then_overrun_double_settle_guard():
+    """异常 release 后：预留释放干净，后续结算不重复计入（幂等）。"""
+    single = EvalBudget(cap_cny=5, warn_at_cny=3, pause_at_cny=5)
+    stack = BudgetStack([single])
+    r = stack.try_reserve(3000, 1000)         # 预留一次
+    assert r is not None
+    stack.release_reservation(r)              # 模拟异常未 commit
+    assert single.status()["reserved_cny"] == pytest.approx(0.0, abs=1e-9)
+    assert single.status()["spent_total_cny"] == 0.0       # 无成本（异常未结算）
+    # 异常后再正常常规调用：只结算一次，不重复
+    r2 = stack.try_reserve(200, 100)
+    assert r2 is not None
+    stack.commit(cost_cny=0.05, tokens_in=200, tokens_out=300, worst_cny=r2)
+    assert single.status()["calls_known"] == 1
+    assert single.status()["spent_known_cny"] == pytest.approx(0.05, abs=1e-6)
