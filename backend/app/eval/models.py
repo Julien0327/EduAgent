@@ -85,6 +85,7 @@ class CaseRecord:
     error_type: str = ERR_OK
     error_message: str = ""
     details: str = ""
+    rule_scores: dict | None = None   # judge 未采信时规则评分（五维），S4/S6 展示
     commit: str = ""
     # 汇总判定
     passed: bool = False

@@ -1618,7 +1618,7 @@ function renderEvalCards(d) {
   const card = (label, val) =>
     `<div class="state-card"><b>${val}</b><span>${label}</span></div>`;
   box.innerHTML =
-    card("最近任务成功率", pctFmt(l.pass_rate)) +
+    card("最近任务成功率", pctFmt(l.task_success_rate !== undefined ? l.task_success_rate : l.pass_rate)) +
     card("行为正确率", pctFmt(l.behavior_accuracy)) +
     card("已知成本（元）", fmtCost(l.known_cost_cny)) +
     card("用例数", fmtNum(l.cases));
@@ -1628,19 +1628,31 @@ function renderEvalRuns(runs) {
   const box = $("eval-runs");
   if (!box) return;
   if (!runs.length) { box.innerHTML = '<p class="diag-note">暂无 run</p>'; return; }
+  const wfP95 = (r) => {
+    const m = r.p95_by_workflow || {};
+    const ks = Object.keys(m);
+    return ks.length ? ks.map((k) => `${escapeHtml(k)}:${m[k]}ms`).join("；") : "—";
+  };
+  const ruleTxt = (r) => {
+    const m = r.rule_score_mean || {};
+    if (!r.rule_scored_cases) return "—";
+    return `内容${m.content_correctness ?? "—"}/覆盖${m.coverage_completeness ?? "—"}（${r.rule_scored_cases}条）`;
+  };
   const rows = runs.map((r) => `<tr>
     <td><code>${escapeHtml(r.run_id)}</code></td>
     <td>${escapeHtml(r.mode || "—")}</td>
     <td>${fmtNum(r.cases)}</td>
-    <td>${pctFmt(r.pass_rate)}</td>
+    <td>${pctFmt(r.task_success_rate !== undefined ? r.task_success_rate : r.pass_rate)}</td>
     <td>${pctFmt(r.behavior_accuracy)}</td>
     <td>${fmtCost(r.known_cost_cny)}</td>
     <td>${r.unknown_cost_cases ? fmtNum(r.unknown_cost_cases) + " 未知" : "0"}</td>
     <td>${r.p95_latency_ms === null || r.p95_latency_ms === undefined ? "—" : r.p95_latency_ms + " ms"}</td>
+    <td>${wfP95(r)}</td>
+    <td>${ruleTxt(r)}</td>
   </tr>`).join("");
   box.innerHTML = `<table class="diag-table"><thead><tr>
     <th>run_id</th><th>模式</th><th>用例</th><th>任务成功率</th><th>行为正确率</th>
-    <th>已知成本</th><th>成本未知任务</th><th>p95 延迟</th>
+    <th>已知成本</th><th>成本未知任务</th><th>p95 延迟</th><th>p95（按工作流）</th><th>规则评分（回退）</th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -1661,8 +1673,19 @@ function renderEvalBaseline(d) {
   const qiTxt = qi.status === "pending_phase5"
     ? `<span class="diag-note">质检拦截率 / 回流收敛轮次：${escapeHtml(qi.note || "待 Phase 5")}</span>`
     : `<span class="diag-note">${escapeHtml(JSON.stringify(qi))}</span>`;
+  const vb = d.latest_vs_baseline;
+  const deltaRow = (label, key) => {
+    if (!vb) return "";
+    const x = vb[key] || {};
+    const dv = x.delta;
+    const dvTxt = dv === null || dv === undefined ? "—" : (dv >= 0 ? "+" : "") + (dv * 100).toFixed(2) + "pp";
+    return `<tr><td>${label}</td><td>${pctFmt(x.baseline)} → ${pctFmt(x.current)}</td>
+      <td>Δ ${dvTxt}（baseline=S2-A，current=最近 run）</td></tr>`;
+  };
   box.innerHTML = `
     <table class="diag-table"><thead><tr><th>指标</th><th>基线值</th><th>说明</th></tr></thead><tbody>
+      ${deltaRow("任务成功率（baseline→current）", "task_success_rate")}
+      ${deltaRow("行为正确率（baseline→current）", "behavior_accuracy")}
       <tr><td>检索 R@1 / R@5 / MRR / NDCG@5</td>
           <td>${pctFmt(ret["R@1"])} / ${pctFmt(ret["R@5"])} / ${ret.MRR ?? "—"} / ${ret["NDCG@5"] ?? "—"}</td>
           <td>${escapeHtml(ret.source || "")}（${fmtNum(ret.cases)} 条）</td></tr>

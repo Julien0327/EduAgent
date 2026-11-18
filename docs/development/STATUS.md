@@ -6,6 +6,20 @@
 
 **Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1+S2 关账，S3-A 完成，S3-B/C 待批准，决策㊲㊳㊴㊵㊵b㊶㊷）**
 
+### Phase 4 S6 关账 + 收尾加固（2026-11-18，决策㊽）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| A 分工作流 p95 | ✅ `eval_api._run_summary` 按 workflow 分组 p95（§9.1 口径）；前端 run 表新增「p95（按工作流）」 | 冒烟：exam 66ms/qg 69ms/lp 41ms/cd 7ms |
+| B 规则评分回退应用 | ✅ judge 未采信 → 规则评分**应用到全量**（evaluate 逐 case 计算并持久化 `rule_scores`）；API 聚合 `rule_score_mean`（111 条五维均值）；前端展示「规则评分（回退）」 | fake_s6_full 111 条规则分 |
+| E baseline→current | ✅ API `latest_vs_baseline`（任务成功率/行为正确率 delta）；修复任务成功率分母口径（execute/fallback 93/93=1.0，非全部 111）；前端 delta 行 | 冒烟 delta 0.0 |
+| 指标口径修正 | ✅ 任务成功率按 execute/fallback 分母（与 S1/S2 定义一致）；run 摘要区分 pass_rate(全量) 与 task_success_rate | 代码+冒烟 |
+| 数据 | ✅ 回填 smoke_real_01(20)/s3b_calib_real_01(50) 的 workflow+规则评分；新增 `fake_s6_full`（111 条）入业务库 | SQL |
+| 前端（D） | ⏳ 静态/接口冒烟通过（页面含评测中心、API 字段正确）；**浏览器交互验证待你点验** | 冒烟 |
+| 测试 | ✅ 全量 **447 passed**；CI 全绿 | pytest |
+| 遗留（交接） | C 全量 111 online（可选≈¥1.5）；F gc_e03 诊断降级 28% 业务修复待决策；ECS 集中部署窗口待批准 | 见下 |
+| 复现 | `python -m backend.app.eval.evaluate --mode fake [--real-retrieval]`；`python -m backend.scripts.run_judge_calibration --sheet/--judge rule|llm/--agreement`；`python -m backend.app.eval.evaluate --mode online --llm-mode real --allow-live-api --cases ...` | — |
+
 ### Phase 4 S5 CI 流水线（2026-11-18，进行中，决策㊼）
 
 | 项 | 结果 | 证据 |

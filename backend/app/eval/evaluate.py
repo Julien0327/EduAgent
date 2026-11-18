@@ -143,11 +143,18 @@ def main() -> int:
                       use_real_retrieval=args.real_retrieval)
     elapsed = time.time() - t0
 
-    # 判定（与执行分离）
+    # 判定（与执行分离）；judge 未采信 → 规则评分应用到全量（S3 结论，S6 扩展）
+    from backend.app.eval.judge import rule_score, extract_artifact_text
     for case, rec in zip(cases, records):
         evaluate_params(case, rec)
         evaluate_behavior(case, rec)
         rec.commit = _commit_short()
+        try:
+            paths = [a.get("path") for a in (rec.artifacts or []) if a.get("path")]
+            text = extract_artifact_text(paths) if paths else ""
+            rec.rule_scores = rule_score(case, rec.to_dict(), text)["scores"]
+        except Exception:
+            rec.rule_scores = None
 
     metrics = build_metrics(cases, records)
     metrics["elapsed_sec"] = round(elapsed, 2)
