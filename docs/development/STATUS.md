@@ -1,12 +1,26 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系启动，S0 开工准备完成**：PHASE4-PLAN.md 落盘、决策㊲、全量 pytest 基线复跑；**S1 golden set 起草待用户批准进入**）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-18（**Phase 3 已验收通过并已 push**（origin/main = a47c472，2026-11-17 23:09）；**Phase 4 评测体系进行中，S0 + S1 完成**：golden set 111 条冻结入 Git（`data/gt/golden_set_v1.jsonl`）与真库 eval_cases（幂等核验通过）；S2 runner 待启动）。**新会话开工前必读本文件 + docs/development/PHASE4-PLAN.md + docs/development/PHASE4-GOLDEN-DESIGN.md + 技术方案 §9**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0 完成，S1 待批准，决策㊲）**
+**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账，决策㉚）｜Phase 2 可信检索 ✅（2026-11-15 关账，决策㉜）｜Phase 3 归因+观测 ✅（2026-11-17 验收通过并 push，决策㉟㊱）｜Phase 4 评测体系 🔄（S0+S1 完成，S2 待批准，决策㊲）**
 
-### Phase 4 S0 开工准备（2026-11-18，已完成，待用户核验后进入 S1）
+### Phase 4 S1 Golden Set 冻结（2026-11-18，已完成并入库）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 设计规范 | ✅ `docs/development/PHASE4-GOLDEN-DESIGN.md`：单条格式（四态行为/五种匹配模式）、独立预期原则、acapter 同义白名单、构成、校验规则、**评测限制（exam_loop count 仅验 planner 抽取/行为判定指标/分母归属/mode 语义）** | 本文件 |
+| 构建脚本 | ✅ `backend/scripts/build_golden_set.py`：111 条内嵌（core 80 + boundary 31）、结构/构成/重复/漂移/KP 核对五类校验；synonym 构建期展开 eq_terms（runner 零依赖）；`--json/--review/--freeze-out` | 脚本 |
+| 章节核对 | ✅ **真实 82 个小学 KP 逐一核对：76 处参与比对章节全部有效、0 错误**（31 个 value：29 直接命中 + 2 同义组展开命中；用户点名归一/工程/追及/方程求解/定义新运算均在库） | `primary_kp_names_v1.json` + [KP 核对] 校验输出 |
+| 冻结版 | ✅ `data/gt/golden_set_v1.jsonl`（Git）：**111 条，full sha256=`268cd828a12efe42f226c88d96d264ee2bdc89fc6fa96cc7b30d5feb75e532b4`**；与 staging 草稿内容逐条一致（草稿保留审计） | Git + staging |
+| 裁决修订 | ✅ 用户 V1 评审逐条落实：b01–b06/b14/b28/b29→**clarify**（追问优先）；b13→difficulty=混合精确；b16→**reject**；b23→**reject_scope**（known_defect 只记录不改代码）；b24→**fail + fake_only**（online 观察）；b25→固定 cls_nonexistent_2026+404；b30/b31 保持原 expect | 评审指南「一·五、裁决修改记录」表 |
+| 行为分布 | clarify 9 / execute 88 / fallback 5 / reject 1 / reject_scope 5 / reject_400·404 各 1 / fail(where) 1 | DB 实测 |
+| 冻结入库 | ✅ `data/gt/golden_set_v1.jsonl` → 真库 `eval_cases`（UPSERT by case_id，单事务）；**幂等：重复导入 3 次仍 111 行/111 唯一**；逐条回读比对（case_id/prompt/expect/tags）全一致 | `load_golden_to_db.py` |
+| 已知缺陷（如实记录） | gc_b23 高中不拦截：JUNIOR_SIGNALS 未含'高中'——**只记录不修改业务代码**（裁决），留待后续治理 | 冻结 JSON rationale |
+| **未做（S2 前不动）** | eval runner / judge / API / 前端 / CI 未开始；未调 LLM、零费用 | — |
+
+### Phase 4 S0 开工准备（2026-11-18，已完成，历史验收证据）
 
 | 项 | 结果 | 证据 |
 |---|---|---|
@@ -15,7 +29,7 @@
 | 决策落盘 | ✅ `DECISIONS.md` ㊲：golden 构成（core≈80 + boundary≥20）、online 预算三线 ¥10/¥15/¥20、judge 人工 50 条校准、质检拦截率「待 Phase 5 不编数字」、既有检索/归因基线只聚合不重跑 | DECISIONS.md |
 | 全量测试基线 | ✅ `401 passed in 39.20s`（exit 0），与 Phase 3 关账基线一致 | 全量 pytest（2026-11-18 实测） |
 | 工程事实（已核实） | `eval_cases`/`eval_runs` 表 V1 已建、真库 0 行；`/api/eval → 60/min` 限流已就位；无 `.github/`；FakeLLM 注入范例见 `test_workflow.py` | SQL + 代码 |
-| **未做（S1 开始前不动代码）** | golden 起草/runner/judge/API/前端/CI 均未开始；未调 LLM、无费用 | — |
+| commit | `b4797e5`（PHASE4-PLAN + 决策㊲ + STATUS/ROADMAP S0 状态） | Git |
 
 ### Phase 3 S0-1 小学前置图冻结（2026-11-15，决策㉝）
 

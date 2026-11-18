@@ -1,6 +1,6 @@
 # Phase 4 执行计划：评测体系（技术方案 §9）
 
-> 制定：2026-11-18；状态：**用户已批准（决策㊲）**，S0 完成，待进入 S1。
+> 制定：2026-11-18；状态：**用户已批准（决策㊲㊳）**，S0+S1 完成（golden 111 条冻结入库），S2 runner 待启动。
 > 依据：`docs/技术方案.md` §9（评测体系）、§12（Phase 4 里程碑）、`ROADMAP.md` Phase 4 行、`DECISIONS.md` ㊱（Phase 3 关账）。
 > 本文是 Phase 4 的实施基准；范围或顺序调整须回写本文件并在 DECISIONS.md 记决策。
 
@@ -54,15 +54,13 @@
 3. 全量 pytest 基线复跑确认（401 passed）。
 4. 更新 STATUS.md / ROADMAP.md Phase 4 状态为进行中。
 
-### S1 golden set 起草与冻结（Gold 归用户惯例）
-1. **起草 ≥100 条**：
-   - **core ≈80**：`exam_loop` 35 / `question_gen` 20 / `lesson_plan` 20 / `class_diagnosis` 5（用现有演示班 `cls_3b71d97847` 与 F16 导入班；`skip_plan=True`，只验任务成功率与产物）；章节一律取小学真实 KP，参数（count/difficulty/question_types/total_score）覆盖各分支。
-   - **boundary ≥20**：模糊表述（无章节 → 期望 fallback/追问）、参数冲突（count 超界等）、注入尝试（prompt 内嵌指令）、超范围请求（初中/非数学 → 期望拦截）、题量缺口（KP 真题不足 → 如实标注）。
-   - 格式严格按 §9.2；每条带 `tags`（core/boundary + 维度标签）。
-2. **自动校验**：case_id 唯一 / expect.params 字段合法 / workflow 四值合法 / boundary 占比 ≥20% / 章节存在于小学 KP 体系。
-3. **chapter 同义白名单**：建同义表（如「分数加减」≈「分数加减法」），参数准确率比对用白名单。
-4. **用户评审冻结**：生成 review guide 逐条可裁；用户确认后写入 `eval_cases` + JSON 入 Git。
-5. **已知风险（预告）**：`planner.fallback_plan` 默认 `chapter="一元二次方程"` 为初中遗留值；边界用例「模糊表述」可能暴露此缺口。评测出数字后按「发现→是否修代码」走决策流程，**不擅自改**冻结逻辑。
+### S1 golden set 起草与冻结（2026-11-18 ✅ 完成，决策㊳）
+- **111 条冻结**（core 80 + boundary 31，28%）：`data/gt/golden_set_v1.jsonl`（Git，full sha256 `268cd828a12efe42f226c88d96d264ee2bdc89fc6fa96cc7b30d5feb75e532b4`）。
+- 章节核对：真实 82 个小学 KP 逐一核对，76 处参与比对章节全部有效（0 错误）。
+- 边界裁决落实：clarify/reject/reject_scope fail+等行为语义见设计规范 §8；b23 为 known_defect 只记录不改代码。
+- 入库：`eval_cases`（UPSERT 幂等，111/111 唯一，逐条回读一致）。
+- 设计规范：`docs/development/PHASE4-GOLDEN-DESIGN.md`（§8 测评口径已写）。
+- **限制写入规范**：exam_loop 的 count/difficulty 只验证 Planner 参数抽取，不代表实际试卷生成受其控制。
 
 ### S2 执行层 `backend/app/eval/`
 1. `runner.py`：加载 golden → 逐条执行 → 判定 → 落 `eval_runs`（UPSERT on (run_id, case_id)，幂等）。

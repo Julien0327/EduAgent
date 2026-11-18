@@ -134,3 +134,20 @@
 
 用户逐条裁决 → 冻结版 JSON 入 Git + 写入真库 `eval_cases` → 进入 S2（runner）。
 评审通过前 **不写 eval_cases、不进 S2、不调真实 LLM**（决策㊲⑦）。
+
+## 8. 评测限制与诊断口径（V1 评审裁定，2026-11-18）
+
+1. **exam_loop 的 count/difficulty 只验证 Planner 参数抽取**，不代表实际试卷生成受其控制：
+   exam_loop 出卷走种子题库（固定 10 题 100 分，`_generate_exam_seed`），planner 抽出的
+   count/difficulty/total_score 仅用于"参数字段准确率"判定，不进入产物断言。
+2. **行为判定指标**（新增，独立于任务成功率）：对每条 case 记录"实际行为 vs 预期行为"，
+   behavior ∈ {execute, fallback, fail, reject, reject_scope, reject_404, reject_400, reject_422, clarify}；
+   行为判定通过 = 实际行为 == 预期行为。
+3. **分母归属**：任务成功率分母只含 `execute/fallback`（且 mode=both）的 case；
+   **clarify / reject / reject_* 不计入任务失败率**（它们是行为指标的分母）；
+   `fail`（如 gc_b24 数据不足）归属行为指标，不计入任务成功率分母。
+4. **产物判定**：仅 `execute/fallback` case 要求 `artifacts_min` 全部存在；clarify/reject 不检查产物。
+5. **mode**：`both` = fake+online 均参与成功率分母；`fake_only`（gc_b24）= 仅 fake 档确定性判定，
+   online 档只观察、不计入相同分母（fake 档 FakeLLM 预设 12 条 ≤20 保证确定性失败）。
+6. **一致性（要求5）**：每条 case 的 entry/workflow/params/artifacts_min/匹配模式与 behavior 相互自洽，
+   由 `build_golden_set.py --validate` 强制执行（行为↔入口、clarify 需 session、reject 需 http、mode 合法）。
