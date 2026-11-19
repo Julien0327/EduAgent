@@ -50,8 +50,10 @@ JUDGE_CALIBRATION = {
     "source": "Phase 4 S3-C（决策㊹㊺）",
 }
 
-QUALITY_INSPECTION = {"status": "pending_phase5", "value": None,
-                      "note": "质检拦截率/回流收敛轮次为 Phase 5 critique 指标，待实现"}
+QUALITY_INSPECTION_NOTE = (
+    "质检指标仅统计 question_gen 且含 03_质检报告.json 的 case；无数据返回 null（不以 0 冒充）；"
+    "FakeLLM 与真实在线按 run.mode 区分；全轮拦截率=失败 verdict 数/实际复核轮次（复核轮次失败占比，"
+    "非最终剔除率）；平均收敛轮次=复核轮次/已复核题数（verified_questions）。")
 
 
 def _p95(values: list) -> int | None:
@@ -59,6 +61,13 @@ def _p95(values: list) -> int | None:
         return None
     values = sorted(values)
     return values[max(0, int(len(values) * 0.95) - 1)]
+
+
+def _rate(numerator, denominator) -> float | None:
+    """比率：分母为 0/None → None（不以 0 冒充）。"""
+    if not denominator:
+        return None
+    return round(numerator / denominator, 4)
 
 
 def _run_summary(rows: list) -> dict:
@@ -73,6 +82,8 @@ def _run_summary(rows: list) -> dict:
     rule_acc: dict[str, list[float]] = {d: [] for d in DIMENSIONS}
     task_denom = 0
     task_pass = 0
+    # 质检指标累加器（Phase 5 / S3）
+    q_cases = q_tot = q_ff = q_ffp = q_tfv = q_tvr = q_retired = q_unverified = q_degraded = q_verified = 0
     for r in rows:
         try:
             m = json.loads(r["metrics"] or "{}")
@@ -102,8 +113,35 @@ def _run_summary(rows: list) -> dict:
         for d in DIMENSIONS:
             if rs.get(d) is not None:
                 rule_acc[d].append(float(rs[d]))
+        q = m.get("quality")
+        if q:
+            q_cases += 1
+            q_tot += q.get("total") or 0
+            q_ff += q.get("first_round_fail") or 0
+            q_ffp += q.get("first_round_fail_eventually_passed") or 0
+            q_tfv += q.get("total_fail_verdicts") or 0
+            q_tvr += q.get("total_verification_rounds") or 0
+            q_retired += q.get("retired") or 0
+            q_unverified += q.get("unverified") or 0
+            q_verified += q.get("verified_questions") or 0
+            if q.get("status") in ("partial", "skipped"):
+                q_degraded += 1
     rule_mean = {d: (round(sum(v) / len(v), 3) if v else None)
                  for d, v in rule_acc.items()}
+    # 质检指标（Phase 5 / S3）：从原始统计字段聚合，分母为 0 → None
+    quality = None
+    if q_cases:
+        quality = {
+            "interception_rate_first": _rate(q_ff, q_tot),
+            "interception_rate_all": _rate(q_tfv, q_tvr),
+            "avg_convergence_rounds": round(q_tvr / q_verified, 3) if q_verified else None,
+            "retire_rate": _rate(q_retired, q_tot),
+            "retired_count": q_retired,
+            "reflux_success_rate": _rate(q_ffp, q_ff),
+            "degraded_tasks": q_degraded,
+            "sample_questions": q_tot,
+            "sample_cases": q_cases,
+        }
     return {
         "cases": cases,
         "passed": passed,
@@ -117,6 +155,7 @@ def _run_summary(rows: list) -> dict:
         "p95_by_workflow": {wf: _p95(v) for wf, v in lat_by_wf.items()},
         "rule_score_mean": rule_mean,
         "rule_scored_cases": len(rule_acc[DIMENSIONS[0]]),
+        "quality": quality,
     }
 
 
@@ -167,13 +206,19 @@ def eval_report(limit: int = 5) -> dict:
                                                   baseline["behavior_accuracy"])},
             "source": "baseline=S2-A Fake Runner（决策㊴）；current=最近一次 run",
         }
+    quality = latest["quality"] if latest else None
+    quality_inspection = {
+        "status": "measured" if quality else "no_data",
+        "metrics": quality,
+        "note": QUALITY_INSPECTION_NOTE,
+    }
     return {
         "recent_runs": recent,
         "latest_run": latest,
         "baselines": BASELINES,
         "latest_vs_baseline": latest_vs_baseline,
         "judge_calibration": JUDGE_CALIBRATION,
-        "quality_inspection": QUALITY_INSPECTION,
+        "quality_inspection": quality_inspection,
         "generated_note": "只读聚合；judge 未采信（64.0%<80%）→ 规则评分回退"
-                          "（rule_score_mean 为回退评分均值）；质检指标待 Phase 5",
+                          "（rule_score_mean 为回退评分均值）；质检指标见 quality_inspection（Phase 5）",
     }

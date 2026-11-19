@@ -86,6 +86,7 @@ class CaseRecord:
     error_message: str = ""
     details: str = ""
     rule_scores: dict | None = None   # judge 未采信时规则评分（五维），S4/S6 展示
+    quality: dict | None = None       # Phase 5 / S3：question_gen 质检指标（原始统计字段）
     commit: str = ""
     # 汇总判定
     passed: bool = False

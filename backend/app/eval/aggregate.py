@@ -271,6 +271,7 @@ def persist_records(cases: list[dict], records: list[CaseRecord],
                 "latency_ms": rec.latency_ms,
                 "workflow": rec.workflow,
                 "rule_scores": rec.rule_scores,
+                "quality": rec.quality,
             }
             conn.execute(
                 "INSERT INTO eval_runs (run_id, case_id, mode, passed, metrics, detail, created_at) "

@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -75,6 +76,37 @@ def _artifact_to_dict(a) -> dict:
     return {"name": a.name, "exists": a.exists, "valid": a.valid,
             "content_assertions": a.content_assertions, "error": a.error,
             "path": getattr(a, "path", "")}
+
+
+def _read_quality(workflow: str, art_paths: dict) -> dict | None:
+    """Phase 5 / S3：读取 question_gen 的 03_质检报告.json，提取原始统计字段。
+
+    仅 question_gen 有质检；无报告 / 解析失败 → None（不以空 dict 或 0 冒充）。
+    """
+    if workflow != "question_gen":
+        return None
+    path = art_paths.get("03_质检报告.json")
+    if not path or not path.exists():
+        return None
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    s = report.get("summary") or {}
+    return {
+        "status": report.get("status"),
+        "total": s.get("total"),
+        "passed": s.get("passed"),
+        "retired": s.get("retired"),
+        "unverified": s.get("unverified"),
+        "verified_questions": s.get("verified_questions"),
+        "first_round_fail": s.get("first_round_fail"),
+        "first_round_fail_eventually_passed": s.get("first_round_fail_eventually_passed"),
+        "total_fail_verdicts": s.get("total_fail_verdicts"),
+        "total_verification_rounds": s.get("total_verification_rounds"),
+        "regenerated": s.get("regenerated"),
+        "duplicate_pairs_batch": s.get("duplicate_pairs_batch"),
+    }
 
 
 def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
@@ -133,6 +165,7 @@ def run_workflow_case(case: dict, seed: int, workdir: Path | None = None,
         checks, _content = check_artifacts(case["case_id"], art_paths)
         rec.artifacts = [_artifact_to_dict(c) for c in checks]
         rec.artifacts_ok = bool(checks) and all(c.valid for c in checks)
+        rec.quality = _read_quality(rec.workflow, art_paths)   # Phase 5 / S3 质检指标
         if mode == "online":
             from backend.app.eval.provider import aggregate_cost_from_ctx
             agg = aggregate_cost_from_ctx(ctx)

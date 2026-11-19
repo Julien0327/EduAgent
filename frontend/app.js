@@ -1670,9 +1670,13 @@ function renderEvalBaseline(d) {
     : `<span class="diag-warn">judge 未采信（best ${pctFmt(jc.best_agreement)} &lt; 阈值 ${pctFmt(jc.threshold)}）→ 规则评分回退（${escapeHtml(jc.fallback || "rule_score")}）</span>`;
   const versions = (jc.versions || []).map((v) =>
     `<span class="diag-note">${escapeHtml(v.version)}：${pctFmt(v.agreement)}${v.note ? "（" + escapeHtml(v.note) + "）" : ""}</span>`).join("；");
-  const qiTxt = qi.status === "pending_phase5"
-    ? `<span class="diag-note">质检拦截率 / 回流收敛轮次：${escapeHtml(qi.note || "待 Phase 5")}</span>`
-    : `<span class="diag-note">${escapeHtml(JSON.stringify(qi))}</span>`;
+  const qm = qi.metrics || null;
+  const qiTxt = (qi.status === "measured" && qm)
+    ? `首轮拦截率 ${pctFmt(qm.interception_rate_first)}；全轮拦截率 ${pctFmt(qm.interception_rate_all)}；` +
+      `平均收敛轮次 ${fmtNum(qm.avg_convergence_rounds)}；最终剔除率 ${pctFmt(qm.retire_rate)}（${fmtNum(qm.retired_count)} 题）；` +
+      `回流成功率 ${pctFmt(qm.reflux_success_rate)}；降级任务 ${fmtNum(qm.degraded_tasks)}` +
+      `<span class="diag-note">（样本 ${fmtNum(qm.sample_questions)} 题 / ${fmtNum(qm.sample_cases)} case）</span>`
+    : `<span class="diag-note">无质检数据（不以 0 冒充）</span>`;
   const vb = d.latest_vs_baseline;
   const deltaRow = (label, key) => {
     if (!vb) return "";
@@ -1695,7 +1699,7 @@ function renderEvalBaseline(d) {
           <td>${pctFmt(fake.task_success_rate)} / ${pctFmt(fake.behavior_accuracy)} / ${pctFmt(fake.planner_field_accuracy)}</td>
           <td>${escapeHtml(fake.source || "")}（${fmtNum(fake.cases)} 条）</td></tr>
       <tr><td>judge 校准</td><td>${adoptedTxt}</td><td>${versions}</td></tr>
-      <tr><td>质检拦截率 / 回流收敛</td><td>待 Phase 5</td><td>${qiTxt}</td></tr>
+      <tr><td>质检指标（Phase 5，最近 run）</td><td>${qiTxt}</td><td>${escapeHtml(qi.note || "")}</td></tr>
     </tbody></table>`;
 }
 

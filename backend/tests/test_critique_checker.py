@@ -152,6 +152,9 @@ def test_run_critique_two_rounds_retire(monkeypatch):
     assert out["report"]["questions"][0]["rounds"] == 3
     assert out["report"]["gaps"][0]["question_id"] == "q1"
     assert out["questions"] == []   # 全部剔除 → 空
+    s = out["report"]["summary"]
+    assert s["total_fail_verdicts"] == 3          # 三轮均判不合格
+    assert s["first_round_fail_eventually_passed"] == 0   # 回流失败
 
 
 def test_run_critique_partial(monkeypatch):
@@ -205,3 +208,39 @@ def test_run_critique_keeps_knowledge_points_after_regen(monkeypatch):
     _patch_regen(monkeypatch, [(True, dict(_CORRECTED))])
     out = checker.run_critique([_q(0)], kp_context="分数运算")
     assert out["questions"][0]["knowledge_points"] == ["kp_p_0001"]
+
+
+def test_run_critique_raw_metric_fields(monkeypatch):
+    """补齐的原始统计字段：全轮拦截率分子 / 回流成功率分子（评测层直接聚合，不反推）。"""
+    _patch_verify(monkeypatch, [(True, "fail", ["答案错误"], True, None),
+                                (True, "pass", [], True, None)])
+    _patch_regen(monkeypatch, [(True, dict(_CORRECTED))])
+    out = checker.run_critique([_q(0)], kp_context="分数运算")
+    s = out["report"]["summary"]
+    assert s["total"] == 1
+    assert s["first_round_fail"] == 1
+    assert s["first_round_fail_eventually_passed"] == 1   # 回流成功
+    assert s["total_fail_verdicts"] == 1                  # 仅第 0 轮判不合格
+    assert s["total_verification_rounds"] == 2            # 送检 2 轮
+    assert s["retired"] == 0 and s["unverified"] == 0
+
+
+def test_run_critique_verified_questions_field(monkeypatch):
+    """verified_questions：至少完成一次 LLM 复核的题数（全复核 / 部分 / 全未复核）。"""
+    # 全部完成复核
+    _patch_verify(monkeypatch, [(True, "pass", [], True, None),
+                                (True, "pass", [], True, None)])
+    out = checker.run_critique([_q(0), _q(1)], kp_context="分数运算")
+    assert out["report"]["summary"]["verified_questions"] == 2
+
+    # 部分复核（q1 通过、q2 LLM 不可用 → unverified）
+    _patch_verify(monkeypatch, [(True, "pass", [], True, None),
+                                (False, None, ["不可用"], None, None)])
+    out = checker.run_critique([_q(0), _q(1)], kp_context="分数运算")
+    s = out["report"]["summary"]
+    assert s["verified_questions"] == 1 and s["unverified"] == 1
+
+    # 全部未复核（skipped）
+    _patch_verify(monkeypatch, [(False, None, ["超时"], None, None)])
+    out = checker.run_critique([_q(0)], kp_context="分数运算")
+    assert out["report"]["summary"]["verified_questions"] == 0

@@ -41,6 +41,13 @@ DEFAULT_COUNT = 10
 MAX_QUESTIONS = 12                        # 模型命制数量上限（gc_b24 裁定：只回 ≤12）
 _DIFFICULTIES = ("简单", "中等", "较难", "混合")
 
+# S3：话题各异的小学题题干（避免同模板近义题被批内查重误判为重复）
+_FAKE_STEMS = [
+    "鸡兔同笼问题", "分数加减计算", "长方形面积", "小数乘法",
+    "百分数应用", "列方程求解", "行程相遇问题", "工程合作问题",
+    "按比例分配", "归一问题", "圆柱体积", "平均数计算",
+]
+
 
 def _find_plan_workflow(prompt: str) -> dict:
     """复刻 planner.fallback_plan 的关键字规则（决策：FakeLLM=复刻当前实现）。"""
@@ -151,13 +158,16 @@ class FakeLLM:
         questions = []
         for i in range(1, count + 1):
             qtype = ("填空题", "解答题", "选择题")[i % 3]
+            stem = _FAKE_STEMS[(i - 1) % len(_FAKE_STEMS)]
+            if qtype == "选择题":
+                options = ["A. 1", "B. 2", "C. 3", "D. 4"]
+                answer = "A"
+            else:
+                options = None
+                answer = str((i - 1) % 10 + 1)
             questions.append({
-                "type": qtype,
-                "stem": f"Fake 出的第 {i} 道题（确定性）",
-                "options": ["A. 1", "B. 2", "C. 3", "D. 4"] if qtype == "选择题" else None,
-                "answer": str(i),
-                "difficulty": "简单",
-                "analysis": "Fake 解析",
+                "type": qtype, "stem": stem, "options": options,
+                "answer": answer, "difficulty": "简单", "analysis": "Fake 解析",
             })
         if not questions:
             return LLMResponse(content="", model="fake", tool_calls=[])

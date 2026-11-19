@@ -249,20 +249,36 @@ def _build_report(status: str, questions: list[dict], entries: list[dict],
     first_round_fail = sum(1 for e in entries if e["first_round_fail"])
     total_rounds = sum(e["rounds"] for e in entries)
     regenerated = sum(1 for e in entries if e["rounds"] > 1)
+
+    # 原始统计字段（供评测层直接聚合，不反推）：
+    # 全部判不合格次数 = Σ每题「该轮判定为 fail（确定性 fail 或 LLM fail）」的次数
+    total_fail_verdicts = 0
+    for e in entries:
+        for h in e["history"]:
+            if h.get("llm_available") and (h.get("deterministic_fail") or h.get("llm_verdict") == "fail"):
+                total_fail_verdicts += 1
+    # 回流后最终通过 = 首轮不合格且最终 passed 的题数
+    first_round_fail_eventually_passed = sum(
+        1 for e in entries if e["first_round_fail"] and e["status"] == "passed")
+    # 已完成至少一次实际 LLM 复核的题数（rounds > 0 即至少一轮 llm_available）
+    verified_questions = sum(1 for e in entries if e["rounds"] > 0)
+
     return {
         "status": status,
         "kp_context": kp_context,
         "history_dedup": "performed" if history_dedup else "skipped",
         "max_regeneration_rounds": MAX_REGENERATION_ROUNDS,
         "summary": {
-            "total": total,
-            "passed": passed,
-            "retired": retired,
-            "unverified": unverified,
-            "first_round_fail": first_round_fail,
-            "regenerated": regenerated,
-            "total_verification_rounds": total_rounds,
-            "avg_convergence_rounds": round(total_rounds / total, 3) if total else None,
+            "total": total,                                   # 送检题数
+            "passed": passed,                                 # 最终通过
+            "retired": retired,                               # 最终剔除
+            "unverified": unverified,                         # 降级未复核
+            "verified_questions": verified_questions,         # 已完成 ≥1 次 LLM 复核的题数
+            "first_round_fail": first_round_fail,             # 首轮判不合格题数
+            "first_round_fail_eventually_passed": first_round_fail_eventually_passed,  # 回流后最终通过
+            "total_fail_verdicts": total_fail_verdicts,       # 全部判不合格次数
+            "total_verification_rounds": total_rounds,        # 全部送检（复核）次数
+            "regenerated": regenerated,                       # 参与重生成题数
             "duplicate_pairs_batch": len(dup_pairs),
         },
         "questions": entries,
