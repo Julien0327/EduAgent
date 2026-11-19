@@ -38,6 +38,11 @@ def get_expected_token() -> str | None:
     return settings.EDUMATE_API_TOKEN or None
 
 
+def get_admin_token() -> str | None:
+    """MCP 管理员 Token（Phase 5 / S4，§8.3）；未配置 → None（管理员权限不可用）。"""
+    return settings.EDUMATE_MCP_ADMIN_TOKEN or None
+
+
 def extract_token(headers, query_string: bytes | None = None) -> str | None:
     """从请求取 token：Authorization: Bearer x 优先，兼容 X-API-Token 头。
 
@@ -66,6 +71,19 @@ def token_ok(provided: str | None, expected: str | None) -> bool:
     return bool(provided) and secrets.compare_digest(provided, expected)
 
 
+def token_ok_any(provided: str | None) -> bool:
+    """MCP 通道：provided 是普通 Token 或管理员 Token 之一即通过（§8.3 双 Token）。
+
+    工具级权限（敏感工具需管理员）由 MCP handler 依据 token 类型另行判断；
+    本函数只做「认证」——放行任一有效 Token，不放行无效/缺失 Token。
+    """
+    if not provided:
+        return False
+    if token_ok(provided, get_expected_token()):
+        return True
+    return token_ok(provided, get_admin_token())
+
+
 # ---------- 限流规则（§10.5 保护范围表） ----------
 
 def classify_limit(method: str, path: str) -> int | None:
@@ -76,6 +94,8 @@ def classify_limit(method: str, path: str) -> int | None:
     """
     if path == "/api/health":
         return None
+    if path.startswith("/mcp"):
+        return 60  # MCP Streamable HTTP（Phase 5 / S4）
     if not path.startswith("/api/"):
         return None  # 静态资源/AIP 不进业务限流
     parts = path.rstrip("/").split("/")
@@ -156,7 +176,9 @@ class SecurityMiddleware:
             return
         path = scope.get("path", "")
         method = scope.get("method", "GET")
-        if method == "OPTIONS" or path == "/api/health" or not path.startswith("/api/"):
+        # /api/health 免；OPTIONS 预检放行；/api/* 与 /mcp（MCP）需认证；其余放行（静态/AIP）
+        if (method == "OPTIONS" or path == "/api/health"
+                or (not path.startswith("/api/") and not path.startswith("/mcp"))):
             await self.app(scope, receive, send)
             return
 
@@ -169,7 +191,12 @@ class SecurityMiddleware:
         if not expected:
             await self._send_json(send, 503, {"detail": "服务端未配置 EDUMATE_API_TOKEN，API 处于 fail-closed 状态"})
             return
-        if not token_ok(extract_token(headers, scope.get("query_string")), expected):
+        provided = extract_token(headers, scope.get("query_string"))
+        if path.startswith("/mcp"):
+            ok = token_ok_any(provided)   # 普通或管理员 Token 任一（工具级权限在 handler 内）
+        else:
+            ok = token_ok(provided, expected)
+        if not ok:
             # 401 不区分缺/错（防探测），响应体不含内部细节
             await self._send_json(send, 401, {"detail": "未授权"})
             return

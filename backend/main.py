@@ -21,6 +21,8 @@ from backend.interop.aip_server import create_aip_router
 from backend.interop.config import load_acp_settings
 from backend.logging_config import get_logger, setup_logging
 from backend.interop.amp_integration import start_heartbeat, stop_heartbeat, init_access_emitter
+from backend.app.mcp.server import build_mcp_server, mcp_transport_security
+from starlette.routing import Mount
 
 setup_logging()
 log = get_logger("main")
@@ -54,7 +56,20 @@ async def lifespan(app: FastAPI):
     else:
         log.warning("No AIC configured; AMP heartbeat/access logging disabled")
     log.info("EduAgent 启动完成：service=%s frontend=%s", settings.SERVICE_NAME, FRONTEND_DIR)
-    yield
+    # ── MCP Streamable HTTP（Phase 5 / S4，§8.3）：每次 lifespan 重建 + 动态挂载 ──
+    # SDK 的 session manager 一次性（run() 只能调用一次），故随 lifespan 生命周期重建。
+    _mcp_server = build_mcp_server()
+    _mcp_app = _mcp_server.streamable_http_app(
+        streamable_http_path="/",
+        transport_security=mcp_transport_security())
+    _mcp_sm = _mcp_server.session_manager
+    # 更新模块级预挂载的 /mcp Mount（保证 /mcp 优先于 StaticFiles 匹配；session manager 一次性随 lifespan 重建）
+    for _r in app.router.routes:
+        if isinstance(_r, Mount) and getattr(_r, "path", None) == "/mcp":
+            _r.app = _mcp_app
+            break
+    async with _mcp_sm.run():
+        yield
     # ── AMP 关闭 ──
     await stop_heartbeat()
 
@@ -100,6 +115,11 @@ if _acp_settings.enabled:
 
         app.add_middleware(AipPeerCertificateMiddleware)
     app.include_router(create_aip_router(_acp_settings))
+
+# MCP Streamable HTTP（Phase 5 / S4，§8.3）：占位挂载，lifespan 替换为真实 app
+# （保证 /mcp 优先于下方 StaticFiles 匹配；认证/限流由 SecurityMiddleware 覆盖 /mcp）
+from starlette.applications import Starlette as _Starlette
+app.mount("/mcp", _Starlette())
 
 # 前端静态资源（最后挂载，作为兜底；index.html 由 html=True 在 / 提供）
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
