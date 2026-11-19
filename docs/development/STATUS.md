@@ -1,10 +1,36 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-18（**Phase 4 评测体系已关账**：S0–S6 全部完成并验收；golden 111 条冻结；Fake/Online Runner + 预算保护 + 真实冒烟（¥0.211+¥0.661）+ judge 4 轮校准（64.0% 未达 80% → 规则评分回退并应用到全量）+ eval API/评测页 + CI 全绿；**447 passed**；全部提交已 push；决策㊲–㊽；遗留：全量 online（可选）/gc_e03 修复（待决）/ECS 部署窗口（待批））。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-19（**Phase 5 纵深已关账（S0–S4）**：critique 质检环（确定性规则 + LLM 一题一验 + ≤2 轮回流 + 三态降级 + 6 项指标）与 MCP 能力开放（stdio + Streamable HTTP、普通/管理员双 Token、敏感开关、DNS Rebinding 防护）；**523 passed**；全部提交本地待 push。**真实 DeepSeek 质检指标未执行（0 次真实调用）**；Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留）。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅（2026-11-14 关账）｜Phase 2 可信检索 ✅（2026-11-15 关账）｜Phase 3 归因+观测 ✅（2026-11-17 验收并 push）｜Phase 4 评测体系 ✅（2026-11-18 关账，决策㊲–㊽）｜Phase 5 纵深 ⬜ 待启动（critique 质检环 + MCP）**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19 关账，S0–S4）｜Phase 6（弹药）⬜ 未启动**
+
+### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
+
+| 阶段 | 交付 | 关键证据 |
+|---|---|---|
+| S0 开工/依赖 | PHASE5-PLAN + 决策㊾ + `mcp==2.3.0` 锁定 + SDK 探针 | `2a25827`；`data/staging/mcp_sdk_probe_report.json` 11/11 全绿；探明 v2 迁移（FastMCP→MCPServer、async tool API） |
+| S1 质检规则层 | `backend/app/critique/`：三维确定性规则 + 批内/历史查重（FTS+SequenceMatcher） | `4b557c1`；21 项单测 |
+| S2 LLM 复核+回流 | LLM 一题一验（结构化 Schema）+ 携带原因重生成 ≤2 轮 + 剔除/缺口 + completed/partial/skipped + `03_质检报告.json`；全剔除→任务显式失败 | `31de6ec`；15 项测试（含降级/全剔除/超时） |
+| S3 指标接入评测 | 报告原始字段（verified_questions 等）→ CaseRecord.quality → eval_runs.metrics → eval_api 6 指标 → 评测页；无数据 null | `012595e`；+9 项测试；fake 冒烟质检数据干净 |
+| S4 MCP 能力开放 | `backend/app/mcp/`：3 工具复用服务层；stdio + Streamable HTTP；双 Token + 敏感开关；DNS Rebinding 防护；限流 60/min | `9ab47d0`；31 项测试；真实起服 curl 实测（200/401/421/403） |
+| S5 关账 | 全量测试 + CI 本地等价 + 文档回填 | 本文件；**523 passed**；fake smoke 20 条 5.34s |
+
+**Phase 5 真实花费：¥0**（未调用任何真实 LLM / DeepSeek；全部 FakeLLM / 离线）。
+
+**Phase 5 指标口径与诚实边界**：
+- 质检 6 指标：首轮拦截率=首轮不合格/送检题数；全轮拦截率=失败 verdict/实际复核轮次（**复核轮次失败占比，非最终剔除率**）；平均收敛轮次=复核轮次/`verified_questions`（已复核题数，为 0 → null）；最终剔除率=剔除/送检题数（附剔除数）；回流成功率=回流后通过/首轮不合格；降级任务数=partial+skipped case 数。
+- **当前仅有 FakeLLM 指标**（确定性替身，只验证指标链路，不代表真实模型质量）；**真实 DeepSeek 10 条在线验证未执行**，评测页 `quality_inspection` 为最近 run 的 fake 数据，不得对外宣称真实质检质量。
+- 质检正确性规则不宣称能判断应用题答案数学对错（完整正确性由 LLM 复核承担）；难度规则为代理告警（规则优先）；查重为启发式阈值。
+
+**Phase 5 已知限制（如实交接）**：
+1. 真实质检指标未测：≤10 条 question_gen 在线验证（PHASE5-PLAN §7）待用户批准预算后执行；
+2. MCP 未用 Inspector 图形界面点验，以协议级测试 + stdio 子进程 + 真实 curl 起服等效覆盖；
+3. Streamable HTTP 默认 SSE 模式（客户端 `Accept` 需含 `text/event-stream`）；
+4. DNS Rebinding 白名单默认覆盖本地回环 + `edumateaip.xyz`（环境变量可覆盖）；compose `8000:8000`（全网卡）建议集中部署时收窄为 `127.0.0.1:8000:8000`（待批，未改）；
+5. 诊断敏感工具仍依赖演示班主/辅映射清单（决策㉟）。
+
 
 
 ### Phase 4 关账总表（2026-11-18，决策㊲–㊽）
