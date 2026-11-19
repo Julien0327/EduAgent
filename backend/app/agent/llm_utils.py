@@ -47,9 +47,16 @@ def _tool_choice(name: str) -> str:
     return "auto"
 
 
-def _call_with_retry(llm, messages, submit_tool, tool_choice, retries=2):
-    """传输层：LLM 调用失败（超时/网络/限流）按指数退避重试 retries 次。"""
+def _call_with_retry(llm, messages, submit_tool, tool_choice, retries=2,
+                     deadline: float | None = None):
+    """传输层：LLM 调用失败（超时/网络/限流）按指数退避重试 retries 次。
+
+    ``deadline``（Phase 5 / S4 预算）：time.monotonic() 绝对截止点；到点不再发起
+    新请求（防单次结构化输出在重试中无限拖长）。默认 None=不限制（向后兼容）。
+    """
     for i in range(retries + 1):
+        if deadline is not None and time.monotonic() >= deadline:
+            raise LLMError("结构化输出超出时间预算")
         try:
             return llm.chat_with_tools(messages, [submit_tool], tool_choice=tool_choice)
         except LLMError as exc:
@@ -60,10 +67,18 @@ def _call_with_retry(llm, messages, submit_tool, tool_choice, retries=2):
 
 
 def _extract_arguments(resp, submit_name: str) -> dict | None:
-    """优先取工具调用参数；模型未调用工具时从 content 文本中兜底解析 JSON。"""
+    """优先取工具调用参数；**空参数视为无效**，回退到 content 文本解析。
+
+    Phase 5 / S4 真实复现：模型偶尔调用 submit_* 但提交 ``{}``（缺少必填字段）；
+    此时不能直接返回空 dict 让校验失败，应继续尝试从 content 中的 JSON 恢复。
+    content 也没有合法 JSON 时返回 None（调用方按"未提交"重试）。
+    """
     for tc in resp.tool_calls:
-        if tc["name"] == submit_name:
-            return tc["arguments"]
+        if tc.get("name") == submit_name:
+            args = tc.get("arguments")
+            if isinstance(args, dict) and args:
+                return args
+            break   # 空参数 → 走 content 回退，不直接返回 {}
     text = (resp.content or "").strip()
     if not text:
         return None
@@ -87,11 +102,14 @@ def structured_completion(
     submit_model: Type[BaseModel],
     max_attempts: int = 3,
     history: list[dict] | None = None,
+    deadline: float | None = None,
 ) -> BaseModel:
     """强制 LLM 以 submit_name 工具调用返回结构化参数，校验通过后返回模型实例。
 
     history（Phase 2 / S5，§7.1）：多轮上下文（最近 N 轮、已截断），插在
     system 与本轮 user 之间。
+    deadline（Phase 5 / S4 预算）：time.monotonic() 绝对截止点；到点即停止重试并
+    抛 LLMError（调用方据此降级）。默认 None=不限制（向后兼容）。
     """
     llm = get_llm_service()
     submit_tool = model_to_tool_schema(submit_name, "提交结构化结果", submit_model)
@@ -101,13 +119,19 @@ def structured_completion(
     messages.append({"role": "user", "content": user})
 
     last_err = "未知错误"
+    required = submit_model.model_json_schema().get("required") or []
     for _ in range(max_attempts):
-        resp = _call_with_retry(llm, messages, submit_tool, tool_choice)
+        if deadline is not None and time.monotonic() >= deadline:
+            raise LLMError("结构化输出超出时间预算")
+        resp = _call_with_retry(llm, messages, submit_tool, tool_choice,
+                                deadline=deadline)
         args = _extract_arguments(resp, submit_name)
         if args is None:
-            last_err = "模型未按要求调用提交工具"
+            last_err = "模型未按要求调用提交工具或提交了空参数"
             messages.append(
-                {"role": "user", "content": f"请调用 {submit_name} 工具提交结果。上次问题：{last_err}"}
+                {"role": "user",
+                 "content": f"请调用 {submit_name} 工具并提交完整参数（参数不得为空）。"
+                            f"上次问题：{last_err}"}
             )
             continue
         try:
@@ -117,7 +141,8 @@ def structured_completion(
             messages.append(
                 {
                     "role": "user",
-                    "content": f"上次输出不符合 schema，请修正后重新调用 {submit_name}。校验错误：{last_err}",
+                    "content": f"上次输出不符合 schema，请补齐必填字段 {required} 后重新调用 "
+                               f"{submit_name}；参数不得为空。校验错误：{last_err}",
                 }
             )
 

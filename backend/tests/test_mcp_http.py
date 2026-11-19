@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -255,6 +256,26 @@ def test_dns_rebinding_env_override(monkeypatch):
 
 
 # ===================== stdio 传输 + stdout 污染 =====================
+def _readline_with_timeout(stream, timeout: float = 60.0) -> bytes:
+    """从管道读一行（带超时，避免子进程异常时测试挂死）。"""
+    box: dict = {}
+
+    def _run():
+        try:
+            box["line"] = stream.readline()
+        except Exception as exc:  # pragma: no cover
+            box["error"] = exc
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        raise TimeoutError(f"等待 stdio 响应超时（{timeout}s）")
+    if "error" in box:  # pragma: no cover
+        raise box["error"]
+    return box.get("line", b"")
+
+
 def test_mcp_stdio_handshake_no_stdout_pollution(tmp_path):
     child = tmp_path / "stdio_child.py"
     child.write_text(textwrap.dedent("""
@@ -268,22 +289,37 @@ def test_mcp_stdio_handshake_no_stdout_pollution(tmp_path):
                        "clientInfo": {"name": "t", "version": "1"}}}
     notified = {"jsonrpc": "2.0", "method": "notifications/initialized"}
     list_req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
-    payload = "\n".join(json.dumps(x) for x in [init, notified, list_req]) + "\n"
 
     proc = subprocess.Popen(
         [sys.executable, str(child)], stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         cwd=str(REPO_ROOT), env={**os.environ, "PYTHONPATH": str(REPO_ROOT)})
-    # 分步写入 + flush 后关闭 stdin，避免 communicate 一次性写入在子进程异步读循环就绪前
-    # 就关闭管道导致后续行丢失（Windows 竞态，flaky 根因）。
-    proc.stdin.write(payload.encode("utf-8"))
-    proc.stdin.flush()
-    proc.stdin.close()
-    out, err = proc.communicate(timeout=60)
 
-    stdout = out.decode("utf-8", "replace")
-    stderr = err.decode("utf-8", "replace").strip()
-    assert "serverInfo" in stdout                    # initialize 握手成功
-    assert "search_knowledge_points" in stdout       # tools/list 含三工具
-    assert "diagnose_learning_gaps" in stdout
-    assert stderr == ""                              # stdout 无日志污染（日志走 stderr）
+    def _send(msg: dict) -> None:
+        proc.stdin.write((json.dumps(msg) + "\n").encode("utf-8"))
+        proc.stdin.flush()
+
+    try:
+        # 逐条请求 / 逐条读响应：消除"批量写入 + 立即关闭 stdin"的 Windows 管道竞态。
+        _send(init)
+        init_line = _readline_with_timeout(proc.stdout).decode("utf-8", "replace")
+        assert "serverInfo" in init_line            # initialize 握手成功
+
+        _send(notified)
+        _send(list_req)
+        tools_line = _readline_with_timeout(proc.stdout).decode("utf-8", "replace")
+        assert "search_knowledge_points" in tools_line   # tools/list 含三工具
+        assert "diagnose_learning_gaps" in tools_line
+    finally:
+        try:
+            proc.stdin.close()
+        except Exception:
+            pass
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:  # pragma: no cover
+            proc.kill()
+            proc.wait()
+        stderr = proc.stderr.read().decode("utf-8", "replace").strip()
+
+    assert stderr == ""                             # stdout 无日志污染（日志走 stderr）

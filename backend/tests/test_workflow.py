@@ -134,6 +134,41 @@ def test_question_gen_generate_error_fails(use_fake_llm):
     assert "数量不足" in ctx.error
 
 
+# ---------- Phase 5 / S4：critique 预算随工作流已耗时收紧 ----------
+def test_critique_budget_shrinks_with_elapsed(monkeypatch, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    import backend.app.critique.checker as checker
+    import backend.app.storage.file_store as fstore
+    from backend.app.agent.context import task_store
+
+    ctx = task_store.create("x")
+    ctx.workflow = "question_gen"
+    ctx.params = {"questions": [{"question_id": "q1", "type": "填空题", "stem": "题",
+                                 "answer": "1", "difficulty": "简单"}],
+                  "knowledge_points": ["分数"], "total_score": 10}
+    step = ctx.add_step("understand_task")
+    step.started_at = (datetime.now(timezone.utc) - timedelta(seconds=100)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+
+    captured = {}
+
+    def fake_run(questions, kp_context="", conn=None, total_score=100,
+                 time_budget_seconds=None, **kw):
+        captured["budget"] = time_budget_seconds
+        return {"status": "completed",
+                "report": {"summary": {"passed": 1, "retired": 0, "unverified": 0},
+                           "budget": {}},
+                "questions": questions}
+
+    monkeypatch.setattr(checker, "run_critique", fake_run)
+    monkeypatch.setattr(fstore, "build_output_path", lambda tid, name: tmp_path / name)
+
+    wf._critique_questions(ctx)
+    # 140 - 已耗时(~100s) ≈ 40s；允许执行耗时导致的少量偏差
+    assert 25 <= captured["budget"] <= 50
+
+
 def test_lesson_plan_completes(use_fake_llm):
     use_fake_llm([_plan_resp("lesson_plan"), _lesson_resp()])
     ctx = wf.run_task("帮我写一份《分数与百分数》的教案")

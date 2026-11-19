@@ -179,6 +179,81 @@ def test_run_critique_skipped(monkeypatch):
     assert len(out["questions"]) == 2
 
 
+def test_unverified_history_records_llm_error(monkeypatch):
+    """可追溯性：未复核题必须保存 LLM 校验失败文本（区分网络失败/结构化校验失败）。"""
+    msg = "结构化输出在 3 次尝试后仍不合法：verdict 不是 pass/fail"
+    _patch_verify(monkeypatch, [(False, None, [msg], None, None)])
+    out = checker.run_critique([_q(0)], kp_context="分数运算")
+    h = out["report"]["questions"][0]["history"][0]
+    assert h["llm_available"] is False
+    assert h["llm_error"] == msg
+    assert out["report"]["questions"][0]["status"] == "unverified"
+
+
+# ===================== 预算（Phase 5 / S4） =====================
+def test_run_critique_time_budget_zero_skips_llm(monkeypatch):
+    """时间预算为 0：不发起任何 LLM 调用，确定性 pass → unverified，整体 skipped。"""
+    called = []
+
+    def _tv(*a, **k):
+        called.append(1)
+        return True, "pass", [], True, None
+
+    monkeypatch.setattr(checker, "_try_verify", _tv)
+    out = checker.run_critique([_q(0), _q(1)], kp_context="分数运算",
+                               time_budget_seconds=0)
+    assert called == []
+    assert out["status"] == "skipped"
+    assert out["report"]["budget"]["budget_exhausted"] is True
+    assert all(q["status"] == "unverified" for q in out["report"]["questions"])
+    assert out["report"]["summary"]["verified_questions"] == 0
+    assert len(out["questions"]) == 2          # 确定性 pass 仍保留在卷面
+
+
+def test_run_critique_budget_zero_deterministic_fail_retires(monkeypatch):
+    """预算为 0 + 确定性硬错误（空答案）→ 剔除；其余 unverified。"""
+    monkeypatch.setattr(checker, "_try_verify", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("预算耗尽时不应调用 LLM")))
+    out = checker.run_critique([_q(0, answer=""), _q(1)], kp_context="分数运算",
+                               time_budget_seconds=0)
+    assert out["status"] == "skipped"
+    assert out["report"]["questions"][0]["status"] == "retired"
+    assert out["report"]["questions"][1]["status"] == "unverified"
+    assert out["report"]["budget"]["budget_exhausted"] is True
+
+
+def test_run_critique_operation_budget_partial(monkeypatch):
+    """操作预算=1：第 1 题完成复核后耗尽，第 2 题不再调用 LLM；整体 partial。"""
+    _patch_verify(monkeypatch, [(True, "pass", [], True, None)])
+    out = checker.run_critique([_q(0), _q(1)], kp_context="分数运算",
+                               max_llm_operations=1)
+    assert out["status"] == "partial"
+    assert out["report"]["budget"]["budget_exhausted"] is True
+    assert out["report"]["budget"]["llm_operations"] == 1
+    statuses = [q["status"] for q in out["report"]["questions"]]
+    assert statuses == ["passed", "unverified"]
+
+
+def test_structured_completion_deadline_blocks_call(monkeypatch):
+    """deadline 已过：structured_completion 直接抛 LLMError，不发起 LLM 调用。"""
+    import time as _time
+    import backend.app.agent.llm_utils as llmu
+
+    called = []
+
+    class _L:
+        def chat_with_tools(self, *a, **k):  # pragma: no cover
+            called.append(1)
+            return None
+
+    monkeypatch.setattr(llmu, "get_llm_service", lambda: _L())
+    with pytest.raises(LLMError):
+        llmu.structured_completion("s", "u", "submit_verify",
+                                   checker.QuestionVerification,
+                                   deadline=_time.monotonic() - 1)
+    assert called == []
+
+
 def test_run_critique_skipped_with_deterministic_fail(monkeypatch):
     """LLM 不可用 + 确定性硬错误（空答案）→ 该题剔除；其余未复核。"""
     _patch_verify(monkeypatch, [(False, None, ["超时"], None, None)])

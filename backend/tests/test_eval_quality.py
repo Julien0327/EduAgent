@@ -61,3 +61,15 @@ def test_persist_records_includes_quality(tmp_path):
         assert m["quality"]["total"] == 2
     finally:
         conn.close()
+
+
+def test_write_report_mode_reflects_real_mode(tmp_path):
+    """报告 JSON 的 mode 必须是实际执行档位（真实 vs Fake 严格区分的事实源）。"""
+    from backend.app.eval.aggregate import write_report
+
+    p = write_report([], [], {}, "sha", "run_online", "commit",
+                     mode="online", out_dir=tmp_path)
+    assert json.loads(p.read_text(encoding="utf-8"))["mode"] == "online"
+
+    p2 = write_report([], [], {}, "sha", "run_fake", "commit", out_dir=tmp_path)
+    assert json.loads(p2.read_text(encoding="utf-8"))["mode"] == "fake"

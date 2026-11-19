@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import time
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -28,6 +29,9 @@ from backend.app.critique.rules import run_rules
 from backend.app.retrieval.balance import allocate_scores
 
 MAX_REGENERATION_ROUNDS = 2   # 最多重生成 2 轮（共 3 次送检）
+DEFAULT_TIME_BUDGET_SECONDS = 120.0   # critique 节点墙钟预算（工作流总上限 180s 内留余量）
+DEFAULT_MAX_LLM_OPERATIONS = 60       # 高端操作上限（一次 verify/regenerate 记 1 次）
+BUDGET_EXHAUSTED_MSG = "critique 时间/操作预算耗尽，未执行 LLM 复核"
 
 
 # ===================== LLM 结构化 Schema =====================
@@ -76,33 +80,38 @@ _REGEN_SYSTEM = (
 
 
 # ===================== LLM 调用（每题一验 / 携带原因重生成） =====================
-def verify_question(question: dict, kp_context: str) -> QuestionVerification:
+def verify_question(question: dict, kp_context: str,
+                    deadline: float | None = None) -> QuestionVerification:
     user = f"知识点：{kp_context}\n题目：\n{_render_question(question)}"
-    return structured_completion(_VERIFY_SYSTEM, user, "submit_verify", QuestionVerification)
+    return structured_completion(_VERIFY_SYSTEM, user, "submit_verify",
+                                 QuestionVerification, deadline=deadline)
 
 
-def regenerate_question(question: dict, reasons: list[str], kp_context: str) -> dict:
+def regenerate_question(question: dict, reasons: list[str], kp_context: str,
+                        deadline: float | None = None) -> dict:
     reasons_text = "；".join(reasons)
     user = (f"知识点：{kp_context}\n原题：\n{_render_question(question)}\n"
             f"质检原因：{reasons_text}")
     corrected = structured_completion(_REGEN_SYSTEM, user,
-                                      "submit_corrected_question", CorrectedQuestion)
+                                      "submit_corrected_question", CorrectedQuestion,
+                                      deadline=deadline)
     return corrected.model_dump()
 
 
-def _try_verify(current: dict, kp_context: str):
+def _try_verify(current: dict, kp_context: str, deadline: float | None = None):
     """返回 (llm_ok, verdict, reasons, difficulty_fit, suggested_difficulty)。"""
     try:
-        v = verify_question(current, kp_context)
+        v = verify_question(current, kp_context, deadline=deadline)
         return True, v.verdict, v.reasons, v.difficulty_fit, v.suggested_difficulty
     except LLMError as exc:
         return False, None, [str(exc)], None, None
 
 
-def _try_regenerate(current: dict, reasons: list[str], kp_context: str):
+def _try_regenerate(current: dict, reasons: list[str], kp_context: str,
+                    deadline: float | None = None):
     """返回 (ok, corrected_question_dict)。"""
     try:
-        return True, regenerate_question(current, reasons, kp_context)
+        return True, regenerate_question(current, reasons, kp_context, deadline=deadline)
     except LLMError:
         return False, None
 
@@ -117,18 +126,56 @@ def _merge_regenerated(orig: dict, corrected: dict) -> dict:
 
 
 # ===================== 主循环 =====================
+def _deterministic_only(current: dict, conn, rnd: int = 0, error: str = BUDGET_EXHAUSTED_MSG):
+    """预算耗尽时的确定性收尾：不调用 LLM，仅跑规则层。
+
+    返回 (disposition, final_q, reasons, history_entry)。
+    """
+    det = run_rules([current], conn)
+    qc = det.questions[0]
+    det_fail = qc.has_fail
+    det_reasons = [iss.message for iss in qc.issues if iss.severity == SEV_FAIL]
+    hist = {"round": rnd, "llm_available": False, "llm_error": error,
+            "deterministic_fail": det_fail,
+            "deterministic_fail_reasons": det_reasons}
+    if det_fail:
+        return "retired", None, det_reasons, hist
+    return "unverified", current, [], hist
+
+
 def run_critique(questions: list[dict], kp_context: str = "",
-                 conn=None, total_score: int = 100) -> dict:
+                 conn=None, total_score: int = 100,
+                 time_budget_seconds: float | None = DEFAULT_TIME_BUDGET_SECONDS,
+                 max_llm_operations: int | None = DEFAULT_MAX_LLM_OPERATIONS) -> dict:
     """对一批生成题执行完整质检回流。返回 {status, report, questions}。
 
     ``questions``：generate_questions 产出的题目 dict 列表。
     ``conn``：只读业务库连接（历史查重用；None 则跳过历史查重）。
+    ``time_budget_seconds`` / ``max_llm_operations``：critique 节点预算（Phase 5 /
+    S4）。到点/到量后**不再发起新 LLM 调用**：剩余题只跑确定性规则，
+    确定性 fail → retired，否则 unverified；整体转 partial/skipped，
+    保留已完成结果，避免击穿工作流 180s 上限。
     ``questions`` 返回值：最终幸存题目（已重编号、重分配分值）；空 = 全部剔除。
     """
-    entries: list[dict] = []
-    survivors: list[dict] = []     # [{"entry_index": int, "q": dict}]
+    started = time.monotonic()
+    deadline = (started + time_budget_seconds) if time_budget_seconds is not None else None
+    llm_ops = 0
+    budget_exhausted = False
     llm_ok_any = False
     llm_err_any = False
+
+    def _budget_hit() -> bool:
+        nonlocal budget_exhausted
+        if deadline is not None and time.monotonic() >= deadline:
+            budget_exhausted = True
+            return True
+        if max_llm_operations is not None and llm_ops >= max_llm_operations:
+            budget_exhausted = True
+            return True
+        return False
+
+    entries: list[dict] = []
+    survivors: list[dict] = []     # [{"entry_index": int, "q": dict}]
 
     for i, q in enumerate(questions):
         qid = q.get("question_id", f"q{i + 1}")
@@ -138,53 +185,80 @@ def run_critique(questions: list[dict], kp_context: str = "",
         final_q = None
         reasons_final: list[str] = []
 
-        for rnd in range(MAX_REGENERATION_ROUNDS + 1):   # 0,1,2
-            # 1. 完整确定性规则（正确性 + 难度 + 历史查重；LLM 无关，每轮完整重检）
-            det = run_rules([current], conn)
-            qc = det.questions[0]
-            det_fail = qc.has_fail
-            det_fail_reasons = [iss.message for iss in qc.issues if iss.severity == SEV_FAIL]
+        if _budget_hit():
+            # 预算已在上一题耗尽：本批剩余题只跑确定性规则
+            disposition, final_q, reasons_final, hist = _deterministic_only(current, conn)
+            history.append(hist)
+        else:
+            for rnd in range(MAX_REGENERATION_ROUNDS + 1):   # 0,1,2
+                # 1. 完整确定性规则（正确性 + 难度 + 历史查重；LLM 无关，每轮完整重检）
+                det = run_rules([current], conn)
+                qc = det.questions[0]
+                det_fail = qc.has_fail
+                det_fail_reasons = [iss.message for iss in qc.issues if iss.severity == SEV_FAIL]
 
-            # 2. LLM 一题一验
-            llm_ok, verdict, llm_reasons, difficulty_fit, suggested = _try_verify(current, kp_context)
-            llm_ok_any = llm_ok_any or llm_ok
-            llm_err_any = llm_err_any or (not llm_ok)
+                # 预算检查：到点/到量后不再发起新的 LLM 调用
+                if _budget_hit():
+                    history.append({"round": rnd, "llm_available": False,
+                                    "llm_error": BUDGET_EXHAUSTED_MSG,
+                                    "deterministic_fail": det_fail,
+                                    "deterministic_fail_reasons": det_fail_reasons})
+                    if det_fail:
+                        disposition, reasons_final = "retired", det_fail_reasons
+                    else:
+                        disposition, final_q = "unverified", current
+                    break
 
-            if not llm_ok:
-                # LLM 不可用：确定性规则已执行；确定性 fail 无法修复 → 剔除；否则未复核
-                history.append({"round": rnd, "llm_available": False,
-                                "deterministic_fail": det_fail,
-                                "deterministic_fail_reasons": det_fail_reasons})
-                if det_fail:
-                    disposition, reasons_final = "retired", det_fail_reasons
+                # 2. LLM 一题一验
+                llm_ok, verdict, llm_reasons, difficulty_fit, suggested = _try_verify(
+                    current, kp_context, deadline=deadline)
+                llm_ops += 1
+                llm_ok_any = llm_ok_any or llm_ok
+                llm_err_any = llm_err_any or (not llm_ok)
+
+                if not llm_ok:
+                    # LLM 不可用：确定性规则已执行；确定性 fail 无法修复 → 剔除；否则未复核。
+                    # 必须保存 LLM 校验失败文本（可追溯：区分网络失败/结构化校验失败）。
+                    history.append({"round": rnd, "llm_available": False,
+                                    "llm_error": llm_reasons[0] if llm_reasons else "",
+                                    "deterministic_fail": det_fail,
+                                    "deterministic_fail_reasons": det_fail_reasons})
+                    if det_fail:
+                        disposition, reasons_final = "retired", det_fail_reasons
+                    else:
+                        disposition, final_q = "unverified", current
+                    break
+
+                failed = det_fail or verdict == "fail"
+                reasons = det_fail_reasons + (llm_reasons if verdict == "fail" else [])
+                history.append({"round": rnd, "llm_available": True, "llm_verdict": verdict,
+                                "deterministic_fail": det_fail, "difficulty_fit": difficulty_fit,
+                                "suggested_difficulty": suggested, "reasons": reasons})
+
+                if not failed:
+                    disposition, final_q = "passed", current
+                    break
+
+                # 不合格 → 携带原因重生成（若还有轮次且预算允许）
+                if rnd < MAX_REGENERATION_ROUNDS:
+                    if _budget_hit():
+                        # 预算耗尽：无法重生成，按不合格剔除
+                        disposition, reasons_final = "retired", reasons
+                        break
+                    regen_ok, regen_q = _try_regenerate(current, reasons, kp_context,
+                                                        deadline=deadline)
+                    llm_ops += 1
+                    llm_ok_any = llm_ok_any or regen_ok
+                    llm_err_any = llm_err_any or (not regen_ok)
+                    if regen_ok:
+                        current = _merge_regenerated(q, regen_q)
+                        continue
+                    # 重生成失败（LLM 不可用）：原题已判不合格且无法修复 → 剔除
+                    disposition, reasons_final = "retired", reasons
+                    break
                 else:
-                    disposition, final_q = "unverified", current
-                break
-
-            failed = det_fail or verdict == "fail"
-            reasons = det_fail_reasons + (llm_reasons if verdict == "fail" else [])
-            history.append({"round": rnd, "llm_available": True, "llm_verdict": verdict,
-                            "deterministic_fail": det_fail, "difficulty_fit": difficulty_fit,
-                            "suggested_difficulty": suggested, "reasons": reasons})
-
-            if not failed:
-                disposition, final_q = "passed", current
-                break
-
-            # 不合格 → 携带原因重生成（若还有轮次）
-            if rnd < MAX_REGENERATION_ROUNDS:
-                regen_ok, regen_q = _try_regenerate(current, reasons, kp_context)
-                llm_ok_any = llm_ok_any or regen_ok
-                llm_err_any = llm_err_any or (not regen_ok)
-                if regen_ok:
-                    current = _merge_regenerated(q, regen_q)
-                    continue
-                # 重生成失败（LLM 不可用）：原题已判不合格且无法修复 → 剔除
-                disposition, reasons_final = "retired", reasons
-                break
-            else:
-                # 已达最大重生成轮次 → 剔除
-                disposition, reasons_final = "retired", reasons
+                    # 已达最大重生成轮次 → 剔除
+                    disposition, reasons_final = "retired", reasons
 
         rounds = sum(1 for h in history if h.get("llm_available"))
         first_round_fail = bool(history) and (
@@ -209,11 +283,18 @@ def run_critique(questions: list[dict], kp_context: str = "",
         allocate_scores(final_questions, int(total_score))
 
     status = "completed"
-    if llm_err_any:
+    if llm_err_any or budget_exhausted:
         status = "partial" if llm_ok_any else "skipped"
 
-    report = _build_report(status, questions, entries, dup_pairs_report,
-                           kp_context, conn is not None)
+    report = _build_report(
+        status, questions, entries, dup_pairs_report, kp_context, conn is not None,
+        budget={
+            "time_budget_seconds": time_budget_seconds,
+            "max_llm_operations": max_llm_operations,
+            "budget_exhausted": budget_exhausted,
+            "llm_operations": llm_ops,
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+        })
     return {"status": status, "report": report, "questions": final_questions}
 
 
@@ -238,7 +319,8 @@ def _dedup_survivors(survivors: list[dict], entries: list[dict]) -> tuple[list[d
 
 
 def _build_report(status: str, questions: list[dict], entries: list[dict],
-                  dup_pairs: list[dict], kp_context: str, history_dedup: bool) -> dict:
+                  dup_pairs: list[dict], kp_context: str, history_dedup: bool,
+                  budget: dict | None = None) -> dict:
     def count(st):
         return sum(1 for e in entries if e["status"] == st)
 
@@ -263,7 +345,7 @@ def _build_report(status: str, questions: list[dict], entries: list[dict],
     # 已完成至少一次实际 LLM 复核的题数（rounds > 0 即至少一轮 llm_available）
     verified_questions = sum(1 for e in entries if e["rounds"] > 0)
 
-    return {
+    report = {
         "status": status,
         "kp_context": kp_context,
         "history_dedup": "performed" if history_dedup else "skipped",
@@ -286,3 +368,6 @@ def _build_report(status: str, questions: list[dict], entries: list[dict],
         "gaps": [{"question_id": e["question_id"], "reasons": e["reasons"]}
                  for e in entries if e["status"] == "retired"],
     }
+    if budget is not None:
+        report["budget"] = budget      # 预算快照（耗时/操作数/是否耗尽）
+    return report

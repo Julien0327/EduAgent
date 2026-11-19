@@ -390,12 +390,25 @@ def _critique_questions(ctx: TaskContext) -> str:
     """智能组卷质检回流（Phase 5 / S2，§8.1）：LLM 一题一验 + ≤2 轮重生成 + 剔除 + 报告产物。
 
     全部剔除 → 抛错使任务显式失败（不输出空试卷）；降级（partial/skipped）不阻塞主流程。
+    Phase 5 / S4：critique 带时间/操作预算——按工作流已耗时动态收紧，避免击穿 180s 上限。
     """
-    from backend.app.critique.checker import run_critique
+    from datetime import datetime, timezone
+    from backend.app.critique.checker import DEFAULT_TIME_BUDGET_SECONDS, run_critique
 
     questions = ctx.params.get("questions", [])
     kp_context = "、".join(ctx.params.get("knowledge_points", [])) or "综合"
     total_score = ctx.params.get("total_score", 100)
+
+    # 工作流剩余时间 → critique 预算（预留 ~40s 给单次调用越界/产物/收尾；解析失败用默认值）
+    budget_seconds = DEFAULT_TIME_BUDGET_SECONDS
+    try:
+        started = ctx.steps[0].started_at if ctx.steps else None
+        if started:
+            elapsed = (datetime.now(timezone.utc)
+                       - datetime.fromisoformat(started.replace("Z", "+00:00"))).total_seconds()
+            budget_seconds = max(0.0, min(DEFAULT_TIME_BUDGET_SECONDS, 140.0 - elapsed))
+    except Exception:
+        pass
 
     # 历史查重需业务库 questions_fts；无表/连接失败 → 跳过历史查重（降级，不阻塞）
     conn = None
@@ -407,7 +420,8 @@ def _critique_questions(ctx: TaskContext) -> str:
             conn.close()
         conn = None
     try:
-        outcome = run_critique(questions, kp_context, conn=conn, total_score=total_score)
+        outcome = run_critique(questions, kp_context, conn=conn, total_score=total_score,
+                               time_budget_seconds=budget_seconds)
     finally:
         if conn is not None:
             conn.close()
@@ -422,7 +436,9 @@ def _critique_questions(ctx: TaskContext) -> str:
         raise ValueError("全部题目质检未通过（已剔除），任务终止：无法生成有效试卷")
     ctx.params["questions"] = final_qs
     s = outcome["report"]["summary"]
-    return (f"质检完成（{outcome['status']}）：通过 {s['passed']}、剔除 {s['retired']}、"
+    b = outcome["report"].get("budget") or {}
+    suffix = "，预算耗尽" if b.get("budget_exhausted") else ""
+    return (f"质检完成（{outcome['status']}{suffix}）：通过 {s['passed']}、剔除 {s['retired']}、"
             f"未复核 {s['unverified']}，剩 {len(final_qs)} 题")
 
 

@@ -294,13 +294,17 @@ def persist_records(cases: list[dict], records: list[CaseRecord],
 
 
 def write_report(cases, records, metrics, golden_sha256, run_id, commit,
-                 out_dir: Path | None = None) -> Path:
-    """写结构化 JSON 报告（staging，不入 Git）。"""
+                 mode: str = "fake", out_dir: Path | None = None) -> Path:
+    """写结构化 JSON 报告（staging，不入 Git）。
+
+    ``mode``：必须传实际执行档位（fake/online）——报告是"真实 vs Fake 严格区分"
+    的事实源之一；此前硬编码 "fake" 会让 online run 的报告标注错误。
+    """
     out_dir = out_dir or (STAGING / run_id)
     out_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "run_id": run_id,
-        "mode": "fake",
+        "mode": mode,
         "golden_sha256": golden_sha256,
         "commit": commit,
         "metrics": metrics,

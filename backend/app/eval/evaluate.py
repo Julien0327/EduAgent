@@ -168,7 +168,7 @@ def main() -> int:
     persist_records(cases, records, sha, run_id=run_id, mode=mode, db_path=Path(_db))
 
     report_path = write_report(cases, records, metrics, sha, run_id,
-                               _commit_short(),
+                               _commit_short(), mode=mode,
                                out_dir=Path(args.report_out) if args.report_out else None)
     _print_summary(metrics)
     print(f"[run_id] {run_id}")
