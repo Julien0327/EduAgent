@@ -1,6 +1,6 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-19（**Phase 5 纵深完成 + 真实质检验证（修复前基线）**：critique 质检环 + MCP 能力开放已完成；**10 条真实 DeepSeek question_gen 验证已执行**（¥0.862，8/10 成功、2 条 180s 超时，78 题中 38 题 unverified，全部 partial）；据此定位「空工具参数 → verdict 缺失」根因并完成可追溯性/预算/空参数恢复修复（commit `52e5b6b`）；**535 passed**；所有提交本地待 push。Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留）。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-19（**Phase 5 纵深完成 + 真实质检验证与修复**：critique 质检环 + MCP 能力开放已完成；10 条真实 DeepSeek 验证（¥0.862，8/10 成功、2 条超时、38/78 unverified、10/10 partial）定位根因——**模型把长理由写进 `reasons` 漏引号 → 工具参数非法 JSON → provider 归一为 `{}`**；完成可追溯性/预算/非法 JSON 修复（`52e5b6b`、`122bfdb`）；结构性修复后 gc_q12 抽检 **5/6 通过、unverified 0**；**542 passed**；所有提交本地待 push。Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留）。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
@@ -17,8 +17,10 @@
 | S4 MCP 能力开放 | `backend/app/mcp/`：3 工具复用服务层；stdio + Streamable HTTP；双 Token + 敏感开关；DNS Rebinding 防护；限流 60/min | `9ab47d0`；31 项测试；真实起服 curl 实测（200/401/421/403） |
 | S5 关账 | 全量测试 + CI 本地等价 + 文档回填 | **523 passed**（关账时）；fake smoke 20 条 5.34s |
 | **真实验证（post-closeout）** | 10 条真实 question_gen + 真实检索；定位根因并修复 | run `online_20261119194336_44d177`；见下节 |
+| **预算验证** | gc_q03（修复前 272.6s 失败） | run `online_20261119201749_bac8eb`：**completed partial**、预算 87.6s/实际 95.6s/6 ops 耗尽、2 passed/8 unverified、¥0.102218 |
+| **结构性修复抽检** | gc_q12 单 case | run `online_20261119202840_08b8c6`：**completed、5/6 passed、unverified 0**、¥0.075498 |
 
-**Phase 5 真实花费 ≈ ¥0.9265**：10 条验证 ¥0.861972 + gc_q12 复跑 ¥0.063454 + 单次诊断 ¥0.001102；均在单次/全局预算内，未触发硬停。
+**Phase 5 真实花费 ≈ ¥1.16**：10 条验证 ¥0.861972 + gc_q12 预算后复跑 ¥0.063454 + 诊断 ¥0.001102 + gc_q12+gc_q03 预结构修复 ¥0.153116 + 原始响应抓取 ¥0.001472 + 结构修复后 gc_q12 ¥0.075498 ≈ **¥1.1566**（另有 1 次未落盘诊断约 ¥0.001–0.002 未计入精确值）；均在单次/全局预算内，未触发硬停。
 
 ### Phase 5 真实质检验证（2026-11-19，**修复前基线**，决策 52）
 
@@ -39,16 +41,31 @@
 
 **关键事实与根因**：
 - 2 条失败不是 API 错误，而是 critique 节点耗时 272.6s / 175.6s，击穿全局 `WORKFLOW_TIMEOUT=180s`；
-- 38/78 题 `unverified`，`llm_error` 实测为 **`input: {}` / `verdict Field required`**：模型间歇性调用 `submit_verify` 却提交**空参数**，3 次重试后降级；不是网络失败、不是枚举不兼容；
-- gc_q12 单 case 复跑（run `online_20261119200359_8b52e8`，¥0.063454，98.29s）复现 3/6 空参数；预算未耗尽（78.5s/10 ops）；
+- 38/78 题 `unverified`，初看为 `input: {}` / `verdict Field required`；**进一步抓取原始工具参数确认**：模型把整段中文理由写进 `"reasons"` 却**漏了引号**，整个工具参数不是合法 JSON；`DeepSeekProvider` 解析失败后静默归一为 `{}`，并非网络失败或枚举不兼容；
+- gc_q12 单 case 复跑（run `online_20261119200359_8b52e8`，¥0.063454）复现 3/6；修复前基线的 gc_q12 为 passed 1 / unverified 5 / partial；
 - 剔除 4 题原因均为「选择题答案不在任一选项内」（确定性规则抓到真实格式问题）。
 - **指标边界**：`unverified` 计入首轮拦截率分母但不计入分子，26.92% 是偏低的下界；10 条为初始验证，**不具统计代表性，不得宣称真实质检质量**。
 
-**据此完成的修复（commit `52e5b6b`，全量 535 passed）**：
+**据此完成的修复（commit `52e5b6b` + `122bfdb`，全量 542 passed）**：
 1. 报告可追溯性：`write_report` 写真实 mode；`unverified` 保存 `llm_error`；
-2. critique 时间/操作预算（默认 120s/60 ops，按工作流已耗时收紧，预留 ~40s）；耗尽转 `partial/skipped`，保留已完成结果，不再整体失败；
-3. 空工具参数恢复：`_extract_arguments` 空参数回退 content JSON；重试提示必填字段（**不放宽 schema、不伪造 pass**）；
+2. critique 时间/操作预算（默认 120s/60 ops，按工作流已耗时收紧，预留 ~40s）；耗尽转 `partial/skipped`，保留已完成结果，不再整体失败；**已在 gc_q03 真实验证**（原 272.6s→failed，现 completed partial、预算耗尽、¥0.102218）；
+3. 结构性修复：`QuestionVerification` 移除 `reasons`（理由改走 content），工具参数只保留短字段；provider 保留 `arguments_raw`；解析链 JSON→`ast.literal_eval`→提取 `{...}`→未加引号 `reasons` 保守修复；解析失败错误文本可区分「非法 JSON」（**不放宽 schema、不伪造 pass**）；
 4. stdio 测试竞态修复（逐条握手）。
+
+**结构性修复后抽检（run `online_20261119202840_08b8c6`，决策 53）**：
+
+| 项 | 值 |
+|---|---|
+| case | gc_q12（6 题，真实 DeepSeek + 真实检索） |
+| 状态 | **completed**（无降级） |
+| 结果 | passed **5** / retired 1 / **unverified 0** / verified 6 |
+| 首轮拦截率 / 全轮 | 4/6 = **66.7%** / 7/12 = **58.3%** |
+| 平均收敛轮次 | 2.0（12 轮/6 题） |
+| 最终剔除率 / 回流成功率 | 16.7%（1 题）/ 75%（3/4） |
+| 成本 / 预算 | ¥0.075498；预算 105s/实际 64.8s/18 ops，未耗尽 |
+| 对比修复前 | gc_q12：passed 1 / unverified 5 / partial → **5 / 0 / completed** |
+
+**抽检边界**：单 case 抽检，不能外推为 10 条整体质量；整体真实基线仍是修复前 10 条 run（78 题、38 unverified、10/10 partial），**整体未复跑**。
 
 **Phase 5 指标口径与诚实边界**：
 - 质检 6 指标：首轮拦截率=首轮不合格/送检题数；全轮拦截率=失败 verdict/实际复核轮次（**复核轮次失败占比，非最终剔除率**）；平均收敛轮次=复核轮次/`verified_questions`（已复核题数，为 0 → null）；最终剔除率=剔除/送检题数（附剔除数）；回流成功率=回流后通过/首轮不合格；降级任务数=partial+skipped case 数。
@@ -56,8 +73,8 @@
 - 质检正确性规则不宣称能判断应用题答案数学对错（完整正确性由 LLM 复核承担）；难度规则为代理告警（规则优先）；查重为启发式阈值。
 
 **Phase 5 已知限制（如实交接）**：
-1. 真实指标为**修复前基线**且严重降级（38/78 unverified、10/10 partial）；修复后**未复跑验证**（用户指示暂不复跑），不能宣称修复已提升真实指标；
-2. 2 条超时发生在预算实现之前；预算已实现并有单测，但**尚未在真实长 case 上验证**能否阻止 180s 失败；
+1. 整体真实指标是**修复前基线**且严重降级（38/78 unverified、10/10 partial）；结构性修复后仅做 **gc_q12 单 case 抽检**（5/6 passed、0 unverified），**整体 10 条未复跑**，不能宣称整体指标已提升；
+2. 预算已在 gc_q03 真实验证（不再 180s 失败），但仅 1 条长 case；预算对更多工作流/更长题量的稳定性未验证；
 3. MCP 未用 Inspector 图形界面点验，以协议级测试 + stdio 子进程 + 真实 curl 起服等效覆盖；
 4. Streamable HTTP 默认 SSE 模式（客户端 `Accept` 需含 `text/event-stream`）；
 5. DNS Rebinding 白名单默认覆盖本地回环 + `edumateaip.xyz`（环境变量可覆盖）；compose `8000:8000`（全网卡）建议集中部署时收窄为 `127.0.0.1:8000:8000`（待批，未改）；
