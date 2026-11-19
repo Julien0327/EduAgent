@@ -31,3 +31,9 @@ httpx>=0.24.0
 # ================= 中文分词（Phase 2 / S1，决策㉛① 用户批准） =================
 # FTS5 预分词（索引与查询共用同一 tokenize 入口）；版本为 venv 实测锁定（Python 3.13.7）。
 jieba==0.42.1
+
+# ================= MCP 能力开放（Phase 5 / S0，§8.3 决策③⑫） =================
+# 官方 mcp Python SDK（2026-11-19 核实 PyPI 最新 2.3.0；v2 已把 FastMCP 重命名为
+# MCPServer）。transmit 依赖 pyjwt/cryptography/sse-starlette/opentelemetry-api 等由
+# mcp 传递安装；acps-sdk 仍从独立源安装（见上方 AIP 段）。
+mcp==2.3.0
