@@ -171,12 +171,16 @@ class DeepSeekProvider(LLMProvider):
         content = message.content or ""
         tool_calls = []
         for tc in message.tool_calls or []:
+            raw_args = tc.function.arguments
             try:
-                arguments = json.loads(tc.function.arguments or "{}")
+                arguments = json.loads(raw_args or "{}")
             except json.JSONDecodeError:
+                # 保留原文供上层修复/诊断（Phase 5 / S4：模型偶发输出非法 JSON，
+                # 例如长文本漏引号；不得静默丢弃后伪装成"空参数"）。
                 arguments = {}
             tool_calls.append(
-                {"id": tc.id, "name": tc.function.name, "arguments": arguments}
+                {"id": tc.id, "name": tc.function.name, "arguments": arguments,
+                 "arguments_raw": raw_args}
             )
         return LLMResponse(content=content, tool_calls=tool_calls, model=self._model,
                            usage=getattr(resp, "_edumate_usage", None))

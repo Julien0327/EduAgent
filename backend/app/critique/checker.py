@@ -22,7 +22,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from backend.app.agent.llm_client import LLMError
-from backend.app.agent.llm_utils import structured_completion
+from backend.app.agent.llm_utils import (
+    structured_completion,
+    structured_completion_with_content,
+)
 from backend.app.critique.dupcheck import batch_duplicates, DUP_BATCH_HARD
 from backend.app.critique.models import SEV_FAIL
 from backend.app.critique.rules import run_rules
@@ -36,10 +39,14 @@ BUDGET_EXHAUSTED_MSG = "critique 时间/操作预算耗尽，未执行 LLM 复�
 
 # ===================== LLM 结构化 Schema =====================
 class QuestionVerification(BaseModel):
-    """一题一验结论。"""
+    """一题一验结论（**工具参数只放短字段**）。
+
+    Phase 5 / S4 真实复现：模型会把长篇理由写进 `reasons` 且漏引号，导致工具参数
+    不是合法 JSON。因此理由移出参数、放在模型正文 content（见 verify_question），
+    参数只保留可稳定序列化的短字段。
+    """
 
     verdict: Literal["pass", "fail"]
-    reasons: list[str] = Field(default_factory=list)   # fail 时的具体质检原因
     difficulty_fit: bool = True
     suggested_difficulty: Literal["简单", "中等", "较难"] | None = None
 
@@ -69,8 +76,10 @@ def _render_question(q: dict) -> str:
 
 _VERIFY_SYSTEM = (
     "你是小学数学题质检员，逐题校验：①答案是否自洽、无知识性错误、无计算错误；"
-    "②难度档位（简单/中等/较难）是否与题干相符。若任一有问题判 fail 并给出"
-    "具体可执行的修改原因；否则判 pass。务必调用 submit_verify 工具提交结论。"
+    "②难度档位（简单/中等/较难）是否与题干相符。若任一有问题判 fail，否则判 pass。"
+    "复核理由**直接写在回复正文（content）中**；调用 submit_verify 时**只提交**"
+    "verdict（pass/fail）、difficulty_fit（true/false）、suggested_difficulty"
+    "（简单/中等/较难或 null）三个短字段，**不要在参数中包含 reasons 或任何长文本**。"
 )
 
 _REGEN_SYSTEM = (
@@ -81,10 +90,12 @@ _REGEN_SYSTEM = (
 
 # ===================== LLM 调用（每题一验 / 携带原因重生成） =====================
 def verify_question(question: dict, kp_context: str,
-                    deadline: float | None = None) -> QuestionVerification:
+                    deadline: float | None = None) -> tuple[QuestionVerification, str]:
+    """返回 (结构化结论, 模型正文 content)。content 用作 fail 时的复核理由。"""
     user = f"知识点：{kp_context}\n题目：\n{_render_question(question)}"
-    return structured_completion(_VERIFY_SYSTEM, user, "submit_verify",
-                                 QuestionVerification, deadline=deadline)
+    verification, content = structured_completion_with_content(
+        _VERIFY_SYSTEM, user, "submit_verify", QuestionVerification, deadline=deadline)
+    return verification, content or ""
 
 
 def regenerate_question(question: dict, reasons: list[str], kp_context: str,
@@ -99,10 +110,16 @@ def regenerate_question(question: dict, reasons: list[str], kp_context: str,
 
 
 def _try_verify(current: dict, kp_context: str, deadline: float | None = None):
-    """返回 (llm_ok, verdict, reasons, difficulty_fit, suggested_difficulty)。"""
+    """返回 (llm_ok, verdict, reasons, difficulty_fit, suggested_difficulty)。
+
+    reasons 来自模型正文 content（fail 时用于携带原因重生成）；pass 时为空。
+    """
     try:
-        v = verify_question(current, kp_context, deadline=deadline)
-        return True, v.verdict, v.reasons, v.difficulty_fit, v.suggested_difficulty
+        v, content = verify_question(current, kp_context, deadline=deadline)
+        reasons = []
+        if v.verdict == "fail":
+            reasons = [content.strip()] if content.strip() else ["LLM 复核判定不合格（未提供理由）"]
+        return True, v.verdict, reasons, v.difficulty_fit, v.suggested_difficulty
     except LLMError as exc:
         return False, None, [str(exc)], None, None
 

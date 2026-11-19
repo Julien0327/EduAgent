@@ -39,8 +39,8 @@ class QueueLLM:
         return LLMResponse(content="", tool_calls=[], model="fake")
 
 
-def _verify_llm(verdict, reasons) -> LLMResponse:
-    return LLMResponse(content="", model="fake", tool_calls=[{
+def _verify_llm(verdict, reasons, content="") -> LLMResponse:
+    return LLMResponse(content=content, model="fake", tool_calls=[{
         "id": "v", "name": "submit_verify",
         "arguments": {"verdict": verdict, "reasons": reasons,
                       "difficulty_fit": True, "suggested_difficulty": None},
@@ -56,17 +56,36 @@ def _corrected_llm() -> LLMResponse:
 # ===================== LLM 路径（structured_completion 真实走通） =====================
 def test_verify_question_pass(monkeypatch):
     monkeypatch.setattr(llm_utils, "get_llm_service", lambda: QueueLLM([_verify_llm("pass", [])]))
-    v = checker.verify_question(_q(0), "分数运算")
+    v, content = checker.verify_question(_q(0), "分数运算")
     assert v.verdict == "pass"
-    assert v.reasons == []
+    assert content == ""
 
 
-def test_verify_question_fail_with_reasons(monkeypatch):
+def test_verify_question_fail_reason_comes_from_content(monkeypatch):
+    """fail 理由来自模型正文 content（不再放入工具参数，避免长文本漏引号）。"""
     monkeypatch.setattr(llm_utils, "get_llm_service",
-                        lambda: QueueLLM([_verify_llm("fail", ["答案计算错误"])]))
-    v = checker.verify_question(_q(0), "分数运算")
+                        lambda: QueueLLM([_verify_llm("fail", [], content="答案计算错误")]))
+    v, content = checker.verify_question(_q(0), "分数运算")
     assert v.verdict == "fail"
-    assert v.reasons == ["答案计算错误"]
+    assert content == "答案计算错误"
+    ok, verdict, reasons, _, _ = checker._try_verify(_q(0), "分数运算")
+    assert ok and verdict == "fail"
+    assert reasons == ["答案计算错误"]
+
+
+def test_verification_schema_has_no_long_text_field():
+    """结构性修复：工具参数 schema 不再包含 reasons（长文本移出 JSON）。"""
+    assert "reasons" not in checker.QuestionVerification.model_fields
+    assert set(checker.QuestionVerification.model_fields) == {
+        "verdict", "difficulty_fit", "suggested_difficulty"}
+
+
+def test_try_verify_fail_without_content_uses_generic_reason(monkeypatch):
+    monkeypatch.setattr(llm_utils, "get_llm_service",
+                        lambda: QueueLLM([_verify_llm("fail", [], content="")]))
+    ok, verdict, reasons, _, _ = checker._try_verify(_q(0), "分数运算")
+    assert ok and verdict == "fail"
+    assert reasons == ["LLM 复核判定不合格（未提供理由）"]
 
 
 def test_verify_question_invalid_structure_raises(monkeypatch):
