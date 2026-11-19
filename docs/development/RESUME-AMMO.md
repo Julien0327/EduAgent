@@ -61,13 +61,13 @@ EduMate：面向小学数学教师的 AI 教学助手（2026-11 三大决策收�
 
 **做了什么**：给 LLM 实时组卷（question_gen）加**质检回流环**——三维校验（正确性确定性规则 / 难度代理 / 批内+历史题库查重）→ LLM 一题一验（结构化 Schema）→ 不合格携带具体原因重生成（≤2 轮）→ 仍不合格剔除并记缺口、重算分值、全剔除则任务显式失败；质检三态降级（completed/partial/skipped），LLM 不可用时确定性规则照跑、未复核题不标完整通过；6 项指标（首轮/全轮拦截率、平均收敛轮次、剔除率、回流成功率、降级任务数）经 `03_质检报告.json` → `eval_runs.metrics` → 评测页展示（无数据返回 null）。同时把检索/题库/诊断三大能力以 **MCP** 开放：3 个工具全部复用服务层；stdio 本地受信 + Streamable HTTP 远程；普通/管理员双 Token + 敏感工具环境开关；复用 SecurityMiddleware 认证与 60/min 限流；启用 **DNS Rebinding 防护**（Host 越界 421 / Origin 越界 403）。
 
-**数字**：critique 3 维 + ≤2 轮回流 + 3 态降级 + 6 指标；MCP SDK **mcp 2.3.0**、3 工具、2 传输、双 Token、31 项协议级测试；Phase 5 全量 **523 passed**（+76）；**真实 DeepSeek 调用 0 次、花费 ¥0**（指标仅 FakeLLM，不宣称真实质量）。
+**数字**：critique 3 维 + ≤2 轮回流 + 3 态降级 + 6 指标；MCP SDK **mcp 2.3.0**、3 工具、2 传输、双 Token、31 项协议级测试；Phase 5 全量 **535 passed**。**真实 10 条 DeepSeek 验证（修复前基线）**：78 题、**¥0.861972**、1189.58s、**8/10 任务成功**（2 条因 critique 272.6s/175.6s 击穿 180s 超时）；**首轮拦截 26.92% / 全轮 40.00% / 平均收敛 1.277 / 剔除 5.13% / 回流 47.62% / 降级 10/10**；38/78 题 unverified；Phase 5 真实总花费 ≈ **¥0.9265**。
 
-**核心机制（每条都是面试点）**：①为什么质检只做 question_gen（exam_loop 用冻结题库、确定性基准不可被回流改变）；②规则层与 LLM 分工（规则不依赖模型、LLM 不可用仍跑规则；未复核 ≠ 通过）；③每轮重生成后**完整重检**而非只复查失败维度；④剔除后分值精确重分配、全剔除显式失败（禁止空试卷）；⑤MCP 2.x 迁移实测（FastMCP→MCPServer、async tool API、`structured_output=True` 需 pydantic 返回模型）；⑥**Token 认证不能替代 DNS Rebinding 防护**（Host/Origin 白名单独立生效）；⑦stdio 下 stdout 只走 JSON-RPC、日志走 stderr（防协议污染）；⑧敏感工具最小必要 + 审计（不记姓名/学号/完整 Token）。
+**核心机制（每条都是面试点）**：①为什么质检只做 question_gen（exam_loop 用冻结题库、确定性基准不可被回流改变）；②规则层与 LLM 分工（规则不依赖模型、LLM 不可用仍跑规则；未复核 ≠ 通过）；③每轮重生成后**完整重检**而非只复查失败维度；④剔除后分值精确重分配、全剔除显式失败（禁止空试卷）；⑤MCP 2.x 迁移实测（FastMCP→MCPServer、async tool API、`structured_output=True` 需 pydantic 返回模型）；⑥**Token 认证不能替代 DNS Rebinding 防护**（Host/Origin 白名单独立生效）；⑦stdio 下 stdout 只走 JSON-RPC、日志走 stderr（防协议污染）；⑧敏感工具最小必要 + 审计（不记姓名/学号/完整 Token）；⑨**真实根因定位**：空工具参数（`input: {}` / `verdict Field required`）→ 内容回退 + 必填字段重试提示，不放宽 schema；⑩**critique 预算**：按工作流剩余时间收紧，耗尽转 partial 保留结果，不让 180s 全局超时杀掉整任务。
 
-**工程诚实（加分点）**：FakeLLM 指标与真实在线严格分离，**真实质检指标未测就明说未测**；MCP Inspector 图形界面未点验（以协议级测试 + stdio 子进程 + 真实 curl 起服等效覆盖）；Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留、不误标已解决。
+**工程诚实（加分点）**：FakeLLM 与真实指标严格分离；真实指标是**修复前基线**且严重降级（26.92% 因 38 题 unverified 计入分母不计分子，是偏低下界；10/10 partial；2/10 超时），**修复后未复跑**，不宣称修复已提升指标；MCP Inspector 图形界面未点验（以协议级测试 + stdio 子进程 + 真实 curl 起服等效覆盖）；Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留、不误标已解决。
 
-**面试追问点**：质检为什么走两轮而不是一轮/无限轮；LLM 复核失败怎么保证不放过坏题；MCP 为什么不在工具层重写业务；为什么敏感工具要第二个 Token 而不是同一 Token；DNS rebinding 攻击面到底在哪、认证为何不够；如何证明 stdio 没被日志污染。
+**面试追问点**：质检为什么走两轮而不是一轮/无限轮；LLM 复核失败怎么保证不放过坏题；为什么大量 unverified、26.92% 为什么是下界；空参数问题怎么定位与修复、为什么不放宽 schema；critique 预算与全局超时怎么配合；MCP 为什么不在工具层重写业务；为什么敏感工具要第二个 Token 而不是同一 Token；DNS rebinding 攻击面到底在哪、认证为何不够；如何证明 stdio 没被日志污染。
 
 ## 缺口检查（诚实清单——下一步补强方向）
 
@@ -75,8 +75,9 @@ EduMate：面向小学数学教师的 AI 教学助手（2026-11 三大决策收�
 - ✅ **学情归因与可观测已完成**（Phase 3：归因一致率 10/10、Trace/成本/重启回放、F16 导入前端页）
 - ✅ **服务端压测/性能基线**（只有打标并发数字；API 压测与长时稳定没有——可补）
 - ✅ 端到端评测体系（Phase 4：golden 111 / Fake+Online Runner / 预算保护 / judge 校准 64% 未采信→规则回退 / eval 页 / CI 绿；447 passed）
-- ✅ **质检环 + MCP 能力开放已完成**（Phase 5：critique 三维/回流/三态/6 指标；MCP 3 工具/双传输/双 Token/DNS Rebinding；523 passed）
-- ⚠️ **真实质检指标未测**（Phase 5 只有 FakeLLM 指标；≤10 条真实 question_gen 在线验证待批预算）
+- ✅ **质检环 + MCP 能力开放已完成**（Phase 5：critique 三维/回流/三态/6 指标；MCP 3 工具/双传输/双 Token/DNS Rebinding；535 passed）
+- ✅ **真实质检指标已跑**（10 条、78 题、¥0.862；修复前基线：首轮拦截 26.92%/全轮 40%/收敛 1.277/剔除 5.13%/回流 47.62%；8/10 成功、10/10 partial、38 题 unverified）
+- ⚠️ **修复后真实指标未复跑**（空参数恢复 + critique 预算已实现并有单测；真实长 case 的预算触发效果未验证）
 - ⚠️ **浏览器端自动化测试**（前端为原生 JS 无单测基建，目前靠起服冒烟 + HTTP/脚本 E2E——面试准备口径："JS 逻辑由冒烟+E2E 覆盖"）
 - ✅ 数据质量、LLM 工程、成本控制、评测协议、确定性算法+可观测——已有成体系素材
 
