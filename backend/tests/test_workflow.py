@@ -65,6 +65,22 @@ def _questions_resp(n: int = 2) -> LLMResponse:
     }])
 
 
+def _verify_resp(verdict: str = "pass", reasons=None) -> LLMResponse:
+    return LLMResponse(content="", model="fake", tool_calls=[{
+        "id": "v1", "name": "submit_verify",
+        "arguments": {"verdict": verdict, "reasons": reasons or [],
+                      "difficulty_fit": True, "suggested_difficulty": None},
+    }])
+
+
+def _corrected_resp() -> LLMResponse:
+    return LLMResponse(content="", model="fake", tool_calls=[{
+        "id": "c1", "name": "submit_corrected_question",
+        "arguments": {"type": "填空题", "stem": "修正后的题", "options": None,
+                      "answer": "2", "difficulty": "简单", "analysis": ""},
+    }])
+
+
 def _lesson_resp() -> LLMResponse:
     return LLMResponse(content="", model="fake", tool_calls=[{
         "id": "l1", "name": "submit_lesson_plan", "arguments": {
@@ -89,11 +105,33 @@ def test_exam_loop_completes(use_fake_llm):
 
 
 def test_question_gen_completes(use_fake_llm):
-    use_fake_llm([_plan_resp("question_gen", count=2), _questions_resp(2)])
+    use_fake_llm([_plan_resp("question_gen", count=2), _questions_resp(2),
+                  _verify_resp(), _verify_resp()])
     ctx = wf.run_task("帮我智能组一套《分数与百分数》的卷子")
     assert ctx.status == "completed", ctx.error
     assert ctx.workflow == "question_gen"
-    assert [a.file_name for a in ctx.artifacts] == ["01_试卷.docx", "02_答题卡.xlsx"]
+    assert sorted(a.file_name for a in ctx.artifacts) == \
+        ["01_试卷.docx", "02_答题卡.xlsx", "03_质检报告.json"]
+    assert "critique_questions" in [s.node for s in ctx.steps]   # 质检节点接入工作流（Trace/SSE 可见）
+
+
+def test_question_gen_all_retired_fails(use_fake_llm):
+    """全部题目质检未通过（两轮重生成后仍不合格）→ 任务显式失败，不输出空试卷。"""
+    use_fake_llm([_plan_resp("question_gen", count=1), _questions_resp(1),
+                  _verify_resp("fail", ["答案错误"]), _corrected_resp(),
+                  _verify_resp("fail", ["仍错误"]), _corrected_resp(),
+                  _verify_resp("fail", ["仍错误"])])
+    ctx = wf.run_task("帮我智能组一套《分数与百分数》的卷子")
+    assert ctx.status == "failed"
+    assert "全部题目质检未通过" in ctx.error
+
+
+def test_question_gen_generate_error_fails(use_fake_llm):
+    """generate_questions 返回 error（题量不足）→ run_tool 抛 ToolError → 任务显式失败，不 KeyError、不静默残缺。"""
+    use_fake_llm([_plan_resp("question_gen", count=3), _questions_resp(2)])
+    ctx = wf.run_task("帮我智能组一套《分数与百分数》的卷子")
+    assert ctx.status == "failed"
+    assert "数量不足" in ctx.error
 
 
 def test_lesson_plan_completes(use_fake_llm):

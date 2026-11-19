@@ -61,7 +61,7 @@ def generate_questions(params: GenerateQuestionsParams) -> dict:
         f"- {n}：{name_to_desc.get(n, '')}" for n in params.knowledge_points
     )
     system = (
-        "你是初中数学教师，负责命制规范的随堂测验题。题目必须覆盖给定知识点，"
+        "你是小学数学教师，负责命制规范的随堂测验题。题目必须覆盖给定知识点，"
         "题干清晰、答案正确、解析准确。务必调用 submit_questions 工具，以参数形式提交。"
     )
     user = (

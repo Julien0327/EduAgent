@@ -12,8 +12,10 @@ from backend.app.critique.models import (
     SEV_FAIL, SEV_WARN, STATUS_PASS, STATUS_FAIL,
 )
 from backend.app.critique.rules import run_rules
+from backend.app.critique.checker import run_critique
 
 __all__ = [
     "BatchCritique", "QuestionCritique", "RuleIssue", "DIMENSIONS",
-    "SEV_FAIL", "SEV_WARN", "STATUS_PASS", "STATUS_FAIL", "run_rules",
+    "SEV_FAIL", "SEV_WARN", "STATUS_PASS", "STATUS_FAIL",
+    "run_rules", "run_critique",
 ]

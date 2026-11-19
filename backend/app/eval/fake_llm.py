@@ -121,6 +121,10 @@ class FakeLLM:
             return self._resp_submit_diagnosis(user)
         if tool_name == "submit_lesson_plan":
             return self._resp_submit_lesson_plan(user)
+        if tool_name == "submit_verify":
+            return self._resp_submit_verify(user)
+        if tool_name == "submit_corrected_question":
+            return self._resp_submit_corrected_question(user)
         return LLMResponse(content="", model="fake", tool_calls=[])
 
     def _resp_submit_plan(self, user: str) -> LLMResponse:
@@ -177,6 +181,20 @@ class FakeLLM:
                 {"step": "练习", "detail": "随堂练习"},
             ],
             "homework": "完成课后练习题",
+        })
+
+    def _resp_submit_verify(self, user: str) -> LLMResponse:
+        """质检一题一验：确定性默认通过（eval fake 档验证链路，非模型能力）。"""
+        return self._tool_call("submit_verify", {
+            "verdict": "pass", "reasons": [],
+            "difficulty_fit": True, "suggested_difficulty": None,
+        })
+
+    def _resp_submit_corrected_question(self, user: str) -> LLMResponse:
+        """携带质检原因重生成：确定性回显一道可解析题（eval fake 档）。"""
+        return self._tool_call("submit_corrected_question", {
+            "type": "填空题", "stem": "Fake 修正后的题（确定性）", "options": None,
+            "answer": "1", "difficulty": "简单", "analysis": "Fake 修正解析",
         })
 
     def _tool_call(self, name: str, arguments: dict) -> LLMResponse:

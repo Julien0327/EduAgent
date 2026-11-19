@@ -9,6 +9,7 @@
 配合全局超时上限，杜绝无限循环（对应技术方案 §22）。出卷与成绩分析两条腿
 都用种子题库，保证试卷 / 答题卡 / 报告数据一致（技术方案 §14「两者互不依赖」）。
 """
+import json
 import time
 
 from pydantic import BaseModel, Field
@@ -42,6 +43,7 @@ REPORT_FILE = "03_学情报告.pdf"
 LESSON_PLAN_FILE = "01_教案.docx"
 DIAGNOSIS_FILE = "04_诊断结果.json"
 DIAGNOSIS_PDF_FILE = "05_学情诊断报告.pdf"
+CRITIQUE_FILE = "03_质检报告.json"  # question_gen 质检回流产物（Phase 5 / S2）
 
 
 class ProcessStep(BaseModel):
@@ -107,9 +109,14 @@ def _generate_questions_llm(ctx: TaskContext) -> str:
         "question_types": params.get("question_types", ["选择题", "填空题", "解答题"]),
         "total_score": params.get("total_score", 100),
     })
+    if "error" in r:
+        raise ValueError(f"出题失败：{r['error']}")
+    questions = r.get("questions") or []
+    if not questions:
+        raise ValueError("出题失败：未生成任何题目")
     ctx.params["title"] = f"{params.get('chapter', '')} 课堂小测"
-    ctx.params["questions"] = r["questions"]
-    return f"LLM 出题 {len(r['questions'])} 道（总分 {r['total_score']}）"
+    ctx.params["questions"] = questions
+    return f"LLM 出题 {len(questions)} 道（总分 {r.get('total_score', '?')}）"
 
 
 def _build_exam_docx(ctx: TaskContext) -> str:
@@ -379,6 +386,46 @@ def _build_diagnosis_pdf(ctx: TaskContext) -> str:
     return f"生成诊断报告 {DIAGNOSIS_PDF_FILE}"
 
 
+def _critique_questions(ctx: TaskContext) -> str:
+    """智能组卷质检回流（Phase 5 / S2，§8.1）：LLM 一题一验 + ≤2 轮重生成 + 剔除 + 报告产物。
+
+    全部剔除 → 抛错使任务显式失败（不输出空试卷）；降级（partial/skipped）不阻塞主流程。
+    """
+    from backend.app.critique.checker import run_critique
+
+    questions = ctx.params.get("questions", [])
+    kp_context = "、".join(ctx.params.get("knowledge_points", [])) or "综合"
+    total_score = ctx.params.get("total_score", 100)
+
+    # 历史查重需业务库 questions_fts；无表/连接失败 → 跳过历史查重（降级，不阻塞）
+    conn = None
+    try:
+        conn = db.connect(None)
+        conn.execute("SELECT 1 FROM questions_fts LIMIT 1").fetchone()
+    except Exception:
+        if conn is not None:
+            conn.close()
+        conn = None
+    try:
+        outcome = run_critique(questions, kp_context, conn=conn, total_score=total_score)
+    finally:
+        if conn is not None:
+            conn.close()
+
+    path = file_store.build_output_path(ctx.task_id, CRITIQUE_FILE)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(outcome["report"], ensure_ascii=False, indent=1), encoding="utf-8")
+    ctx.add_artifact("质检报告", CRITIQUE_FILE, path)
+
+    final_qs = outcome["questions"]
+    if not final_qs:
+        raise ValueError("全部题目质检未通过（已剔除），任务终止：无法生成有效试卷")
+    ctx.params["questions"] = final_qs
+    s = outcome["report"]["summary"]
+    return (f"质检完成（{outcome['status']}）：通过 {s['passed']}、剔除 {s['retired']}、"
+            f"未复核 {s['unverified']}，剩 {len(final_qs)} 题")
+
+
 # 各工作流的剩余节点（① understand_task 之后）
 WORKFLOW_NODES = {
     "exam_loop": [
@@ -394,6 +441,7 @@ WORKFLOW_NODES = {
     "question_gen": [
         ("fetch_knowledge", _fetch_knowledge),
         ("generate_exam", _generate_questions_llm),
+        ("critique_questions", _critique_questions),
         ("build_exam_docx", _build_exam_docx),
         ("build_answer_sheet", _build_answer_sheet),
     ],

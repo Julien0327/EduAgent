@@ -81,6 +81,14 @@ def _questions_resp(n: int = 2) -> LLMResponse:
     }])
 
 
+def _verify_resp(verdict: str = "pass", reasons=None) -> LLMResponse:
+    return LLMResponse(content="", model="fake", tool_calls=[{
+        "id": "v1", "name": "submit_verify",
+        "arguments": {"verdict": verdict, "reasons": reasons or [],
+                      "difficulty_fit": True, "suggested_difficulty": None},
+    }])
+
+
 def _lesson_resp() -> LLMResponse:
     return LLMResponse(content="", model="fake", tool_calls=[{
         "id": "l1", "name": "submit_lesson_plan", "arguments": {
@@ -180,11 +188,12 @@ def test_start_exam_loop_completed(use_fake_llm):
 
 
 def test_start_question_gen_completed(use_fake_llm):
-    use_fake_llm([_plan_resp("question_gen", count=2), _questions_resp(2)])
+    use_fake_llm([_plan_resp("question_gen", count=2), _questions_resp(2),
+                  _verify_resp(), _verify_resp()])
     resp = _post(_make_app(), _start_body("帮我智能组一套《一元二次方程》的卷子", task_id="t-qg"))
     data = resp.json()
     assert data["result"]["status"]["state"] == "completed"
-    assert [p["name"] for p in data["result"]["products"]] == ["试卷", "答题卡"]
+    assert {p["name"] for p in data["result"]["products"]} == {"试卷", "答题卡", "质检报告"}
 
 
 def test_start_lesson_plan_completed(use_fake_llm):
