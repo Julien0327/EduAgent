@@ -15,6 +15,7 @@
 | 审计结果 | **high=0**；medium=600（非工程类措辞：工作区 44 处 / 历史 556 处）；工作区分布：RESUME-AMMO 15 / 技术方案 8 / 产品设计方案 6 / DECISIONS 5 / CLAUDE.md 4 / STATUS 3 / 代码注释 3；low=7（公开署名与数据集匿名占位邮箱，无个人邮箱） | `data/staging/phase6_compliance_scan_20261120.json/.md`（不入 Git） |
 | 历史高危复核 | 唯一候选 `LLM_API_KEY=sk-xxxx`（blob `d70103a6`，旧版技术方案占位符）→ **非真实密钥** | `git cat-file -p d70103a6` |
 | 起点事实 | 312 tracked / 113 commits；无 `.env`/DB/raw/staging/models 入库；`main = origin/main = a63f417` | git |
+| 测试环境 | `test_interop_discovery` 3 项依赖系统 `openssl` 生成测试 CA；当前 PowerShell PATH 无 openssl 时失败（环境性，非回归）；将 `D:\Git\mingw64\bin` 加入 PATH 后 **542 passed**（29.80s） | 实测 |
 | 文档同步 | PHASE6-PLAN、ROADMAP Phase 6、技术方案 §12 + 决策④、DECISIONS 55、本文件 | 本目录 |
 | 下一步 | S1：移出 `RESUME-AMMO.md`、改写非工程类措辞、补 MIT LICENSE、根目录游离脚本归位；验收 `career_content` 工作区=0 + 542 passed | 待启动 |
 
