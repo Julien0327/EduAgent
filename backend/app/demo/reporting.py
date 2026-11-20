@@ -19,6 +19,16 @@ from pathlib import Path
 from backend.app.demo.models import DemoQuestion
 from backend.app.demo.validation import sample_for_human_review
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _display_path(path: Path) -> str:
+    """清单中只写仓库相对路径，避免泄露本机绝对路径。"""
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.name
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -229,7 +239,7 @@ def write_manifest(path: Path, *, questions: list[DemoQuestion], seed: int,
                    stats: dict, out_json: Path) -> dict:
     data = {
         "generated_at": _now(),
-        "path": str(path),
+        "path": _display_path(path),
         "sha256": _sha256(path),
         "total": len(questions),
         "seed": seed,

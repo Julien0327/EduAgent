@@ -28,3 +28,14 @@ jobs:
           python -m backend.app.eval.evaluate --mode fake \
             --cases gc_e03,gc_e13,gc_e15,gc_e27,gc_e31,gc_q01,gc_q07,gc_q12,gc_q15,gc_l01,gc_l04,gc_l16,gc_c01,gc_c04,gc_b13,gc_b19,gc_b26,gc_b18,gc_b20,gc_b25 \
             --db /tmp/eval_ci.sqlite --workdir /tmp/eval_ci_wd --report-out /tmp/eval_ci_report
+
+      - name: 公开仓库合规（工作区，high=0）
+        run: python backend/scripts/audit_public_repo.py --skip-history
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: 构建生产镜像
+        run: docker build -f deploy/Dockerfile -t edumate:ci .

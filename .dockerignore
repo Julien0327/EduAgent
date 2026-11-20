@@ -1,4 +1,4 @@
-# Docker 构建上下文排除（配合 deploy/Dockerfile 的 build context = 仓库根）
+# Docker 构建上下文排除（build context = 仓库根）
 .git
 .venv
 venv
@@ -7,11 +7,16 @@ __pycache__
 .pytest_cache
 logs
 docs
-models
 tests
+models
+data/models
 data/uploads
 data/outputs
 data/db
+data/staging
+data/raw
+data/gt
+data/reports
 .env
 .env.*
 eab.json

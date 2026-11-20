@@ -1,18 +1,18 @@
 # CI 依赖（GitHub Actions）：与 requirements.txt 一致，但排除 acps-sdk
 # （官方 SDK 不在 PyPI，需 AtomGit 源/本地 wheel；CI 中相关 interop 测试
 #  以 importorskip 跳过，主业务在无 SDK 环境可启动——决策⑯）
-fastapi
-uvicorn
-openai
-python-docx
-openpyxl
-pandas
-reportlab
-pypdf
-jinja2
-pytest
+fastapi==0.141.1
+uvicorn==0.52.4
+openai==3.3.1
+python-docx==1.2.0
+openpyxl==3.1.5
+pandas==3.0.5
+reportlab==5.0.1
+pypdf==6.21.4
+jinja2==3.1.6
+pytest==9.1.1
 fastembed==0.9.1
 onnxruntime==1.32.0
-httpx>=0.24.0
+httpx==0.28.1
 jieba==0.42.1
 mcp==2.3.0

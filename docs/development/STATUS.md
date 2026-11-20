@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留、555 passed）**；S2-C 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留）**；**S2-C 完成（README/依赖锁定/3.13 非 root 镜像/compose 回环/nginx+部署手册/备份/CI 镜像构建；555 passed；合规 high=0/medium=0；本地 Docker daemon 未启动，镜像构建待 CI/ECS）**；S3 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-B 完成，S2-C 待启动**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-C 完成，S3 待启动（需服务器信息与逐次批准）**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -60,6 +60,20 @@
 | 许可隔离 | 线上库诊断实测：**推荐 15/15 全部 `synthetic_demo_v1`，0 道 `q_ape_`** | 验收任务 `51b41b0c5d21` |
 | 测试 | **555 passed**（542 + 13 项 demo bank/business 单测） | pytest |
 | 下一步 | S2-C：README 重写、依赖锁定、Docker 3.13 + 非 root、compose 收窄、DEPLOYMENT.md、备份脚本、CI 镜像构建、CHANGELOG | 待启动 |
+
+### Phase 6 S2-C 工程完善与发布就绪（2026-11-20，决策 60）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| README / CHANGELOG | README 重写：六器官、架构、快速开始、演示数据、评测口径、已知限制、许可；CHANGELOG 覆盖 Phase 0–6 | 文件 |
+| 依赖 | requirements.txt / requirements-ci.txt 直接依赖全 pin；`requirements-lock.txt` 为 Windows 参考锁（89 包） | 文件 |
+| 镜像/编排 | `python:3.13-slim` + libgomp1 + 非 root uid 10001 + 健康检查；compose `127.0.0.1:8000`、`no-new-privileges`、模型只读卷 | `deploy/` |
+| 部署 | `DEPLOYMENT.md`（上传/权限/.env/证书先签发/验收/备份/回滚）；`deploy/nginx.conf`（HTTPS、SSE/MCP 长连接、安全头） | 文件 |
+| 备份 | `backup_demo_db.py`：在线备份 + gzip + sha256 + 保留策略 | 代码 |
+| CI | 新增生产镜像构建 job + 公开仓库合规扫描 | `.github/workflows/ci.yml` |
+| 验证 | compose 配置有效；全量 **555 passed**；合规 **high=0 / medium=0**；**本地 Docker daemon 未启动，镜像构建未本地验证，待 CI/ECS** | 实测 |
+| S3 前置物 | `data/staging/edumate_online_demo.sqlite`（34.8 MB）、`data/models`（204 MB）、`.env`（服务器本地） | staging |
+| 下一步 | S3：用户提供服务器信息 → 逐次批准执行 DEPLOYMENT.md | 待启动 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
