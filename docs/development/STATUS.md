@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`，542 passed）；S1 完成，S2 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成：合成演示题库 410/410、82/82 KP 覆盖 100%、553 passed、生成+复核 ¥3.723838，待人工抽检 41 题**）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S1 完成，S2 待启动**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-A 完成，待人工抽检**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -31,6 +31,20 @@
 | 测试 | **542 passed**（29.73s，openssl 已在 PATH） | pytest |
 | 历史说明 | 已提交历史（含 S0 两笔）仍可检索到少量措辞；按「禁止 force push」纪律不重写历史 | — |
 | 下一步 | S2：README 重写、依赖锁定、镜像 3.13 + 非 root、compose 端口收窄、DEPLOYMENT.md、备份脚本、CI 镜像构建、CHANGELOG | 待启动 |
+
+### Phase 6 S2-A 合成演示题库生成与校验（2026-11-20，决策 57）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 生成管线 | `backend/app/demo/`（models/templates/generation/validation/reporting）+ CLI `backend/scripts/build_demo_bank.py`；支持 plan/generate/salvage/refresh/review-sheet/reclassify/apply-fixes/validate/freeze | 代码 |
+| KP 拆分 | 82 = **41 应用题（LLM）+ 41 算术/几何/单位/数论/统计（模板）**；每 KP 难度 1–5 各一题 | `data/staging/demo_bank/plan.json` |
+| 生成结果 | **410/410**；**82/82 KP 覆盖 100%**；难度 1–5 各 82 题；模板 205 / LLM 205；seed `20261120` | `coverage_report.md/.json` |
+| 校验 | 规则层 + 算式层 + LLM 复核 225 题；**18 题仅选项格式不合格被救回**（不改题）；**135 条正面评语误判重新分类**；**4 条真实问题已修复**（2 答案错误→`manual_fixes_v1.json`；1 整除歧义 + 1 难度偏低→模板修正后定点替换） | `validation_report.*`、`data/demo/manual_fixes_v1.json` |
+| 成本 | 生成 **¥2.687085**（94 次调用，cap ¥3）+ LLM 复核 **¥1.036753**（225 次，cap ¥3）= **¥3.723838** | 运行输出（staging 留档） |
+| 人工抽检 | **41 题**（≥10%；LLM 29 / 模板 12；几何 12；解答题 36）已生成，待填写 `human_pass/human_score/human_issues` | `data/staging/demo_bank/human_review_v1.csv`（不入 Git） |
+| 测试 | **553 passed**（542 + 11 项 demo bank 单测） | pytest |
+| 冻结门槛 | 覆盖率 100% + 全部 passed + 0 重复 + 41 条抽检全部 Y；缺一拒绝 `--freeze` | 代码 |
+| 下一步 | 用户抽检 → `--freeze` → 业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐闭环 | 待办 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
