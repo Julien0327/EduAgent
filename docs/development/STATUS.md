@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留）**；**S2-C 完成（README/依赖锁定/3.13 非 root 镜像/compose 回环/nginx+部署手册/备份/CI 镜像构建；555 passed；合规 high=0/medium=0；本地 Docker daemon 未启动，镜像构建待 CI/ECS）**；S3 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留）**；**S2-C 完成（README/依赖锁定/3.13 非 root 镜像/compose 回环/nginx+部署手册/备份/CI 镜像构建；555 passed；合规 high=0/medium=0）**；**S3 完成：阿里云 `edumateaip.xyz` HTTPS 上线（容器 healthy、health 200、401/200、诊断 200、MCP 200、证书至 2027-02-18、自动续期 dry-run 通过）**；待最终验收与备份 cron）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-C 完成，S3 待启动（需服务器信息与逐次批准）**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S3 完成（HTTPS 已上线），待最终验收/备份 cron**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -74,6 +74,19 @@
 | 验证 | compose 配置有效；全量 **555 passed**；合规 **high=0 / medium=0**；**本地 Docker daemon 未启动，镜像构建未本地验证，待 CI/ECS** | 实测 |
 | S3 前置物 | `data/staging/edumate_online_demo.sqlite`（34.8 MB）、`data/models`（204 MB）、`.env`（服务器本地） | staging |
 | 下一步 | S3：用户提供服务器信息 → 逐次批准执行 DEPLOYMENT.md | 待启动 |
+
+### Phase 6 S3 阿里云部署（2026-11-20，决策 61）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 环境 | `i-uf6dcrndq12k8eqz1quy` / 47.116.76.175 / Ubuntu 22.04.5 / 2C 1.7G；Docker 29.10.0、compose v5.8.0、certbot 1.21.0 | S3 报告 |
+| 代码/镜像 | `6bb4bad`；`edumate:latest` 798 MB；容器 `deploy-web-1` healthy，仅回环 8000 | `docker ps` |
+| 线上库 | 纯合成演示库 34.9 MB：82 KP / 87 边 / 410 题 / 1 班 / 20 生 / 2 考 / 40 题 / 800 答；integrity ok | DB 查询 |
+| HTTPS | nginx 80→301→443；Let's Encrypt CN `edumateaip.xyz`，至 **2027-02-18**；`certbot.timer` active；`renew --dry-run` 成功 | certbot/openssl |
+| 验收 | health 200；无 Token 401；带 Token 200；演示班诊断 200；tasks 200；首页 200；MCP initialize 200；公网 curl 证书校验通过 | 实测 |
+| 问题修复 | Docker Hub 超时→daocloud retag；Debian apt 停滞→`ARG APT_MIRROR`（`86db1b1`）；compose 重复构建→固定 image/build.args/pull_policy（`6bb4bad`） | Git + 日志 |
+| 回滚资产 | 项目备份 76 MB、配置备份、旧 commit `f7af0e7`、旧 unit 文件 | `/opt/EduAgent-backup-*` |
+| 遗留 | 备份 cron 未配置；浏览器人工点验待做；A2A 9443 保留旧代码（证书 2026-12-04 到期，按用户决定不处理）；内存余量 739 MB | 待办 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
