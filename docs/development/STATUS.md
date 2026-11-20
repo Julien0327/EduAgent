@@ -1,10 +1,23 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留）**；**S2-C 完成（README/依赖锁定/3.13 非 root 镜像/compose 回环/nginx+部署手册/备份/CI 镜像构建；555 passed；合规 high=0/medium=0）**；**S3 完成：阿里云 `edumateaip.xyz` HTTPS 上线（容器 healthy、health 200、401/200、诊断 200、MCP 200、证书至 2027-02-18、自动续期 dry-run 通过）**；待最终验收与备份 cron）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 ✅ 关账**：S0–S3 全部完成；线上 **https://edumateaip.xyz**（容器 healthy、health 200、无 Token 401 / 带 Token 200、演示班诊断 200、MCP 200、证书至 2027-02-18、每日 02:00 备份 cron）；**555 passed**、CI 绿、合规 high=0/medium=0；用户 2026-11-20 确认 Token 正常、无遗留问题）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S3 完成（HTTPS 已上线），待最终验收/备份 cron**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）✅（2026-11-20，S0–S3 + 每日备份）**
+
+### Phase 6 关账（2026-11-20，决策 63）
+
+| 项 | 结果 |
+|---|---|
+| 公开合规 | 工作区/历史扫描 high=0；仓库纯工程内容；MIT LICENSE + 数据许可声明 |
+| 合成演示题库 | 410/410（82 KP × 5 难度），人工抽检 41/41 通过，冻结 sha256 `f938c95a…` |
+| 演示班级 | 20 学生 × 2 考试 × 20 题 = 800 答题；3 薄弱 KP / 3 归因链 / 5 推荐组；线上库无 APE210K |
+| 工程 | README/依赖锁定/3.13 非 root 镜像/compose 回环/nginx+部署手册/备份脚本/CI 镜像构建 |
+| 线上 | https://edumateaip.xyz；容器 healthy；health 200、401/200、诊断 200、MCP 200；证书至 2027-02-18，自动续期 dry-run 通过 |
+| 运维 | 每日 02:00 SQLite 备份 cron，保留 7 份；手动备份/恢复演练通过 |
+| 质量 | 555 passed；CI 绿；合规 high=0/medium=0 |
+| 可选后续 | 跨机器/OSS 异地备份、内存监控告警、A2A 重启兼容性（当前不启用） |
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
