@@ -32,6 +32,7 @@ from backend.app.demo.generation import (
     apply_manual_fixes,
     build_bank,
     load_kps,
+    normalize_text,
     salvage_from_raw,
     split_kps,
 )
@@ -58,6 +59,8 @@ QUALITY_MD = OUT / "quality_report.md"
 QUALITY_JSON = OUT / "quality_report.json"
 REVIEW_CSV = OUT / "human_review_v1.csv"
 REVIEW_MD = OUT / "human_review_v1.md"
+RECHECK_CSV = OUT / "human_recheck_v1.csv"
+RECHECK_MD = OUT / "human_recheck_v1.md"
 FINAL = REPO_ROOT / "data" / "demo" / "demo_bank_v1.jsonl"
 MANIFEST = REPO_ROOT / "data" / "demo" / "demo_bank_v1_manifest.json"
 MANUAL_FIXES = REPO_ROOT / "data" / "demo" / "manual_fixes_v1.json"
@@ -71,6 +74,63 @@ def _load(path: Path) -> list[DemoQuestion]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _read_review_rows(path: Path) -> list[dict]:
+    for encoding in ("utf-8-sig", "gbk"):
+        try:
+            with path.open(encoding=encoding) as fh:
+                return list(csv.DictReader(fh))
+        except UnicodeDecodeError:
+            continue
+    raise SystemExit(f"无法识别抽检表编码：{path}")
+
+
+def _pass_of(row: dict) -> str:
+    for key in ("human_pass(Y/N)", "human_pass", "recheck_pass(Y/N)"):
+        value = (row.get(key) or "").strip()
+        if value:
+            return value.upper()
+    return ""
+
+
+def _write_specific_review(questions: list[DemoQuestion], out_csv: Path,
+                           out_md: Path) -> None:
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    with out_csv.open("w", encoding="utf-8-sig", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow([
+            "sample_no", "q_id", "kp_id", "kp_name", "difficulty", "generation_method",
+            "qtype", "stem", "options", "answer", "solution", "equation",
+            "validation_status", "validation_issues",
+            "human_pass(Y/N)", "human_score(1-5)", "human_issues", "notes",
+        ])
+        for idx, q in enumerate(questions, start=1):
+            writer.writerow([
+                idx, q.q_id, q.kp_id, q.kp_name, q.difficulty, q.generation_method,
+                q.qtype, q.stem, " | ".join(q.options), q.answer, q.solution,
+                q.equation or "", q.validation_status, "；".join(q.validation_issues),
+                "", "", "", "",
+            ])
+    lines = [
+        "# 演示题库复核小表（仅原抽检中标记 N 的题）",
+        "",
+        f"- 题数：{len(questions)}",
+        f"- CSV：`{out_csv.name}`",
+        "- 已按你的批注修正；请复核后填写 `human_pass(Y/N)`。全部为 Y 后即可冻结。",
+        "",
+        "| # | q_id | KP | 难度 | 题干 | 答案 | 解析 |",
+        "|---:|---|---|---:|---|---|---|",
+    ]
+    for idx, q in enumerate(questions, start=1):
+        stem = q.stem.replace("|", "\\|")
+        solution = q.solution.replace("|", "\\|")
+        lines.append(
+            f"| {idx} | `{q.q_id}` | {q.kp_name} | {q.difficulty} | {stem} | "
+            f"{q.answer} | {solution} |"
+        )
+    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _save(path: Path, questions: list[DemoQuestion]) -> None:
@@ -160,15 +220,20 @@ def _freeze(questions: list[DemoQuestion]) -> int:
     if not REVIEW_CSV.exists():
         problems.append(f"人工抽检 CSV 不存在：{REVIEW_CSV}")
     else:
-        rows = list(csv.DictReader(REVIEW_CSV.open(encoding="utf-8-sig")))
-        filled = [r for r in rows if (r.get("human_pass(Y/N)") or "").strip()]
-        failed = [r for r in filled if (r.get("human_pass(Y/N)") or "").strip().upper() != "Y"]
+        rows = _read_review_rows(REVIEW_CSV)
+        filled = [r for r in rows if _pass_of(r)]
+        failed = [r for r in filled if _pass_of(r) != "Y"]
         if len(filled) < max(1, len(questions) // 10):
             problems.append(f"人工抽检未完成：已填 {len(filled)} / 要求 ≥{len(questions) // 10}")
         if failed:
-            problems.append(
-                "人工抽检存在未通过样本：" + ", ".join(r["q_id"] for r in failed)
-            )
+            recheck: dict[str, str] = {}
+            if RECHECK_CSV.exists():
+                recheck = {r["q_id"]: _pass_of(r) for r in _read_review_rows(RECHECK_CSV)}
+            unresolved = [r["q_id"] for r in failed if recheck.get(r["q_id"]) != "Y"]
+            if unresolved:
+                problems.append(
+                    "人工抽检存在未通过且未复核的样本：" + ", ".join(unresolved)
+                )
     if problems:
         print("冻结未通过：")
         for item in problems:
@@ -200,6 +265,10 @@ def main() -> int:
                         help="把旧版复核结果中的正面备注与硬性问题分开")
     parser.add_argument("--apply-fixes", action="store_true",
                         help="应用 data/demo/manual_fixes_v1.json 定点修正")
+    parser.add_argument("--normalize-text", action="store_true",
+                        help="将 U+2212 等 Excel 不友好符号归一为 ASCII")
+    parser.add_argument("--recheck-sheet", action="store_true",
+                        help="为人工抽检中 N 的题生成复核小表")
     parser.add_argument("--validate", action="store_true", help="校验候选题库")
     parser.add_argument("--llm-review", action="store_true", help="启用 LLM 复核")
     parser.add_argument("--report", action="store_true", help="生成报告（不重新校验）")
@@ -238,6 +307,22 @@ def main() -> int:
         questions, stats = apply_manual_fixes(questions, MANUAL_FIXES)
         _save(DEFAULT_CANDIDATE, questions)
         print(json.dumps(stats, ensure_ascii=False, indent=2))
+        return 0
+    if args.normalize_text:
+        questions = _load(DEFAULT_CANDIDATE)
+        changed = normalize_text(questions)
+        _save(DEFAULT_CANDIDATE, questions)
+        print(f"已归一 {changed} 道题的文本")
+        return 0
+    if args.recheck_sheet:
+        rows = _read_review_rows(REVIEW_CSV)
+        bad_ids = [
+            r["q_id"] for r in rows
+            if (r.get("human_pass(Y/N)") or r.get("human_pass") or "").strip().upper() != "Y"
+        ]
+        questions = [q for q in _load(DEFAULT_CANDIDATE) if q.q_id in bad_ids]
+        _write_specific_review(questions, RECHECK_CSV, RECHECK_MD)
+        print(f"复核小表：{RECHECK_CSV}（{len(questions)} 题）")
         return 0
     if args.refresh_qids:
         from backend.app.demo.templates import generate_template_questions

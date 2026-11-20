@@ -155,6 +155,38 @@ def _generate_one_kp(
     return [accepted[d] for d in sorted(accepted)], raw_records
 
 
+_MATH_TRANSLATION = str.maketrans({
+    "−": "-",  # U+2212 minus，Excel 以 GBK 保存时会变成 ?
+    "–": "-",  # en dash
+    "—": "-",  # em dash
+    "－": "-",  # fullwidth hyphen-minus
+    "﹣": "-",  # small hyphen-minus
+    "²": "^2",  # 上标 2，GBK 不支持
+    "³": "^3",  # 上标 3，GBK 不支持
+})
+
+
+def normalize_question_text(q: DemoQuestion) -> bool:
+    """把 Excel/GBK 不友好的数学符号归一为 ASCII，避免复核表乱码。"""
+    changed = False
+    for field_name in ("stem", "answer", "solution", "equation"):
+        value = getattr(q, field_name)
+        if isinstance(value, str):
+            new = value.translate(_MATH_TRANSLATION)
+            if new != value:
+                setattr(q, field_name, new)
+                changed = True
+    new_options = [str(opt).translate(_MATH_TRANSLATION) for opt in q.options]
+    if new_options != q.options:
+        q.options = new_options
+        changed = True
+    return changed
+
+
+def normalize_text(questions: list[DemoQuestion]) -> int:
+    return sum(1 for q in questions if normalize_question_text(q))
+
+
 def apply_manual_fixes(
     questions: list[DemoQuestion], fixes_path: Path
 ) -> tuple[list[DemoQuestion], dict]:

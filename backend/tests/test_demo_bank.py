@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from backend.app.demo.generation import split_kps
+from backend.app.demo.generation import normalize_question_text, split_kps
 from backend.app.demo.models import DemoQuestion
 from backend.app.demo.reporting import coverage
 from backend.app.demo.templates import (
@@ -135,6 +135,19 @@ def test_choice_options_are_normalized_with_letters():
     assert q.options[0].startswith("A.")
     assert q.answer == "B"
     assert not rule_validate(q)
+
+
+def test_normalize_text_replaces_gbk_unfriendly_chars():
+    q = DemoQuestion(
+        q_id="q_text", kp_id="kp_p_050", kp_name="圆的面积", difficulty=2,
+        qtype="解答题", stem="圆的半径是 3 厘米，面积是多少？",
+        answer="28.26 平方厘米", solution="3.14×3²=28.26；3.14−0=3.14。",
+        generation_method="template",
+    )
+    assert normalize_question_text(q) is True
+    assert "²" not in q.solution
+    assert "−" not in q.solution
+    assert q.solution == "3.14×3^2=28.26；3.14-0=3.14。"
 
 
 def test_reclassify_splits_positive_notes_from_hard_flags():

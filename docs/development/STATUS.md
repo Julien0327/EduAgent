@@ -41,10 +41,11 @@
 | 生成结果 | **410/410**；**82/82 KP 覆盖 100%**；难度 1–5 各 82 题；模板 205 / LLM 205；seed `20261120` | `coverage_report.md/.json` |
 | 校验 | 规则层 + 算式层 + LLM 复核 225 题；**18 题仅选项格式不合格被救回**（不改题）；**135 条正面评语误判重新分类**；**4 条真实问题已修复**（2 答案错误→`manual_fixes_v1.json`；1 整除歧义 + 1 难度偏低→模板修正后定点替换） | `validation_report.*`、`data/demo/manual_fixes_v1.json` |
 | 成本 | 生成 **¥2.687085**（94 次调用，cap ¥3）+ LLM 复核 **¥1.036753**（225 次，cap ¥3）= **¥3.723838** | 运行输出（staging 留档） |
-| 人工抽检 | **41 题**（≥10%；LLM 29 / 模板 12；几何 12；解答题 36）已生成，待填写 `human_pass/human_score/human_issues` | `data/staging/demo_bank/human_review_v1.csv`（不入 Git） |
+| 人工抽检 | **41/41 已填：37 Y / 4 N**（LLM 29 / 模板 12；几何 12；解答题 36） | `data/staging/demo_bank/human_review_v1.csv`（不入 Git） |
+| 抽检修复 | 4 道 N 中 **3 道为 Excel 以 GBK 保存导致 U+2212「−」/上标 ²³ 变乱码**（题库原文正确）→ 全库 61 道题文本归一为 ASCII；**1 道打折促销规则自参照**（满减按付款后金额计算）→ 改为“按优惠前金额计算”，答案 1300 元与解析一致，记入 `manual_fixes_v1.json`；复核小表 `human_recheck_v1.csv`（4 题）待用户确认 | `manual_fixes_v1.json`、`human_recheck_v1.csv` |
 | 测试 | **553 passed**（542 + 11 项 demo bank 单测） | pytest |
-| 冻结门槛 | 覆盖率 100% + 全部 passed + 0 重复 + 41 条抽检全部 Y；缺一拒绝 `--freeze` | 代码 |
-| 下一步 | 用户抽检 → `--freeze` → 业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐闭环 | 待办 |
+| 冻结门槛 | 覆盖率 100% + 全部 passed + 0 重复 + 主抽检 Y + 复核小表覆盖全部 N 且为 Y；缺一拒绝 `--freeze` | 代码 |
+| 下一步 | 用户确认复核小表 → `--freeze` → 业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐闭环 | 待办 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
