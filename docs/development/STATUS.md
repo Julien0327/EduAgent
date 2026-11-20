@@ -86,7 +86,8 @@
 | 验收 | health 200；无 Token 401；带 Token 200；演示班诊断 200；tasks 200；首页 200；MCP initialize 200；公网 curl 证书校验通过 | 实测 |
 | 问题修复 | Docker Hub 超时→daocloud retag；Debian apt 停滞→`ARG APT_MIRROR`（`86db1b1`）；compose 重复构建→固定 image/build.args/pull_policy（`6bb4bad`） | Git + 日志 |
 | 回滚资产 | 项目备份 76 MB、配置备份、旧 commit `f7af0e7`、旧 unit 文件 | `/opt/EduAgent-backup-*` |
-| 遗留 | 备份 cron 未配置；浏览器人工点验待做；A2A 9443 保留旧代码（证书 2026-12-04 到期，按用户决定不处理）；内存余量 739 MB | 待办 |
+| 备份 | ✅ root cron 每日 **02:00** 执行 `backup_demo_db.py`，保留 7 份；手动备份 17 MB / sha256 / integrity ok；恢复演练 82 KP/410 题/1 班/20 生/2 考/800 答 全通过；目录 700 | `crontab -l`、`data/backups/` |
+| 遗留 | 浏览器人工点验待做；A2A 9443 保留旧代码（证书 2026-12-04 到期，按用户决定不处理）；内存余量 739 MB | 待办 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 

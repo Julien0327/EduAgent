@@ -45,6 +45,7 @@ storage/outputs/
 data/db/
 data/raw/
 data/staging/
+data/backups/
 
 # ================= 密钥与证书（严禁入库） =================
 *.pem

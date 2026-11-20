@@ -27,6 +27,7 @@
 | 内存 | 容器 318.1 MiB；宿主机 available 739 MB |
 | A2A | `edumate-aip.service` 仍 active（9443，旧代码，未改动） |
 | fluent-bit | 已停止并 disable，释放内存 |
+| 备份 | 每日 02:00 cron，保留 7 份；手动备份/恢复演练通过 |
 
 ## 3. HTTPS 验收（实测）
 
@@ -76,8 +77,15 @@
 - `.env` 权限 600；Token/Key 不写入文档、不回显聊天。
 - A2A 证书 2026-12-04 到期；按用户决定暂不处理（过去比赛用途，当前不使用）。
 
-## 7. 待办
+## 7. 每日备份（已配置）
 
-1. 配置每日 SQLite 备份 cron（`backend/scripts/backup_demo_db.py`）。
-2. 浏览器人工点验：首页、评测中心、学情分析（合成演示班）、运行观测、数据导入页。
-3. 可选：为容器/A2A 配置内存监控与告警；当前 available 739 MB，余量偏紧。
+- root crontab：每天 **02:00** 执行 `backup_demo_db.py`，保留 **7** 份；
+- 手动演练：`edumate_20261120_124213.sqlite.gz`，17 MB，sha256 `9f1255cd…`，integrity ok；
+- 恢复演练：解压后 82 KP / 410 题 / 1 班 / 20 生 / 2 考 / 800 答，integrity ok；
+- 备份目录 `data/backups/` 权限 700；`cron` active/enabled；
+- 备份只含演示库，不含 `.env` 密钥。
+
+## 8. 待办
+
+1. 浏览器人工点验：首页、评测中心、学情分析（合成演示班）、运行观测、数据导入页。
+2. 可选：为容器/A2A 配置内存监控与告警；当前 available 739 MB，余量偏紧。
