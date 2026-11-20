@@ -6,9 +6,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
+from backend.app.demo.business import (
+    build_design,
+    load_bank,
+    score_summary,
+    validate_design,
+)
 from backend.app.demo.generation import normalize_question_text, split_kps
 from backend.app.demo.models import DemoQuestion
 from backend.app.demo.reporting import coverage
@@ -171,6 +178,19 @@ def test_reclassify_splits_positive_notes_from_hard_flags():
     assert soft.review_notes == ["LLM：条件完整，答案唯一。"]
     assert hard.validation_status == "needs_review"
     assert hard.validation_issues == ["LLM：答案不唯一或有歧义"]
+
+
+def test_business_design_is_complete_and_varied():
+    bank = load_bank(Path("data/demo/demo_bank_v1.jsonl"))
+    kps = {q["kp_id"]: q["kp_name"] for q in bank.values()}
+    design = build_design(bank, kps, {}, seed=20261120)
+    assert validate_design(design, bank, kps) == []
+    assert len(design["students"]) == 20
+    assert len(design["answers"]) == 800
+    assert len(design["role_map"]) == 40
+    summary = score_summary(design)
+    assert summary["by_exam"]["A"]["std"] > 5
+    assert summary["by_exam"]["B"]["std"] > 5
 
 
 def test_coverage_detects_missing_kp():

@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成：合成演示题库 410/410、82/82 KP 覆盖 100%、553 passed、生成+复核 ¥3.723838，待人工抽检 41 题**）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`）；**S2-A 完成（410 题冻结，人工抽检 41/41 通过）**；**S2-B 完成（20 学生 × 2 考试 × 20 题、诊断 3 薄弱 KP/3 链/5 推荐组、线上纯合成库无 APE210K 残留、555 passed）**；S2-C 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-A 完成（410 题冻结），S2-B 进行中**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-B 完成，S2-C 待启动**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -47,6 +47,19 @@
 | **冻结** | ✅ `data/demo/demo_bank_v1.jsonl`（410 题，359,991 B，sha256 `f938c95ace847e6cca82ac31844521af4686625eb7e8fac44e67c076b42a144d`）+ `demo_bank_v1_manifest.json`；82/82 KP、难度 1–5 各一、全部 passed、0 重复 | Git |
 | 测试 | **554 passed**（542 + 12 项 demo bank 单测） | pytest |
 | 下一步 | S2-B：业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐/PDF 闭环 | 待办 |
+
+### Phase 6 S2-B 合成演示班级与线上演示库（2026-11-20，决策 59）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 演示班级 | `cls_c6a3a5de3f` / 批次 `imp_20261120081750_c8f131`；**20 学生 × 2 考试 × 20 题 = 800 答题**；主/辅映射 40 条 | `data/annotations/role_map_cls_c6a3a5de3f.jsonl` |
+| 考试覆盖 | A：042–052 + 074–082；B：001–010 + 037/038 + 053–058 + 039/040；两场无重叠 KP | 设计校验 |
+| 成绩差异 | A 卷 min 47.5 / max 95 / avg 72.0 / std 13.1；B 卷 min 40 / max 90 / avg 65.4 / std 13.2；正确 526 / 错 227 / 部分分 47 | `synthetic_demo_class_verify_report.json` |
+| 诊断闭环 | **3 薄弱 KP（小数运算/分数运算/四则混合运算）+ 3 条归因链 + 5 组推荐**；任务 completed；PDF 班级名/合成声明/薄弱 KP/推荐实读核验全真 | 任务 `8512ab56638e`、`51b41b0c5d21` |
+| 线上演示库 | `data/staging/edumate_online_demo.sqlite`（34.8 MB，integrity ok）：82 KP / 87 边 / 410 合成题 / 1 班 / 20 生 / 2 考 / 40 题 / 800 答；**APE210K 残留 0** | `online_demo_db_report.json` |
+| 许可隔离 | 线上库诊断实测：**推荐 15/15 全部 `synthetic_demo_v1`，0 道 `q_ape_`** | 验收任务 `51b41b0c5d21` |
+| 测试 | **555 passed**（542 + 13 项 demo bank/business 单测） | pytest |
+| 下一步 | S2-C：README 重写、依赖锁定、Docker 3.13 + 非 root、compose 收窄、DEPLOYMENT.md、备份脚本、CI 镜像构建、CHANGELOG | 待启动 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 

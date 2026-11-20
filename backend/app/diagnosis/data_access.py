@@ -70,7 +70,9 @@ def load_class_evidence(conn, class_id: str, role_map: dict | None = None) -> di
     if cls is None:
         raise DiagnosisDataError(f"班级不存在或未导入数据：{class_id}")
     if role_map is None:
-        role_map = load_role_map()
+        # 班级专属映射优先：多班级/合成演示班各自的主/辅角色不能共用一张表
+        class_map = REPO_ROOT / "data" / "annotations" / f"role_map_{class_id}.jsonl"
+        role_map = load_role_map(class_map if class_map.exists() else MAPPING_FILE)
 
     exams = conn.execute(
         "SELECT exam_id, title, exam_date, created_at FROM exams WHERE class_id=?"
