@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-11-20T08:13:55Z",
+  "path": "D:\\Competition project\\EduAgent\\data\\demo\\demo_bank_v1.jsonl",
+  "sha256": "f938c95ace847e6cca82ac31844521af4686625eb7e8fac44e67c076b42a144d",
+  "total": 410,
+  "seed": 20261120,
+  "prompt_version": "demo_bank_prompt_v1",
+  "model": "deepseek-flash",
+  "source": "synthetic_demo_v1",
+  "license": "MIT",
+  "counts": {
+    "by_method": {
+      "llm": 205,
+      "template": 205
+    },
+    "by_difficulty": {
+      "1": 82,
+      "2": 82,
+      "3": 82,
+      "4": 82,
+      "5": 82
+    }
+  },
+  "stats": {
+    "prompt_version": "demo_bank_prompt_v1",
+    "model": "deepseek-flash"
+  }
+}

@@ -200,11 +200,15 @@ def apply_manual_fixes(
         q = by_id.get(fix["q_id"])
         if q is None:
             continue
+        changed = False
         for key, value in fix.get("fields", {}).items():
-            setattr(q, key, value)
-        q.review_notes = list(q.review_notes) + [
-            f"人工修正：{fix.get('reason', '')}（原问题：{'；'.join(q.validation_issues)}）"
-        ]
+            if getattr(q, key, None) != value:
+                setattr(q, key, value)
+                changed = True
+        if changed:
+            q.review_notes = list(q.review_notes) + [
+                f"人工修正：{fix.get('reason', '')}（原问题：{'；'.join(q.validation_issues)}）"
+            ]
         q.validation_issues = rule_validate(q)
         q.validation_status = "passed" if not q.validation_issues else "needs_review"
         applied += 1

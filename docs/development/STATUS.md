@@ -4,7 +4,7 @@
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-A 完成，待人工抽检**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S2-A 完成（410 题冻结），S2-B 进行中**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -42,10 +42,11 @@
 | 校验 | 规则层 + 算式层 + LLM 复核 225 题；**18 题仅选项格式不合格被救回**（不改题）；**135 条正面评语误判重新分类**；**4 条真实问题已修复**（2 答案错误→`manual_fixes_v1.json`；1 整除歧义 + 1 难度偏低→模板修正后定点替换） | `validation_report.*`、`data/demo/manual_fixes_v1.json` |
 | 成本 | 生成 **¥2.687085**（94 次调用，cap ¥3）+ LLM 复核 **¥1.036753**（225 次，cap ¥3）= **¥3.723838** | 运行输出（staging 留档） |
 | 人工抽检 | **41/41 已填：37 Y / 4 N**（LLM 29 / 模板 12；几何 12；解答题 36） | `data/staging/demo_bank/human_review_v1.csv`（不入 Git） |
-| 抽检修复 | 4 道 N 中 **3 道为 Excel 以 GBK 保存导致 U+2212「−」/上标 ²³ 变乱码**（题库原文正确）→ 全库 61 道题文本归一为 ASCII；**1 道打折促销规则自参照**（满减按付款后金额计算）→ 改为“按优惠前金额计算”，答案 1300 元与解析一致，记入 `manual_fixes_v1.json`；复核小表 `human_recheck_v1.csv`（4 题）待用户确认 | `manual_fixes_v1.json`、`human_recheck_v1.csv` |
-| 测试 | **553 passed**（542 + 11 项 demo bank 单测） | pytest |
-| 冻结门槛 | 覆盖率 100% + 全部 passed + 0 重复 + 主抽检 Y + 复核小表覆盖全部 N 且为 Y；缺一拒绝 `--freeze` | 代码 |
-| 下一步 | 用户确认复核小表 → `--freeze` → 业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐闭环 | 待办 |
+| 抽检修复 | 4 道 N 中 **3 道为 Excel 以 GBK 保存导致 U+2212「−」/上标 ²³ 变乱码**（题库原文正确）→ 全库 61 道题文本归一为 ASCII；**1 道打折促销规则自参照** → 改为“按优惠前金额计算；优惠前金额不含赠送商品”，答案 1300 元与解析一致，记入 `manual_fixes_v1.json` | `manual_fixes_v1.json` |
+| 复核结论 | **主抽检 37 Y + 复核小表 4/4 Y = 41/41 全部通过**（用户 2026-11-20 确认） | `human_review_v1.csv`、`human_recheck_v1.csv` |
+| **冻结** | ✅ `data/demo/demo_bank_v1.jsonl`（410 题，359,991 B，sha256 `f938c95ace847e6cca82ac31844521af4686625eb7e8fac44e67c076b42a144d`）+ `demo_bank_v1_manifest.json`；82/82 KP、难度 1–5 各一、全部 passed、0 重复 | Git |
+| 测试 | **554 passed**（542 + 12 项 demo bank 单测） | pytest |
+| 下一步 | S2-B：业务演示数据（20 学生 × 2 考试 × 20 题）→ F16 导入 → 诊断/推荐/PDF 闭环 | 待办 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
