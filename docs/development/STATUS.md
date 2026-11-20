@@ -1,10 +1,10 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`，542 passed）；S1 公开内容清理待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`，542 passed）；S1 完成，S2 待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S0 完成，S1 待启动**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S1 完成，S2 待启动**
 
 ### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
 
@@ -18,6 +18,19 @@
 | 测试环境 | `test_interop_discovery` 3 项依赖系统 `openssl` 生成测试 CA；当前 PowerShell PATH 无 openssl 时失败（环境性，非回归）；将 `D:\Git\mingw64\bin` 加入 PATH 后 **542 passed**（29.80s） | 实测 |
 | 文档同步 | PHASE6-PLAN、ROADMAP Phase 6、技术方案 §12 + 决策④、DECISIONS 55、本文件 | 本目录 |
 | 下一步 | S1：移出 `RESUME-AMMO.md`、改写非工程类措辞、补 MIT LICENSE、根目录游离脚本归位；验收 `career_content` 工作区=0 + 542 passed | 待启动 |
+
+### Phase 6 S1 公开内容清理与许可（2026-11-20）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| RESUME-AMMO | 从 Git 跟踪移除（`git rm --cached`），**本地文件保留**；私有副本 `D:\Competition project\career-notes\RESUME-AMMO.md`；`.gitignore` 排除；未重写历史 | 文件 + `.gitignore` |
+| 措辞工程化 | 44 处改为工程表述：技术方案 8 / 产品设计方案 6 / DECISIONS 5 / STATUS 3 / CLAUDE.md 4 / 代码注释 3；只改措辞，不改技术结论与数字 | commit `5e98621` |
+| 许可 | 新增 `LICENSE`（MIT）+ `DATA-NOTICE.md`（代码许可≠数据许可；APE210K 不随仓库与公开产品分发；线上仅合成演示题库）；README 许可章节更新 | 文件 |
+| 仓库整理 | 根目录 `test_p2_*.py` 3 个服务器侧脚本移入 `tests/manual/`（`pytest.ini` 不收集） | 文件 |
+| 审计（S1 复跑） | **high=0；工作区 career_content=0**；剩余 low=2 为公开署名邮箱（`noreply@anthropic.com`、数据集匿名占位），非个人隐私 | `data/staging/phase6_compliance_scan_20261120_s1.*`（不入 Git） |
+| 测试 | **542 passed**（29.73s，openssl 已在 PATH） | pytest |
+| 历史说明 | 已提交历史（含 S0 两笔）仍可检索到少量措辞；按「禁止 force push」纪律不重写历史 | — |
+| 下一步 | S2：README 重写、依赖锁定、镜像 3.13 + 非 root、compose 端口收窄、DEPLOYMENT.md、备份脚本、CI 镜像构建、CHANGELOG | 待启动 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
