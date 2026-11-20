@@ -1015,28 +1015,23 @@ Phase 2 功能步骤 S1–S7 全部完成，测试 **311 passed**；用户确认
 
 **本轮排障记录**（Docker 构建 3 次失败→修复）：Docker Hub DNS 污染→经 docker.m.daocloud.io 镜像源拉基础镜像后 retag；pip 下载哈希校验失败→Dockerfile 增 `PIP_INDEX_URL` build-arg（默认官方源，国内传清华源）；容器冒烟暴露急切导入链→上述降级修复。
 
-## 代码状态
+## 代码与线上状态（2026-11-20 更新，替代 Phase 3 时期旧快照）
 
-- **本轮提交**：`8dbf573`（代码+基础设施，43 文件 +300/−196）已 push GitHub main；文档（技术方案回填 + 本目录三件）随下一个 docs commit 入库。
-- 工作区：干净（文档提交后）。
+- 仓库：`main` 与 origin 同步（Phase 6 关账 `711155a`），工作区干净。
+- 线上：https://edumateaip.xyz（容器 `edumate:latest`，来自 `6bb4bad`），HTTPS 至 2027-02-18，详见本文件头部「Phase 6 关账」。
+- 启动命令：`python -m uvicorn backend.main:app --app-dir .`（仓库根执行）；旧命令 `uvicorn main:app --app-dir backend` 已废弃。
 
-## ECS 服务器状态（按新策略本轮保持不动）
+## 待办 / 非阻塞遗留（2026-11-20）
 
-- 版本：`f7af0e7`，落后 GitHub——**有意为之**，集中部署窗口统一同步。
-- 运行：旧启动命令 `uvicorn main:app --app-dir backend`（旧代码，服务正常，/api/health 200）。
-- ⚠️ 下次重启必须用新命令 `python -m uvicorn backend.main:app --app-dir .`（仓库根执行，PYTHONPATH 不再必需）。
-- nginx：仅监听 80；域名已解析到位；HTTPS 未配置。
+1. **A2A 9443**：仍运行旧代码，证书 **2026-12-04 到期**；按用户决定暂不处理，到期前需重新决策。
+2. Phase 6 可选后续（当前不启用）：跨机器/OSS 异地备份、内存监控告警、A2A 重启兼容性。
+3. 各阶段「接受的已知限制」见对应关账表（检索 R@5 56% 未达 80%、judge 64% 回退规则评分、gc_e03 类诊断降级 ~28% 未做业务修复），均不阻塞。
+4. Step 5 冻结项按需解冻（需用户批准）；解冻即用现成管线。
 
-## 待办 / 阻塞
-
-1. **Phase 3 S5 完成，待验收**：诊断 PDF（pypdf 实读核验）+ 前端学情诊断页/运行观测页 + 真实演示班端到端（0 次 LLM 调用），400 passed。用户验收 S5 后进入 S6（10 例 GT 起草 → 用户冻结 Gold → 一致率评测 → 关账）。
-2. 集中部署窗口（未排期）：ECS 代码同步 + 新启动命令切换 + HTTPS 证书 + compose 上线（见 ROADMAP.md 末节）。
-3. Step 5 冻结项：按需解冻（prompt v2 重跑/全量标注等）需用户批准；解冻即用现成管线。
-4. 检索 Round2 backlog（可选，不阻塞 Phase 3）：长查询改写、KP 描述扩充、单位词泛化、置信门/min-max 风险；沿用冻结正式集，版本化报告。
-5. 无其他阻塞。
+无阻塞项。
 
 ## 环境备忘
 
-- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **400 用例**（Phase 2 收尾 311 + S0：前置图 8/清理 2/演示工作簿 4/学段守卫 17 + S1 掌握度 13 + S2 归因 12 + S3 推荐叙述 12 + S4 Trace 15 + S5 诊断 PDF 6），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。⚠️ **杀本地起服进程用 `taskkill //F //PID <pid>`**（PID 从 `netstat -ano | grep :<port>` 取；MSYS pkill 与 `taskkill //IM uvicorn.exe` 均杀不掉原生 python 进程——2026-11-17 踩坑：旧进程占端口导致冒烟测到旧代码，须核对响应与新逻辑一致）。
+- 本地：Windows 11，Python 3.13.7（`.venv`），pytest **555 用例**（Phase 6 关账基线），Docker Desktop。⚠️ **pytest 依赖 openssl 在 PATH**（`D:\Git\mingw64\bin`，2026-11-11 踩坑记录）。⚠️ **git push 需关闭 TUN**（SSH 22/443 被 fake-IP 拦截，2026-11-14 实测；HTTPS 通道可达可作备选，gh 已认证）。⚠️ **杀本地起服进程用 `taskkill //F //PID <pid>`**（PID 从 `netstat -ano | grep :<port>` 取；MSYS pkill 与 `taskkill //IM uvicorn.exe` 均杀不掉原生 python 进程——2026-11-17 踩坑：旧进程占端口导致冒烟测到旧代码，须核对响应与新逻辑一致）。
 - BGE 模型缓存：`data/models/fastembed`（90.8MB，gitignore 覆盖）；fastembed 0.9.1 + onnxruntime 1.32.0 已入 venv 并锁进 requirements.txt。
-- 服务器：阿里云 ECS 2核2G（47.116.76.175），/opt/EduAgent，`.venv` Python 3.10，nginx 站点 "edumate"（client_max_body_size 100M，SSE 代理参数就绪）。
+- 服务器：阿里云 ECS 2C 1.7G（47.116.76.175，Ubuntu 22.04.5），/opt/EduAgent，Docker + compose 部署（容器 `deploy-web-1`，仅回环 8000），nginx 80→301→443，certbot 自动续期。
