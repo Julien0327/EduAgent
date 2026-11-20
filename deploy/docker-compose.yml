@@ -3,9 +3,14 @@
 # 前置：.env 已配置；data/db 放置线上演示库；data/models 为 BGE 缓存
 services:
   web:
+    image: edumate:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    pull_policy: never
     ports:
       - "127.0.0.1:8000:8000" # 只监听回环，公网入口走 nginx 443
     env_file:
