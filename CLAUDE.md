@@ -1,6 +1,6 @@
 # EduMate（EduAgent）项目工作协议
 
-面试级 AI 应用项目（比赛已结束，目标：打磨为 2027 寒假 AI 应用开发实习求职的核心弹药）。
+工程化 AI 应用项目（公开仓库，仅承载代码、文档与评测证据；按可复现、可评测、可部署的工程标准持续维护）。
 
 ## 开工协议（每次会话开始）
 - 动手前必读：`docs/development/STATUS.md`（当前状态）→ `docs/development/ROADMAP.md`（阶段路线图）→ `docs/development/DECISIONS.md`（实施期决策 ⑬+）

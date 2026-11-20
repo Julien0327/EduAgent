@@ -138,4 +138,5 @@ EduAgent/
 
 ## 许可证
 
-暂未指定开源许可证；如需对外开源，将先完成合规检查并补充 `LICENSE` 文件（如 MIT）。
+- 代码：[MIT License](LICENSE)
+- 数据边界：[DATA-NOTICE.md](DATA-NOTICE.md)（仓库不包含 APE210K 数据集或其派生完整题库；演示数据为合成数据）
