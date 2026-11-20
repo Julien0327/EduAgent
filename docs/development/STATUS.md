@@ -1,10 +1,22 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-19（**Phase 5 纵深完成 + 真实质检验证/修复/全量复跑**：critique 质检环 + MCP 能力开放已完成；修复前 10 条基线（¥0.862，8/10、2 条超时、38/78 unverified、10/10 partial）定位根因——模型把长理由写进 `reasons` 漏引号 → 工具参数非法 JSON → provider 归一为 `{}`；完成可追溯性/预算/结构性修复（`52e5b6b`、`122bfdb`）；**结构性修复后全量 10 条复跑：10/10 completed、78/78 passed、unverified 0、0 超时、0 预算耗尽、¥0.567471**；**542 passed**；所有提交本地待 push。Phase 4 遗留（全量 online / gc_e03 / ECS 部署）原样保留）。**新会话开工前必读本文件 + docs/development/ROADMAP.md + 技术方案 §8/§9/§12 + RESUME-AMMO.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-20（**Phase 6 S0 开工**：按决策55 将 Phase 6 重设为「工程完善 + 公开合规 + 生产部署」——不含非工程材料，仓库保持 PUBLIC，LICENSE 定为 MIT + 数据许可声明；公开仓库合规审计完成（312 tracked / 113 commits，high=0；唯一历史候选 `LLM_API_KEY=sk-xxxx` 为占位符）；Phase 5 已验收并 push（`origin/main = a63f417`，542 passed）；S1 公开内容清理待启动）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
-**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（弹药）⬜ 未启动**
+**Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）🔄 S0 完成，S1 待启动**
+
+### Phase 6 S0 开工与合规基线（2026-11-20，决策 55）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| Phase 6 重设 | 取消非工程类个人交付；范围=公开合规 + 仓库可读性 + 依赖可复现 + ECS 部署；仓库保持 PUBLIC、不含个人材料 | 决策 55、`PHASE6-PLAN.md` |
+| 审计工具 | `backend/scripts/audit_public_repo.py`：工作区 + 全历史 blob 扫描（13 类模式，命中脱敏，high 级退出码 1，占位符白名单） | 代码 |
+| 审计结果 | **high=0**；medium=600（非工程类措辞：工作区 44 处 / 历史 556 处）；工作区分布：RESUME-AMMO 15 / 技术方案 8 / 产品设计方案 6 / DECISIONS 5 / CLAUDE.md 4 / STATUS 3 / 代码注释 3；low=7（公开署名与数据集匿名占位邮箱，无个人邮箱） | `data/staging/phase6_compliance_scan_20261120.json/.md`（不入 Git） |
+| 历史高危复核 | 唯一候选 `LLM_API_KEY=sk-xxxx`（blob `d70103a6`，旧版技术方案占位符）→ **非真实密钥** | `git cat-file -p d70103a6` |
+| 起点事实 | 312 tracked / 113 commits；无 `.env`/DB/raw/staging/models 入库；`main = origin/main = a63f417` | git |
+| 文档同步 | PHASE6-PLAN、ROADMAP Phase 6、技术方案 §12 + 决策④、DECISIONS 55、本文件 | 本目录 |
+| 下一步 | S1：移出 `RESUME-AMMO.md`、改写非工程类措辞、补 MIT LICENSE、根目录游离脚本归位；验收 `career_content` 工作区=0 + 542 passed | 待启动 |
 
 ### Phase 5 关账总表（2026-11-19，决策㊾㊿51）
 
