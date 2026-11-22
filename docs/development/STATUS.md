@@ -11,7 +11,7 @@
 | 项 | 结果 | 证据 |
 |---|---|---|
 | README | 顶部 6 枚真实 badge（CI / Tests / Demo / Python / Docker / License）+ 目录 + 在线演示前置；Phase 6 状态改 ✅；文档区补 CHANGELOG / Releases / Issues | `README.md` |
-| Badge 真实性 | CI 指向 Actions workflow；Tests 555 为实测快照；Demo 用 shields website 动态探测 `/api/health`（实测 200）；MIT / Python 3.13 / Docker 均为仓库事实 | 仓库 + 实测 |
+| Badge 真实性 | CI 指向 Actions workflow（push 后两次 run 均 success）；Tests 555 为实测快照；Demo 用 shields website 动态探测站点根路径（`/api/health` 仅 GET，HEAD 404，故不用它）；MIT / Python 3.13 / Docker 均为仓库事实 | 仓库 + 实测 |
 | 仓库元数据 | description 英文一句话 + 10 个 topics（ai-agent / llm / education / fastapi / sqlite / mcp / deepseek / python / edtech / agentic-ai） | `gh repo view` |
 | 发布 | annotated tag / GitHub Release `v0.6.0`（Phase 6 内容） | GitHub Releases |
 | 未做 | 截图/架构图、coverage badge（项目未测覆盖率，不造假数据） | — |

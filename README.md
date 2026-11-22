@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-555%20passed-brightgreen)](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml)
-[![Demo](https://img.shields.io/website?url=https%3A%2F%2Fedumateaip.xyz%2Fapi%2Fhealth&label=demo&up_message=online&down_message=offline)](https://edumateaip.xyz)
+[![Demo](https://img.shields.io/website?url=https%3A%2F%2Fedumateaip.xyz&label=demo&up_message=online&down_message=offline)](https://edumateaip.xyz)
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](deploy/Dockerfile)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
