@@ -1,10 +1,20 @@
 # EduMate 当前状态（STATUS）
 
-> 最后更新：2026-11-20（**Phase 6 ✅ 关账**：S0–S3 全部完成；线上 **https://edumateaip.xyz**（容器 healthy、health 200、无 Token 401 / 带 Token 200、演示班诊断 200、MCP 200、证书至 2027-02-18、每日 02:00 备份 cron）；**555 passed**、CI 绿、合规 high=0/medium=0；用户 2026-11-20 确认 Token 正常、无遗留问题）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
+> 最后更新：2026-11-22（**仓库展示与发布**：README 顶部 6 枚真实 badge + 目录 + 在线演示前置；GitHub description/topics 已填；发布 `v0.6.0`。此前 **Phase 6 ✅ 关账**：S0–S3 全部完成；线上 **https://edumateaip.xyz**（容器 healthy、health 200、无 Token 401 / 带 Token 200、演示班诊断 200、MCP 200、证书至 2027-02-18、每日 02:00 备份 cron）；**555 passed**、CI 绿、合规 high=0/medium=0；用户 2026-11-20 确认 Token 正常、无遗留问题）。**新会话开工前必读本文件 + ROADMAP.md + 技术方案 §8/§9/§12 + PHASE6-PLAN.md**，以项目文档、实际代码和本目录状态文档为准，不依赖旧会话聊天记录。
 
 ## 当前位置
 
 **Phase 0 ✅｜Phase 1 ✅｜Phase 2 ✅｜Phase 3 ✅｜Phase 4 ✅｜Phase 5 ✅（2026-11-19，S0–S4 + 真实验证）｜Phase 6（工程完善与上线）✅（2026-11-20，S0–S3 + 每日备份）**
+
+### 2026-11-22 仓库展示与发布（v0.6.0）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| README | 顶部 6 枚真实 badge（CI / Tests / Demo / Python / Docker / License）+ 目录 + 在线演示前置；Phase 6 状态改 ✅；文档区补 CHANGELOG / Releases / Issues | `README.md` |
+| Badge 真实性 | CI 指向 Actions workflow；Tests 555 为实测快照；Demo 用 shields website 动态探测 `/api/health`（实测 200）；MIT / Python 3.13 / Docker 均为仓库事实 | 仓库 + 实测 |
+| 仓库元数据 | description 英文一句话 + 10 个 topics（ai-agent / llm / education / fastapi / sqlite / mcp / deepseek / python / edtech / agentic-ai） | `gh repo view` |
+| 发布 | annotated tag / GitHub Release `v0.6.0`（Phase 6 内容） | GitHub Releases |
+| 未做 | 截图/架构图、coverage badge（项目未测覆盖率，不造假数据） | — |
 
 ### Phase 6 关账（2026-11-20，决策 63）
 

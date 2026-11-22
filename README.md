@@ -1,14 +1,40 @@
 # EduMate（EduAgent）
 
+[![CI](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-555%20passed-brightgreen)](https://github.com/Julien0327/EduAgent/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/website?url=https%3A%2F%2Fedumateaip.xyz%2Fapi%2Fhealth&label=demo&up_message=online&down_message=offline)](https://edumateaip.xyz)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](deploy/Dockerfile)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 面向小学数学教师的 AI 教学任务自动化智能体。用自然语言下达教学任务，系统完成
 **检索选题 / 实时组卷 / 质检复核 / 试卷与答题卡 / 成绩分析 / 学情归因 / 教案生成**，
 全程引用可溯源、步骤可回放、成本可核算；班级数据经 Excel 模板导入，能力经 MCP 开放。
+
+**在线演示**：<https://edumateaip.xyz> ｜ 仅使用合成演示数据，不含真实学生信息
 
 > 运行时聚焦**小学单学段**：82 个知识点、87 条教学前置边；开发库含 207,949 道
 > APE210K 小学题（仅本地开发/评测，不随仓库分发）；公开演示使用自主合成的
 > **410 道演示题**（82 KP × 难度 1–5）。
 
+## 目录
+
+- [当前状态](#当前状态)
+- [核心特性](#核心特性)
+- [架构](#架构)
+- [快速开始](#快速开始)
+- [配置](#配置)
+- [合成演示数据](#合成演示数据)
+- [评测与质量](#评测与质量)
+- [API 与 MCP](#api-与-mcp)
+- [仓库结构](#仓库结构)
+- [已知限制](#已知限制)
+- [许可](#许可)
+- [文档](#文档)
+
 ## 当前状态
+
+最新发布：[v0.6.0](https://github.com/Julien0327/EduAgent/releases/tag/v0.6.0)（2026-11-22）
 
 | Phase | 内容 | 状态 |
 |---|---|---|
@@ -18,11 +44,11 @@
 | 3 | 学情归因 + Trace/成本可观测 | ✅ |
 | 4 | 评测体系（golden、runner、judge 校准、评测页、CI） | ✅ |
 | 5 | 质检环 critique + MCP 能力开放 | ✅ |
-| 6 | 公开合规、工程完善、合成演示数据、生产部署 | 🔄 |
+| 6 | 公开合规、工程完善、合成演示数据、生产部署 | ✅ |
 
 全量测试：**555 passed**。CI：pytest + fake smoke + 公开仓库合规扫描 + 生产镜像构建。
 
-## 六个能力面
+## 核心特性
 
 | 能力面 | 实现与关键数字 |
 |---|---|
@@ -185,3 +211,6 @@ docs/             产品/技术/开发状态文档
 - [docs/development/STATUS.md](docs/development/STATUS.md)：当前状态与证据
 - [docs/development/DECISIONS.md](docs/development/DECISIONS.md)：实施期决策
 - [DEPLOYMENT.md](DEPLOYMENT.md)：部署手册
+- [CHANGELOG.md](CHANGELOG.md)：版本变更记录
+- [Releases](https://github.com/Julien0327/EduAgent/releases)：版本发布
+- [Issues](https://github.com/Julien0327/EduAgent/issues)：问题反馈
